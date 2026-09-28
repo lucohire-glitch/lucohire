@@ -1,0 +1,6 @@
+{
+  "name": "LucoHire",
+  "description": "LucoHire helps job seekers check their resume free and get job-ready, and helps freelancers and clients connect for free. One platform, two clear paths – free ATS resume check, and a free freelance marketplace for design, development, content, video and marketing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
