@@ -6,6 +6,8 @@ export default function ResumeCheckView({ onBack }: any) {
 
   useEffect(() => {
     document.body.classList.add('report-unlocked');
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    setTimeout(() => window.scrollTo(0, 0), 50);
 
     const script = document.createElement('script');
     script.innerHTML = `
@@ -77,10 +79,10 @@ analyzeBtn.addEventListener('click',()=>{
   const steps=['Reading your resume…','Matching against 18,000+ listings…','Checking skill demand & trends…','Building your roadmap…'];
   let i=0;
   analyzeBtn.disabled=true;
-  analyzeBtn.textContent=steps[0];
+  analyzeBtn.innerHTML='<svg style="animation:spin 1s linear infinite;width:18px;height:18px;margin-right:8px;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"/></svg>' + steps[0];
   const iv=setInterval(()=>{
     i++;
-    if(i<steps.length){ analyzeBtn.textContent=steps[i]; return; }
+    if(i<steps.length){ analyzeBtn.innerHTML='<svg style="animation:spin 1s linear infinite;width:18px;height:18px;margin-right:8px;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"/></svg>' + steps[i]; return; }
     clearInterval(iv);
     analyzeBtn.textContent='Analyze my resume';
     analyzeBtn.disabled=false;
@@ -561,7 +563,7 @@ function renderWins(pathId){
         fresherNote=document.getElementById('winsFresherNote');
   if(!pathId){
     title.textContent = '3 quick wins for the next 30 days';
-    sub.textContent = 'Ek path select karo upar se — usi ke hisab se yahan exact 3 wins dikhengi';
+    sub.textContent = 'Ek path select karo neeche se — usi ke hisab se yahan exact 3 wins dikhengi';
     empty.hidden = false;
     list.innerHTML = '';
     fresherNote.hidden = true;
@@ -605,8 +607,7 @@ document.getElementById('startBtn').addEventListener('click', goNextStep);
 
 renderResults(); // the report is always visible on the page — Analyze just scrolls you to it
 setExperience('experienced'); // matches the default active pill; also syncs Leadership section visibility
-applyTab('overview'); // clean, minimal default landing view
-
+applyTab('overview');
 /* ---- single-file shell bridge: works embedded (single merged file) or standalone ---- */
 function LucoTo(e, href){
   if(!(window.parent && window.parent!==window && window.parent.LucoNav)) return true;
@@ -730,6 +731,7 @@ function goNextStep(e){
   .filecard-remove:hover{background:var(--tint);color:var(--ink);}
 
   .cta{width:100%;margin-top:18px;padding:15px;border-radius:14px;font-weight:700;font-size:15px;color:#fff;background:var(--brand-700);box-shadow:0 14px 26px -14px rgba(27,79,224,.55);}
+  @keyframes spin { 100% { transform: rotate(360deg); } }
   .cta:disabled{background:var(--line);color:var(--ink-soft);box-shadow:none;}
   .cta:not(:disabled):active{transform:scale(.99);}
   .trust{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;font-size:12px;color:var(--ink-soft);}
@@ -762,10 +764,10 @@ function goNextStep(e){
   .score-txt-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
 
   /* quick-stats orientation row */
-  .stat-row{display:flex;padding:14px 24px;gap:8px;border-bottom:1px solid var(--line);background:#fff;}
-  .stat-cell{flex:1;text-align:center;padding:8px 4px;border-radius:12px;background:var(--tint);}
-  .stat-num{font-family:'Fraunces';font-size:16px;font-weight:700;color:var(--ink);}
-  .stat-lbl{font-size:9.5px;color:var(--ink-soft);margin-top:1px;line-height:1.3;}
+  .stat-row{display:grid;grid-template-columns:repeat(2, 1fr);padding:16px 20px;gap:12px;border-bottom:1px solid var(--line);background:#fff;}
+  .stat-cell{display:flex;align-items:center;justify-content:flex-start;text-align:left;padding:12px 14px;gap:12px;border-radius:14px;background:var(--tint);}
+  .stat-num{font-family:'Fraunces';font-size:22px;font-weight:700;color:var(--ink);line-height:1;}
+  .stat-lbl{font-size:11px;font-weight:700;color:var(--ink-soft);line-height:1.2;}
 
   /* sticky section jump nav */
   .jumpnav{position:sticky;top:0;z-index:20;display:flex;gap:6px;overflow-x:auto;padding:10px 24px;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);scrollbar-width:none;}
@@ -779,7 +781,7 @@ function goNextStep(e){
   .bar-track.light{background:#fff;border:1px solid var(--line);}
   .bar-fill{height:100%;border-radius:99px;}
   .scan-row{background:rgba(255,255,255,.06);border-radius:10px;padding:10px 12px;font-size:12.5px;color:#fff;line-height:1.4;}
-  .kw-chip{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:99px;display:inline-block;}
+  .kw-chip{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:99px;display:inline-block;cursor:pointer;border:none;font-family:inherit;}
   .kw-chip.miss{background:var(--red-tint);color:var(--red);}
   .kw-chip.hit{background:var(--green-tint);color:var(--green);}
   .parse-row{display:flex;align-items:center;gap:9px;font-size:12.5px;border-radius:10px;padding:9px 11px;line-height:1.4;}
@@ -844,7 +846,7 @@ function goNextStep(e){
   .stepper-prev{color:var(--ink);border:1.5px solid var(--line);}
   .stepper-next{flex:1.4;color:#fff;background:var(--brand-700);}
 
-  .skill-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 0;border-bottom:1px solid var(--line);}
+  .skill-row{display:flex;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);}
   .skill-row:last-child{border-bottom:none;}
   .skill-main{min-width:0;}
   .skill-name{font-size:13.5px;font-weight:600;color:var(--ink);}
@@ -852,7 +854,7 @@ function goNextStep(e){
   .trend{font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:6px;}
   .trend.down{background:var(--red-tint);color:var(--red);}
   .trend.up{background:var(--green-tint);color:var(--green);}
-  .skill-action{flex:none;font-size:11.5px;font-weight:700;padding:7px 12px;border-radius:99px;border:1.5px solid var(--line);color:var(--ink);background:#fff;white-space:nowrap;}
+  .skill-action{flex:none;font-size:10.5px;font-weight:700;padding:5px 8px;border-radius:99px;border:1.5px solid var(--line);color:var(--ink);background:#fff;white-space:nowrap;letter-spacing:.02em;}
   .skill-action.on{background:var(--brand-900);color:#fff;border-color:var(--brand-900);}
   .skill-note{font-size:12px;color:var(--ink-soft);margin-top:4px;line-height:1.4;}
 
@@ -866,11 +868,12 @@ function goNextStep(e){
   .win-time{font-size:10.5px;color:rgba(255,255,255,.6);margin-left:auto;}
   .win-line{margin-top:8px;font-size:11.5px;color:rgba(255,255,255,.8);line-height:1.4;padding:8px 10px;background:rgba(0,0,0,.18);border-radius:8px;}
 
-  .salary-item{border:1px solid var(--line);border-radius:14px;padding:13px;margin-top:10px;}
+  .salary-item{border:1px solid var(--line);border-radius:14px;padding:13px;margin-top:10px;background:var(--white);}
   .salary-title{font-size:13px;font-weight:700;color:var(--ink);}
   .salary-add{margin-top:8px;font-size:11.5px;color:var(--ink-soft);line-height:1.4;background:var(--tint);border-radius:8px;padding:8px 10px;}
   .salary-add b{color:var(--ink);font-weight:600;}
-
+  .skill-btns{display:flex;align-items:center;gap:6px;flex:none;}
+  
   .timeline{margin-top:14px;padding-left:16px;border-left:2px solid var(--line);display:flex;flex-direction:column;gap:16px;}
   .tl-item{position:relative;}
   .tl-dot{position:absolute;left:-20.5px;top:2px;width:9px;height:9px;border-radius:50%;background:var(--brand-700);border:2px solid #fff;}
@@ -933,7 +936,7 @@ function goNextStep(e){
   .fear-gap-note{font-size:12px;color:rgba(255,255,255,.82);background:rgba(255,255,255,.1);border-radius:12px;padding:11px 12px;margin-top:14px;line-height:1.5;}
 
   /* ---- upload-view additions: JD context box + instant share/report card ---- */
-  .jd-toggle{width:100%;text-align:left;display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--brand-700);background:var(--tint);border:1px dashed var(--line);border-radius:12px;padding:11px 13px;margin-top:14px;}
+  .jd-toggle{width:100%;text-align:center;display:flex;justify-content:center;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--brand-700);background:transparent;border:none;padding:12px 0 4px;margin-top:0;cursor:pointer;}
   .jd-toggle .ic{transition:transform .15s;}
   .jd-toggle.open .ic{transform:rotate(45deg);}
   .jd-box{margin-top:10px;}
@@ -1032,21 +1035,17 @@ function goNextStep(e){
       </div>
       <p class="dz-error-msg" id="errorMsg"></p>
 
-      <div class="or-divider"><span>or</span></div>
-      <div class="build-resume-card" id="buildResumeCard">
-        <div class="brc-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg></div>
-        <div class="brc-text"><b>Don't have a resume?</b> Don't worry — we'll build one for you from your LucoHire profile.</div>
-        <button type="button" class="brc-cta" id="buildResumeBtn">Build my resume →</button>
-      </div>
-
       <div class="filecard" id="fileCard">
-        <div class="filecard-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
-        <div class="filecard-info"><div class="filecard-name" id="fileName"></div><div class="filecard-size" id="fileSize"></div></div>
-        <button class="filecard-remove" id="removeBtn" aria-label="Remove file">×</button>
+        <div class="fc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
+        <div class="fc-info">
+          <div class="fc-name" id="fileName">Mohan_Sharma_Resume.pdf</div>
+          <div class="fc-size" id="fileSize">1.2 MB</div>
+        </div>
+        <button class="fc-remove" id="removeBtn" aria-label="Remove resume"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
 
       <button type="button" class="jd-toggle" id="jdToggle"><span class="ic">+</span>Add the job you're applying for (optional)</button>
-      <div class="jd-box" id="jdBox" hidden>
+      <div class="jd-box" id="jdBox" hidden style="margin-top:12px;">
         <div class="jd-tabs">
           <button type="button" class="jd-tab active" data-jd="text">Job description text</button>
           <button type="button" class="jd-tab" data-jd="url">Job posting link</button>
@@ -1054,6 +1053,15 @@ function goNextStep(e){
         <textarea id="jdText" class="jd-textarea" placeholder="Paste the job description text here…"></textarea>
         <input id="jdUrl" class="jd-input" type="url" placeholder="Paste the job posting URL here…" hidden>
         <p class="jd-note"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Totally optional. Add it to get a match score for this exact role — skip it and we'll still analyze your resume against the wider market.</p>
+      </div>
+
+      <div class="or-divider"><span>or</span></div>
+      <div class="dropzone" id="buildResumeCard" tabindex="0" role="button" aria-label="Build resume" onclick="document.getElementById('buildResumeBtn').click()">
+        <button type="button" id="buildResumeBtn" hidden></button>
+        <div class="dz-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg></div>
+        <p class="dz-title">Don't have a resume?</p>
+        <p class="dz-sub">We'll <span class="dz-browse">build one for you</span></p>
+        <p class="dz-hint">from your profile</p>
       </div>
 
       <button class="cta" id="analyzeBtn" disabled>Analyze my resume</button>
@@ -1075,20 +1083,13 @@ function goNextStep(e){
 
   <!-- ================= RESULTS VIEW (always visible below the upload box) ================= -->
   <section class="view" id="resultsView">
-    <header class="header" style="padding-bottom:14px;"><div class="logo"><span class="luco">Luco</span><span class="hire">Hire</span></div></header>
 
     <div class="score-strip">
       <div class="score-ring-sm"><svg viewBox="0 0 52 52"><circle class="trk" cx="26" cy="26" r="22"/><circle class="fil" id="miniRing" cx="26" cy="26" r="22" stroke-dasharray="138" stroke-dashoffset="50"/></svg><div class="score-num-sm" id="miniRingNum">64</div></div>
       <div><div class="score-txt-title">Resume score: 64 / 100<span class="score-tag">Needs work</span></div><div class="score-txt-sub">Based on 18,000+ recent listings</div></div>
     </div>
 
-    <div class="score-percentile">Tumhara score <b>average se upar</b> hai 2–4 yr experience wale UI/UX designers ke liye (average: 58/100).</div>
-
-    <div class="quick-links-row">
-      <a href="#dropzone" class="quick-link">↑ Upload a different resume</a>
-      <span class="qlr-dot">•</span>
-      <a href="#jdToggle" class="quick-link" id="jdQuickLink">+ Add the job description</a>
-    </div>
+    <div class="score-percentile" style="font-size:13px; color:var(--ink-soft); line-height:1.4; margin: 16px 24px 0; padding-top:16px; border-top:1px dashed var(--line); text-align:center;">Tumhara score <b style="color:var(--ink);">average se upar</b> hai 2–4 yr experience wale UI/UX designers ke liye (average: 58/100).</div>
 
     <div class="exp-toggle" id="expToggle">
       <span class="exp-toggle-label">Yeh resume:</span>
@@ -1178,7 +1179,7 @@ function goNextStep(e){
 
     <div class="section locked-premium" id="secRecruiterScan" data-tab="recruiter">
       <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div class="dark-card" style="background:linear-gradient(160deg,#20262C 0%, #40474F 100%);">
+      <div class="dark-card" style="background:linear-gradient(160deg, #1d105c 0%, #301f91 100%); box-shadow: inset 0 2px 12px rgba(0,0,0,0.2);">
         <div class="section-head">
           <div class="sec-icon" style="background:rgba(255,255,255,.12);color:#fff;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></div>
           <div class="section-head-text"><h2>Recruiter's 6-second scan</h2><p>Yeh wahi verdict hai jo ek real recruiter 6 second me deta hai — resume properly padhne se pehle</p></div>
@@ -1229,18 +1230,23 @@ function goNextStep(e){
         <div class="section-head-text"><h2>JD match deep-dive</h2><p>Tumne jo job description upload ki, uske against exact match — generic nahi, isi job ke liye</p></div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:14px;background:var(--tint);border:1px solid var(--line);border-radius:16px;padding:14px;">
-        <div class="score-ring-sm"><svg viewBox="0 0 52 52"><circle class="trk" cx="26" cy="26" r="22"/><circle class="fil" cx="26" cy="26" r="22" stroke-dasharray="138" stroke-dashoffset="55" style="stroke:var(--amber);"/></svg><div class="score-num-sm">60%</div></div>
-        <div style="font-size:12px;color:var(--ink-soft);line-height:1.5;"><b style="color:var(--ink);">18 of 30</b> JD keywords match. Baaki 12 missing — inhe (genuinely) add karne se match 85%+ ja sakta hai.</div>
+      <div style="display:flex;align-items:flex-start;gap:18px;background:var(--tint);border:1px solid var(--line);border-radius:16px;padding:20px;margin-top:16px;margin-bottom:20px;">
+        <div class="score-ring-sm" style="flex:none;transform:scale(1.1);"><svg viewBox="0 0 52 52"><circle class="trk" cx="26" cy="26" r="22"/><circle class="fil" cx="26" cy="26" r="22" stroke-dasharray="138" stroke-dashoffset="55" style="stroke:var(--amber);"/></svg><div class="score-num-sm">60%</div></div>
+        <div style="font-size:12.5px;color:var(--ink-soft);line-height:1.6;"><b style="color:var(--ink);font-size:14px;display:block;margin-bottom:6px;">18 of 30</b> JD keywords match. Baaki 12 missing — inhe (genuinely) add karne se match 85%+ ja sakta hai.</div>
       </div>
 
       <div style="margin-top:16px;">
         <div class="mini-label">Missing keywords (add karo agar genuinely aata hai)</div>
         <div style="display:flex;flex-wrap:wrap;gap:7px;">
-          <span class="kw-chip miss">Figma Variables</span>
-          <span class="kw-chip miss">Design Systems</span>
-          <span class="kw-chip miss">A/B Testing</span>
-          <span class="kw-chip miss">Accessibility (WCAG)</span>
+          <button class="kw-chip miss" onclick="this.classList.toggle('miss'); this.classList.toggle('hit');">+ Figma Variables</button>
+          <button class="kw-chip miss" onclick="this.classList.toggle('miss'); this.classList.toggle('hit');">+ Design Systems</button>
+          <button class="kw-chip miss" onclick="this.classList.toggle('miss'); this.classList.toggle('hit');">+ A/B Testing</button>
+          <button class="kw-chip miss" onclick="this.classList.toggle('miss'); this.classList.toggle('hit');">+ Accessibility (WCAG)</button>
+          
+          <div style="display:inline-flex;align-items:center;gap:4px;">
+            <input type="text" id="newKwInput" placeholder="Naya keyword..." style="font-size:11.5px;padding:4px 8px;border-radius:99px;border:1px solid var(--line);background:#fff;width:100px;font-family:inherit;" onkeypress="if(event.key==='Enter') document.getElementById('addKwBtn').click()">
+            <button id="addKwBtn" class="kw-chip" style="background:var(--tint);color:var(--brand-700);border:1px dashed var(--brand-700);" onclick="const inp=document.getElementById('newKwInput'); const kw=inp.value; if(kw && kw.trim()){ const b=document.createElement('button'); b.className='kw-chip hit'; b.onclick=function(){ this.classList.toggle('miss'); this.classList.toggle('hit'); }; b.textContent='+ ' + kw.trim(); this.parentNode.parentNode.insertBefore(b, this.parentNode); inp.value=''; }">+ Add</button>
+          </div>
         </div>
       </div>
 
@@ -1270,8 +1276,6 @@ function goNextStep(e){
       </div>
     </div>
 
-    <p class="sub-note" data-tab="skills" style="margin:16px 16px 2px;">Yeh teen sections sirf <b>diagnosis</b> ke liye hain. Jo skill "+ Add to plan" karoge wo neeche "Choose your path" me syllabus ka hissa ban jaayegi — actual seekhna agle step, <b>Padhaao</b>, me hoga.</p>
-
     <div class="section locked-premium" id="secDrop" data-tab="skills">
       <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
       <div class="section-head">
@@ -1287,24 +1291,6 @@ function goNextStep(e){
       <div id="fadingList"></div>
     </div>
 
-    <div class="section locked-premium" id="secRising" data-tab="skills">
-      <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div class="section-head">
-        <div class="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
-        <div class="section-head-text"><h2>Skills on the rise</h2><p>Ab seekhoge toh 2 saal aage rahoge — inn hi skills ki wajah se naye job postings me salary range upar shift hui hai</p></div>
-      </div>
-      <div id="risingList"></div>
-    </div>
-
-    <div class="section locked-premium" id="secSalary" data-tab="skills">
-      <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div class="section-head">
-        <div class="sec-icon" style="font-weight:800;font-size:15px;">₹</div>
-        <div class="section-head-text"><h2>For a higher salary</h2><p>15 LPA+ ka filter — inn 3 cheezon ki wajah se hi shortlist rukti hai, baaki sab theek hone ke baad bhi</p></div>
-      </div>
-      <div id="salaryList"></div>
-    </div>
-
     <div class="section locked-premium" id="secATS" data-tab="fixes">
       <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
       <div class="fear-card">
@@ -1314,50 +1300,6 @@ function goNextStep(e){
         <div class="fear-stat">Tumhara resume score abhi <b>64/100</b> hai — is range ke resumes ka bada hissa isi pehle filter par hi atak jaata hai, kaam ke skills hone ke baad bhi.</div>
         <div class="fear-gap-note">Career break liya hai? Wo tumhare against nahi jaata — jab tak resume usse clearly explain kare. ATS khaali employment gaps ko bhi flag karta hai, isliye "Yeh mat likho, yeh likho" section me ek exact example diya gaya hai gap explain karne ka.</div>
         <a class="fear-cta" href="#secAnalysis">Dekho exact fixes neeche ↓</a>
-      </div>
-    </div>
-
-    <div class="section locked-premium" id="secRoadmap" data-tab="skills">
-      <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div class="section-head">
-        <div class="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h6a4 4 0 0 0 4-4V9a4 4 0 0 0-4-4H9"/></svg></div>
-        <div class="section-head-text"><h2>Staying relevant through 2030</h2><p>Future-proof roadmap — har saal jo naya seekhna padega, taaki AI ya juniors overtake na kar paayein</p></div>
-      </div>
-      <div class="timeline" id="timelineList"></div>
-    </div>
-
-    <div class="section exp-hidden locked-premium" id="secLeadership" data-tab="skills">
-      <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div class="section-head">
-        <div class="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-        <div class="section-head-text"><h2>Leadership signal check</h2><p>Senior ya leadership role target kar rahe ho? Ye 4 cheezein abhi resume me missing lag rahi hain</p></div>
-      </div>
-      <div class="leadership-list">
-        <div class="lead-check-item"><span class="lci-icon">–</span><div><b>Team size</b> — "led a team of X engineers" jaisi line kahin nahi hai</div></div>
-        <div class="lead-check-item"><span class="lci-icon">–</span><div><b>Mentoring</b> — juniors ko mentor karne ka koi mention nahi</div></div>
-        <div class="lead-check-item"><span class="lci-icon">–</span><div><b>Business impact</b> — revenue, cost ya retention jaisa business-level number missing hai</div></div>
-        <div class="lead-check-item"><span class="lci-icon">–</span><div><b>Architecture decisions</b> — system-level decisions ka ownership nahi likha</div></div>
-      </div>
-      <p class="leadership-note">Sirf senior/leadership-track ke liye relevant hai — isliye ye tabhi dikh raha hai jab "2+ yrs experience" selected ho. "Fresher / 0-1 yr" pe switch karoge toh ye section apne aap hide ho jaayega.</p>
-    </div>
-
-    <div class="section" id="secPaths" style="margin-bottom:110px;" data-tab="skills">
-      <div class="section-head">
-        <div class="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></div>
-        <div class="section-head-text"><h2>Choose your path</h2><p>Jo select karoge, wahi tumhara syllabus banega</p></div>
-      </div>
-      <div id="pathList"></div>
-    </div>
-
-    <div class="section flush" id="secWins" data-tab="skills">
-      <div class="dark-card">
-        <div class="section-head">
-          <div class="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
-          <div class="section-head-text"><h2 id="winsTitle">3 quick wins for the next 30 days</h2><p id="winsSub">Ek path select karo upar se — usi ke hisab se yahan exact 3 wins dikhengi</p></div>
-        </div>
-        <div class="wins-empty" id="winsEmpty">Abhi tak koi path select nahi kiya. <b>"Choose your path"</b> me se ek pe tap karo, iske 3 wins turant yahan aa jaayenge.</div>
-        <div class="wins-fresher-note" id="winsFresherNote" hidden>Fresher ho? Inhe personal ya college project ke against likho, job experience ke against nahi.</div>
-        <div id="winList"></div>
       </div>
     </div>
 
@@ -1394,6 +1336,42 @@ function goNextStep(e){
       <div class="skill-row" style="border-bottom:none;"><div><div class="skill-name">1.8 yrs me role switch kyun kiya?</div><div class="skill-meta">Tenure pattern se predictable follow-up</div></div></div>
     </div>
 
+    <div class="section locked-premium" id="secSalary" data-tab="skills">
+      <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
+      <div class="section-head">
+        <div class="sec-icon" style="font-weight:800;font-size:15px;">₹</div>
+        <div class="section-head-text"><h2>For a higher salary</h2><p>15 LPA+ ka filter — inn 3 cheezon ki wajah se hi shortlist rukti hai, baaki sab theek hone ke baad bhi</p></div>
+      </div>
+      <div id="salaryList"></div>
+    </div>
+
+    <div class="section exp-hidden locked-premium" id="secLeadership" data-tab="skills">
+      <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
+      <div class="section-head">
+        <div class="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <div class="section-head-text"><h2>Leadership signal check</h2><p>Senior ya leadership role target kar rahe ho? Ye 4 cheezein abhi resume me missing lag rahi hain</p></div>
+      </div>
+      <div class="leadership-list">
+        <div class="lead-check-item"><span class="lci-icon">–</span><div><b>Team size</b> — "led a team of X engineers" jaisi line kahin nahi hai</div></div>
+        <div class="lead-check-item"><span class="lci-icon">–</span><div><b>Mentoring</b> — juniors ko mentor karne ka koi mention nahi</div></div>
+        <div class="lead-check-item"><span class="lci-icon">–</span><div><b>Business impact</b> — revenue, cost ya retention jaisa business-level number missing hai</div></div>
+        <div class="lead-check-item"><span class="lci-icon">–</span><div><b>Architecture decisions</b> — system-level decisions ka ownership nahi likha</div></div>
+      </div>
+      <p class="leadership-note">Sirf senior/leadership-track ke liye relevant hai — isliye ye tabhi dikh raha hai jab "2+ yrs experience" selected ho. "Fresher / 0-1 yr" pe switch karoge toh ye section apne aap hide ho jaayega.</p>
+    </div>
+
+    <div class="section flush" id="secWins" data-tab="skills">
+      <div class="dark-card">
+        <div class="section-head">
+          <div class="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+          <div class="section-head-text"><h2 id="winsTitle">3 quick wins for the next 30 days</h2><p id="winsSub">Ek path select karo neeche se — usi ke hisab se yahan exact 3 wins dikhengi</p></div>
+        </div>
+        <div class="wins-empty" id="winsEmpty">Abhi tak koi path select nahi kiya. <b>"Choose your path"</b> me se ek pe tap karo, iske 3 wins turant yahan aa jaayenge.</div>
+        <div class="wins-fresher-note" id="winsFresherNote" hidden>Fresher ho? Inhe personal ya college project ke against likho, job experience ke against nahi.</div>
+        <div id="winList"></div>
+      </div>
+    </div>
+
     <div class="section" id="secDownload">
       <div class="section-head">
         <div class="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M12 15V3M12 15l-4-4M12 15l4-4"/><path d="M4 17v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
@@ -1401,14 +1379,53 @@ function goNextStep(e){
       </div>
       <div class="locked-premium" style="margin-top:14px;">
         <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
+        <button class="share-btn full" id="downloadAtsBtn">⬇ Download ATS-friendly resume</button>
+      </div>
+    </div>
+
+    <p class="sub-note" data-tab="skills" style="margin:16px 16px 2px;">Yeh sections sirf <b>diagnosis</b> ke liye hain. Jo skill "+ Add to plan" karoge wo neeche "Choose your path" me syllabus ka hissa ban jaayegi — actual seekhna agle step, <b>Padhaao</b>, me hoga.</p>
+
+    <div class="section locked-premium" id="secRising" data-tab="skills">
+      <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
+      <div class="section-head">
+        <div class="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+        <div class="section-head-text"><h2>Skills on the rise</h2><p>Ab seekhoge toh 2 saal aage rahoge — inn hi skills ki wajah se naye job postings me salary range upar shift hui hai</p></div>
+      </div>
+      <div id="risingList"></div>
+    </div>
+
+    <div class="section locked-premium" id="secRoadmap" data-tab="skills">
+      <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
+      <div class="section-head">
+        <div class="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h6a4 4 0 0 0 4-4V9a4 4 0 0 0-4-4H9"/></svg></div>
+        <div class="section-head-text"><h2>Staying relevant through 2030</h2><p>Future-proof roadmap — har saal jo naya seekhna padega, taaki AI ya juniors overtake na kar paayein</p></div>
+      </div>
+      <div class="timeline" id="timelineList"></div>
+    </div>
+
+    <div class="section" id="secPaths" style="margin-bottom:110px;" data-tab="skills">
+      <div class="section-head">
+        <div class="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></div>
+        <div class="section-head-text"><h2>Choose your path</h2><p>Jo select karoge, wahi tumhara syllabus banega</p></div>
+      </div>
+      <div id="pathList"></div>
+    </div>
+
+    <div class="section" id="secDownloadBottom" style="margin-bottom:24px;">
+      <div class="section-head">
+        <div class="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M12 15V3M12 15l-4-4M12 15l4-4"/><path d="M4 17v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
+        <div class="section-head-text"><h2>Your rewritten, ATS-optimised resume</h2><p>Every fix above, already applied — download it and send it today</p></div>
+      </div>
+      <div class="locked-premium" style="margin-top:14px;">
+        <div class="lock-badge"><div class="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
         <div class="share-row-stack">
-          <button class="share-btn full" id="downloadAtsBtn">⬇ Download ATS-friendly resume</button>
+          <button class="share-btn full" id="downloadAtsBtnBottom">⬇ Download ATS-friendly resume</button>
           <div class="share-row" style="margin-top:10px;">
-            <button class="share-btn" id="shareResumeBtn">↗ Share resume</button>
+            <button class="share-btn" id="shareResumeBtnBottom">↗ Share resume</button>
           </div>
         </div>
       </div>
-      <button class="share-btn primary" style="width:100%;margin-top:10px;" id="shareBtn">↗ Share score card</button>
+      <button class="share-btn primary" style="width:100%;margin-top:10px;" id="shareBtnBottom">↗ Share score card</button>
     </div>
 
     <div class="section" id="stepperNavSection" style="margin-bottom:24px;">

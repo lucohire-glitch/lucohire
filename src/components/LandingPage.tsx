@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './LandingPage.css';
 
 interface LandingPageProps {
@@ -10,6 +10,11 @@ interface LandingPageProps {
 export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOpenFreelancerSearch }: LandingPageProps) {
   const [pricingTab, setPricingTab] = useState<'freelancer' | 'recruiter'>('freelancer');
   const [activeFrlFilter, setActiveFrlFilter] = useState('all');
+
+  useEffect(() => {
+    // Force scroll to top on mount to fix the issue where it loads at the bottom on refresh
+    window.scrollTo(0, 0);
+  }, []);
 
   const frlFilters = [
     { label: 'All', val: 'all' },
