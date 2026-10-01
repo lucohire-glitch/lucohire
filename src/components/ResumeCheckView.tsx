@@ -3,6 +3,7 @@ import './ResumeCheckView.css';
 
 export default function ResumeCheckView({ onBack }: any) {
   useEffect(() => {
+    window.scrollTo(0, 0);
     // Setup vanilla JS logic exactly as it was
     const script = document.createElement('script');
     script.innerHTML = `

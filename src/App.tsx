@@ -10,7 +10,7 @@ import LandingPage from './components/LandingPage';
 import RoleChooserModal from './components/RoleChooserModal';
 import CandidateRegistration from './components/CandidateRegistration';
 import RecruiterRegistration from './components/RecruiterRegistration';
-import ProfileHomeScreen from './components/ProfileHomeScreen';
+import CandidateDashboard from './components/CandidateDashboard';
 import ResumeCheckView from './components/ResumeCheckView';
 
 const SKILLS = [
@@ -239,14 +239,18 @@ export default function App() {
             setIsCandidateRegOpen(true);
           }}
         />
-        <ProfileHomeScreen
+        <CandidateDashboard
           isOpen={isProfileHomeOpen}
-          onClose={() => setIsProfileHomeOpen(false)}
-          score={80}
           userData={candidateData || {}}
-          onEditSection={() => {
+          onClose={() => setIsProfileHomeOpen(false)}
+          onOpenResumeCheck={() => {
             setIsProfileHomeOpen(false);
-            setIsCandidateRegOpen(true);
+            setIsResumeCheckOpen(true);
+            window.scrollTo({ top: 0, behavior: 'auto' });
+          }}
+          onOpenAuth={() => {
+            setIsProfileHomeOpen(false);
+            setIsAuthOpen(true);
           }}
         />
       </>
@@ -414,14 +418,18 @@ export default function App() {
         }}
       />
 
-      <ProfileHomeScreen
+      <CandidateDashboard
         isOpen={isProfileHomeOpen}
-        onClose={() => setIsProfileHomeOpen(false)}
-        score={80}
         userData={candidateData || {}}
-        onEditSection={() => {
+        onClose={() => setIsProfileHomeOpen(false)}
+        onOpenResumeCheck={() => {
           setIsProfileHomeOpen(false);
-          setIsCandidateRegOpen(true);
+          setIsResumeCheckOpen(true);
+          window.scrollTo({ top: 0, behavior: 'auto' });
+        }}
+        onOpenAuth={() => {
+          setIsProfileHomeOpen(false);
+          setIsAuthOpen(true);
         }}
       />
     </div>
