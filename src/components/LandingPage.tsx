@@ -83,39 +83,41 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
     <div className="landing-page-root">
       {/* HERO */}
       <section className="hero">
-        <h1>
-          Your Next Job.<br />
-          Or Your Next <span className="accent">Client.</span>
-        </h1>
-        <p className="sub">
-          Job seekers: free resume check. Freelancers: get listed free. Recruiters: find & hire freelancers free. Ek hi platform, teeno ke liye.
-        </p>
+        <div className="hero-content">
+          <h1>
+            Your Next Job.<br />
+            Or Your Next <span className="accent">Client.</span>
+          </h1>
+          <p className="sub">
+            Job seekers: free resume check. Freelancers: get listed free. Recruiters: find &amp; hire freelancers free. Ek hi platform, teeno ke liye.
+          </p>
 
-        <div className="hero-btns">
-          <button className="hero-btn primary" onClick={onOpenResumeCheck}>
-            Why am I not getting hired?
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
-          </button>
+          <div className="hero-btns">
+            <button className="hero-btn primary" onClick={onOpenResumeCheck}>
+              Why am I not getting hired?
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </button>
 
-          <div className="hero-cta-label">Freelance marketplace — hire, or get hired</div>
-          <div className="hero-btn-row">
-            <button className="hero-btn secondary" onClick={() => document.getElementById('freelancerSection')?.scrollIntoView({ behavior: 'smooth' })}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
-                <circle cx="11" cy="11" r="7" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              Find Freelancer
-              <span className="hero-btn-sub">I'm hiring</span>
-            </button>
-            <button className="hero-btn secondary" onClick={onOpenRoleChooser}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              Register as Freelancer
-              <span className="hero-btn-sub">I want work</span>
-            </button>
+            <div className="hero-cta-label">Freelance marketplace — hire, or get hired</div>
+            <div className="hero-btn-row">
+              <button className="hero-btn secondary" onClick={onOpenFreelancerSearch}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                  <circle cx="11" cy="11" r="7" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                Find Freelancer
+                <span className="hero-btn-sub">I'm hiring</span>
+              </button>
+              <button className="hero-btn secondary" onClick={onOpenRoleChooser}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Register as Freelancer
+                <span className="hero-btn-sub">I want work</span>
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -123,7 +125,7 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
       {/* FREELANCER CARDS */}
       <div className="frl-section" id="freelancerSection">
         <div className="frl-head">
-          <h3>Freelancers on LucoHire</h3>
+          <h3 className="sec-title">Freelancers on LucoHire</h3>
           <span className="frl-count">6,200+ live</span>
         </div>
 
@@ -291,8 +293,8 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
       {/* HOW LUCOHIRE WORKS — PERSONA CARDS */}
       <div className="persona-section" id="howItWorksSection">
         <p className="eyebrow">How LucoHire Works</p>
-        <h3 style={{ fontSize: '19px' }}>One platform. Two sides. Real work, done fast.</h3>
-        <p style={{ fontSize: '12.5px', color: 'var(--ink-soft)', marginTop: '6px', lineHeight: '1.55' }}>
+        <h3 className="sec-title">One platform. Two sides. Real work, done fast.</h3>
+        <p className="sec-lead">
           Whether you're here to hire freelancers online or find freelance jobs that pay — here's what you get.
         </p>
 
@@ -320,7 +322,7 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
           </div>
 
           <div className="persona-card recruiter">
-            <span className="persona-tag">FOR CLIENTS & RECRUITERS</span>
+            <span className="persona-tag">FOR CLIENTS &amp; RECRUITERS</span>
             <h3>Hire freelancers online — fast, free and verified.</h3>
             <p>Post a job for free and get matched with ID-verified freelancers across design, development, content, video and marketing.</p>
             <div className="persona-list">
@@ -334,10 +336,104 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
 
       <div className="divider"><div className="line"></div><div className="dot"></div><div className="line rev"></div></div>
 
+      {/* YOUR PATH TO JOB-READY */}
+      <div className="path2-section" id="oneFlowSection">
+        <div className="center-head">
+          <p className="eyebrow mobile-eyebrow">Your Path to Job-Ready</p>
+          <span className="path2-badge desktop-badge"><span className="dot"></span>YOUR PATH TO JOB-READY</span>
+          <h3 className="path2-title sec-title">One flow, start to finish.</h3>
+          <p className="path2-lead sec-lead">So you're not jumping across 5 apps just to prep for one job.</p>
+        </div>
+
+        {/* Mobile View: Vertical list */}
+        <div className="path2-list mobile-path-list">
+          <div className="path2-step">
+            <div className="path2-num">1</div>
+            <div className="path2-body">
+              <h4>Check karo and batao</h4>
+              <p>We compare the job to your profile and name the exact gaps — not a generic syllabus everyone gets.</p>
+            </div>
+          </div>
+          <div className="path2-step active">
+            <div className="path2-num">2</div>
+            <div className="path2-body">
+              <h4>Padhaao <span className="path2-pill">IN PROGRESS</span></h4>
+              <p>Bite-sized lessons on just those gaps — SQL joins, System Design basics, whatever's actually missing.</p>
+            </div>
+          </div>
+          <div className="path2-step">
+            <div className="path2-num">3</div>
+            <div className="path2-body">
+              <h4>Practice karao</h4>
+              <p>Real interview-style questions and scenarios, not flashcards — until it actually sticks.</p>
+            </div>
+          </div>
+          <div className="path2-step">
+            <div className="path2-num">4</div>
+            <div className="path2-body">
+              <h4>Test karo</h4>
+              <p>A timed test built like what recruiters actually screen for — no guessing your own score.</p>
+            </div>
+          </div>
+          <div className="path2-step">
+            <div className="path2-num">5</div>
+            <div className="path2-body">
+              <h4>Bata do — ready hoon ya nahi</h4>
+              <p>One straight verdict: job-ready, or exactly what's left before you can say yes.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop View: 5 cards in a row */}
+        <div className="path-grid desktop-path-grid">
+          <div className="path-card">
+            <div className="path2-num">1</div>
+            <h4>Check karo and batao</h4>
+            <p>We compare the job to your profile and name the exact gaps — not a generic syllabus everyone gets.</p>
+          </div>
+          <div className="path-card active">
+            <div className="path2-num">2</div>
+            <h4>Padhaao</h4>
+            <span className="path2-pill">IN PROGRESS</span>
+            <p>Bite-sized lessons on just those gaps — SQL joins, System Design basics, whatever's actually missing.</p>
+          </div>
+          <div className="path-card">
+            <div className="path2-num">3</div>
+            <h4>Practice karao</h4>
+            <p>Real interview-style questions and scenarios, not flashcards — until it actually sticks.</p>
+          </div>
+          <div className="path-card">
+            <div className="path2-num">4</div>
+            <h4>Test karo</h4>
+            <p>A timed test built like what recruiters actually screen for — no guessing your own score.</p>
+          </div>
+          <div className="path-card">
+            <div className="path2-num">5</div>
+            <h4>Bata do — ready hoon ya nahi</h4>
+            <p>One straight verdict: job-ready, or exactly what's left before you can say yes.</p>
+          </div>
+        </div>
+
+        <div className="path2-progress">
+          <div className="path2-target">🎯</div>
+          <p>Example: a Senior UX Designer candidate reaches <b>68% ready</b> after Padhaao — 2 topics left before "go apply."</p>
+          <div className="path2-bar"><span style={{ width: '68%' }}></span></div>
+        </div>
+
+        <div className="path-cta">
+          <button className="hero-btn primary" onClick={onOpenResumeCheck}>
+            Start My Resume Check
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="divider"><div className="line"></div><div className="dot"></div><div className="line rev"></div></div>
+
       {/* PRICING */}
-      <div className="pricing-section">
+      <div className="pricing-section" id="pricingSection">
         <p className="eyebrow">Free vs Paid</p>
-        <h3 style={{ fontSize: '19px' }}>What's free, and what's worth paying for</h3>
+        <h3 className="sec-title">What's free, and what's worth paying for</h3>
 
         <div className="price-tabs">
           <div 
@@ -393,68 +489,10 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
 
       <div className="divider"><div className="line"></div><div className="dot"></div><div className="line rev"></div></div>
 
-      {/* YOUR PATH TO JOB-READY */}
-      <div className="path2-section" id="oneFlowSection">
-        <p className="eyebrow">Your Path to Job-Ready</p>
-        <h3 className="path2-title">One flow, start to finish.</h3>
-        <p className="path2-lead">So you're not jumping across 5 apps just to prep for one job.</p>
-
-        <div className="path2-list">
-          <div className="path2-step">
-            <div className="path2-num">1</div>
-            <div className="path2-body">
-              <h4>Check karo and batao</h4>
-              <p>We compare the job to your profile and name the exact gaps — not a generic syllabus everyone gets.</p>
-            </div>
-          </div>
-          <div className="path2-step active">
-            <div className="path2-num">2</div>
-            <div className="path2-body">
-              <h4>Padhaao <span className="path2-pill">IN PROGRESS</span></h4>
-              <p>Bite-sized lessons on just those gaps — SQL joins, System Design basics, whatever's actually missing.</p>
-            </div>
-          </div>
-          <div className="path2-step">
-            <div className="path2-num">3</div>
-            <div className="path2-body">
-              <h4>Practice karao</h4>
-              <p>Real interview-style questions and scenarios, not flashcards — until it actually sticks.</p>
-            </div>
-          </div>
-          <div className="path2-step">
-            <div className="path2-num">4</div>
-            <div className="path2-body">
-              <h4>Test karo</h4>
-              <p>A timed test built like what recruiters actually screen for — no guessing your own score.</p>
-            </div>
-          </div>
-          <div className="path2-step">
-            <div className="path2-num">5</div>
-            <div className="path2-body">
-              <h4>Bata do — ready hoon ya nahi</h4>
-              <p>One straight verdict: job-ready, or exactly what's left before you can say yes.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="path2-progress">
-          <div className="path2-target">🎯</div>
-          <p>Example: a Senior UX Designer candidate reaches <b>68% ready</b> after Padhaao — 2 topics left before "go apply."</p>
-          <div className="path2-bar"><span style={{ width: '68%' }}></span></div>
-        </div>
-
-        <button className="hero-btn primary" style={{ marginTop: '18px' }} onClick={onOpenResumeCheck}>
-          Start My Resume Check
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-        </button>
-      </div>
-
-      <div className="divider"><div className="line"></div><div className="dot"></div><div className="line rev"></div></div>
-
       {/* TRUST */}
-      <div className="trust-section">
+      <div className="trust-section" id="trustSection">
         <p className="eyebrow">Why LucoHire</p>
-        <h3 style={{ fontSize: '18px', marginBottom: '14px' }}>Built so both sides show up serious</h3>
+        <h3 className="sec-title trust-head">Built so both sides show up serious</h3>
         <div className="trust-row">
           <div className="trust-item"><div className="ti-num">98%</div><div className="ti-lbl">Requirements get a response</div></div>
           <div className="trust-item"><div className="ti-num">~12 min</div><div className="ti-lbl">Avg. freelancer response time</div></div>

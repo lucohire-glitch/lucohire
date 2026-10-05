@@ -44,8 +44,9 @@
 .landing-page-root .divider {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
-  padding: 4px 20px;
+  padding: 8px 20px;
   opacity: .6;
 }
 
@@ -57,14 +58,11 @@
   flex: none;
 }
 
-.landing-page-root .divider .line {
+.landing-page-root .divider .line,
+.landing-page-root .divider .line.rev {
   height: 1px;
   flex: 1;
-  background: linear-gradient(90deg, var(--line), transparent);
-}
-
-.landing-page-root .divider .line.rev {
-  background: linear-gradient(90deg, transparent, var(--line));
+  background: var(--line);
 }
 
 /* HERO */
@@ -1010,3 +1008,674 @@
   margin-top: 3px;
   line-height: 1.3;
 }
+
+/* Path elements mobile visibility */
+.landing-page-root .desktop-badge,
+.landing-page-root .desktop-path-grid {
+  display: none !important;
+}
+.landing-page-root .mobile-path-list {
+  display: flex !important;
+  flex-direction: column;
+}
+.landing-page-root .mobile-eyebrow {
+  display: block;
+}
+.landing-page-root .live-pill i {
+  display: none;
+}
+
+/* ============================================================
+   RESPONSIVE ENHANCEMENTS FOR TABLET, DESKTOP & LARGE SCREENS
+   Matching lucohire-landing-desktop reference exactly
+   ============================================================ */
+
+@media (min-width: 768px) {
+  .landing-page-root {
+    width: 100%;
+  }
+  .landing-page-root > .divider {
+    display: none !important;
+  }
+  .landing-page-root > section,
+  .landing-page-root > div {
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  .landing-page-root .sec-title {
+    font-size: 32px !important;
+    font-weight: 800 !important;
+    letter-spacing: -.5px;
+    text-align: center;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .landing-page-root .sec-lead {
+    font-size: 15px !important;
+    color: var(--ink-soft) !important;
+    margin: 10px auto 0 !important;
+    line-height: 1.6;
+    max-width: 56ch;
+    text-align: center;
+  }
+  .landing-page-root .eyebrow {
+    text-align: center;
+    font-size: 12.5px;
+    letter-spacing: .04em;
+    margin-bottom: 8px;
+    color: var(--violet-700);
+  }
+
+  /* ---------------- HERO SECTION ---------------- */
+  .landing-page-root .hero {
+    padding: 84px 20px 28px;
+    text-align: center;
+    background: radial-gradient(ellipse 60% 70% at 50% 0%, var(--lavender-50), transparent 70%);
+  }
+  .landing-page-root .hero-content {
+    max-width: 820px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .landing-page-root .hero h1 {
+    font-size: clamp(38px, 4.8vw, 64px);
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+    font-weight: 800;
+    color: var(--ink);
+    text-align: center;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .landing-page-root .hero h1 .accent {
+    color: var(--violet-700);
+  }
+  .landing-page-root .hero p.sub {
+    font-size: 18px;
+    line-height: 1.65;
+    max-width: 62ch;
+    margin: 22px auto 0;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+  .landing-page-root .hero-btns {
+    max-width: 540px;
+    margin: 32px auto 0;
+    text-align: center;
+  }
+  .landing-page-root .hero-btns > .hero-btn.primary {
+    font-size: 17px;
+    padding: 19px 24px;
+    border-radius: 14px;
+    width: 100%;
+    background: var(--violet-700);
+    color: #fff;
+    box-shadow: 0 14px 26px -12px rgba(74, 58, 224, .45);
+    transition: transform .15s, box-shadow .15s, filter .15s;
+    cursor: pointer;
+  }
+  .landing-page-root .hero-btns > .hero-btn.primary:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+    box-shadow: 0 18px 30px -10px rgba(74, 58, 224, .55);
+  }
+  .landing-page-root .hero-cta-label {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 26px 0 12px;
+  }
+  .landing-page-root .hero-btn-row {
+    display: flex;
+    gap: 14px;
+    width: 100%;
+  }
+  .landing-page-root .hero-btn-row .hero-btn {
+    flex: 1;
+    padding: 16px 10px;
+    font-size: 14px;
+    border-radius: 14px;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+    transition: transform .15s, filter .15s, background .15s;
+  }
+  .landing-page-root .hero-btn-row .hero-btn.primary {
+    background: var(--violet-700);
+    color: #fff;
+    box-shadow: 0 10px 20px -10px rgba(74, 58, 224, .4);
+    border: none;
+  }
+  .landing-page-root .hero-btn-row .hero-btn.primary:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+  }
+  .landing-page-root .hero-btn-row .hero-btn.secondary {
+    background: var(--lavender-50);
+    color: var(--violet-700);
+    border: 1.5px solid var(--violet-200);
+  }
+  .landing-page-root .hero-btn-row .hero-btn.secondary:hover {
+    background: #F1EDFF;
+    transform: translateY(-1px);
+  }
+  .landing-page-root .hero-btn-sub {
+    font-size: 11px;
+    font-weight: 500;
+    opacity: .8;
+  }
+
+  /* ---------------- FREELANCERS ON LUCOHIRE ---------------- */
+  .landing-page-root .frl-section {
+    padding: 20px 20px 56px;
+  }
+  .landing-page-root .frl-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    margin-bottom: 0;
+  }
+  .landing-page-root .frl-head .sec-title {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+    text-align: center;
+    margin: 0;
+  }
+  .landing-page-root .frl-head .frl-count {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .landing-page-root .live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--green);
+    background: var(--green-tint);
+    padding: 6px 14px;
+    border-radius: 99px;
+  }
+  .landing-page-root .live-pill i {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--wa);
+    box-shadow: 0 0 0 4px rgba(22, 163, 74, .18);
+  }
+  .landing-page-root .frl-filter-row {
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 22px;
+    margin-bottom: 0;
+  }
+  .landing-page-root .frl-filter-chip {
+    font-size: 13px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .landing-page-root .frl-filter-chip:hover {
+    background: #F1EDFF;
+  }
+  .landing-page-root .frl-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 1040px;
+    margin: 26px auto 0;
+  }
+  .landing-page-root .frl-wrap {
+    transition: transform .22s, box-shadow .22s, border-color .22s;
+    border-radius: 20px;
+    background: #fff;
+    border: 1.5px solid var(--line);
+    box-shadow: 0 16px 32px -18px rgba(20, 15, 80, .18);
+    overflow: hidden;
+  }
+  .landing-page-root .frl-wrap:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 26px 44px -22px rgba(74, 58, 224, .35);
+    border-color: var(--violet-500);
+  }
+  .landing-page-root .frl-card {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1fr;
+    column-gap: 28px;
+    row-gap: 16px;
+    align-items: center;
+    padding: 22px 26px;
+    grid-template-areas:
+      "top meta boxes"
+      "verify skills actions";
+  }
+  .landing-page-root .frl-top { grid-area: top; display: flex; gap: 12px; align-items: center; }
+  .landing-page-root .frl-meta-row { grid-area: meta; margin: 0; padding: 0; border-top: none; display: flex; }
+  .landing-page-root .frl-boxes { grid-area: boxes; margin: 0; display: flex; gap: 10px; }
+  .landing-page-root .frl-verify-row { grid-area: verify; margin: 0; display: flex; flex-wrap: wrap; gap: 7px 14px; }
+  .landing-page-root .frl-skills { grid-area: skills; margin: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+  .landing-page-root .frl-actions-row { grid-area: actions; margin: 0; display: flex; gap: 8px; }
+
+  .landing-page-root .frl-more-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    column-gap: 26px;
+    text-align: left;
+    padding: 24px 32px;
+    align-items: center;
+    border-radius: 20px;
+    border: 1.5px dashed var(--violet-500);
+    background: var(--lavender-50);
+  }
+  .landing-page-root .frl-more-card .n {
+    grid-row: 1 / 3;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--violet-700);
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .landing-page-root .frl-more-card .t {
+    grid-column: 2;
+    align-self: end;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .landing-page-root .frl-more-card .d {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    max-width: none;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .landing-page-root .frl-more-card button {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    margin: 0;
+    padding: 14px 26px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    background: var(--violet-700);
+    color: #fff;
+    border-radius: 11px;
+    transition: transform .15s, filter .15s;
+  }
+  .landing-page-root .frl-more-card button:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+  }
+
+  /* ---------------- HOW LUCOHIRE WORKS (PERSONA CARDS) ---------------- */
+  .landing-page-root .persona-section {
+    padding: 56px 20px 40px;
+  }
+  .landing-page-root .persona-grid {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 24px;
+    margin-top: 36px;
+    max-width: 1040px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .landing-page-root .persona-card {
+    flex: 1;
+    min-width: 0;
+    padding: 28px 24px;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    cursor: default;
+    border-radius: 20px;
+    background: #fff;
+    border: 1.5px solid var(--line);
+    box-shadow: 0 4px 18px rgba(20, 15, 80, .05);
+  }
+  .landing-page-root .persona-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 28px 48px -20px rgba(74, 58, 224, .35);
+    border-color: var(--violet-500);
+  }
+  .landing-page-root .persona-card h3 {
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.32;
+    margin-top: 12px;
+  }
+  .landing-page-root .persona-card > p,
+  .landing-page-root .persona-item {
+    font-size: 13.5px;
+  }
+
+  /* ---------------- YOUR PATH TO JOB-READY ---------------- */
+  .landing-page-root .path2-section {
+    padding: 56px 20px 40px;
+  }
+  .landing-page-root .center-head {
+    text-align: center;
+  }
+  .landing-page-root .mobile-eyebrow,
+  .landing-page-root .mobile-path-list {
+    display: none !important;
+  }
+  .landing-page-root .desktop-badge {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
+    border: 1.5px solid var(--violet-200);
+    border-radius: 99px;
+    padding: 9px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    color: var(--violet-700);
+  }
+  .landing-page-root .desktop-badge .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--violet-700), var(--gold));
+  }
+  .landing-page-root .path2-title {
+    font-size: 36px !important;
+    font-weight: 800 !important;
+    letter-spacing: -.3px;
+    margin-top: 16px;
+    text-align: center;
+  }
+  .landing-page-root .path2-lead {
+    margin: 10px auto 0 !important;
+    max-width: 56ch;
+    font-size: 15px !important;
+    text-align: center;
+    color: var(--ink-soft);
+  }
+  .landing-page-root .desktop-path-grid {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-top: 36px;
+    max-width: 1040px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .landing-page-root .path-card {
+    background: #fff;
+    border: 1.5px solid var(--line);
+    border-radius: 18px;
+    padding: 22px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    box-shadow: 0 4px 18px rgba(20, 15, 80, .05);
+    transition: transform .22s, box-shadow .22s, border-color .22s;
+    text-align: left;
+  }
+  .landing-page-root .path-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 24px 40px -20px rgba(74, 58, 224, .3);
+    border-color: var(--violet-500);
+  }
+  .landing-page-root .path-card.active {
+    border-color: var(--violet-700);
+    background: var(--lavender-50);
+  }
+  .landing-page-root .path-card.active .path2-num {
+    background: var(--violet-700);
+    border-color: var(--violet-700);
+    color: #fff;
+  }
+  .landing-page-root .path-card .path2-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--lavender-50);
+    border: 1.5px solid var(--violet-200);
+    color: var(--violet-700);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 14.5px;
+  }
+  .landing-page-root .path-card h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-top: 16px;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+  .landing-page-root .path-card .path2-pill {
+    margin-top: 8px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    background: #F1EDFF;
+    color: var(--violet-700);
+    padding: 4px 10px;
+    border-radius: 99px;
+    display: inline-block;
+  }
+  .landing-page-root .path-card p {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+    margin-top: 8px;
+  }
+  .landing-page-root .path2-progress {
+    max-width: 760px;
+    margin: 28px auto 0;
+    padding: 20px 24px;
+    border-radius: 18px;
+    background: var(--lavender-50);
+    border: 1px solid var(--line);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+  }
+  .landing-page-root .path2-progress p {
+    font-size: 14.5px;
+  }
+  .landing-page-root .path-cta {
+    display: flex;
+    justify-content: center;
+    margin-top: 26px;
+  }
+  .landing-page-root .path-cta .hero-btn {
+    width: auto;
+    min-width: 320px;
+    padding: 17px 34px;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 14px;
+  }
+
+  /* ---------------- PRICING (FREE VS PAID) ---------------- */
+  .landing-page-root .pricing-section {
+    padding: 56px 20px 40px;
+    max-width: 820px !important;
+    margin: 0 auto;
+  }
+  .landing-page-root .price-tabs {
+    max-width: 400px;
+    margin: 22px auto 0;
+    display: flex;
+    gap: 6px;
+    background: var(--lavender-50);
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    padding: 4px;
+  }
+  .landing-page-root .price-tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 4px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .landing-page-root .price-tab.active[data-c="freelancer"],
+  .landing-page-root .price-tab.active[data-c="recruiter"] {
+    background: var(--violet-700);
+    color: #fff;
+  }
+  .landing-page-root .price-card {
+    margin-top: 24px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 4px 18px rgba(20, 15, 80, .05);
+  }
+  .landing-page-root .price-cols {
+    display: flex;
+  }
+  .landing-page-root .price-col {
+    flex: 1;
+    padding: 22px 24px;
+  }
+  .landing-page-root .price-col.free {
+    border-right: 1px solid var(--line);
+  }
+  .landing-page-root .price-amt {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 6px 0 12px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .landing-page-root .price-feat {
+    font-size: 13px;
+  }
+  .landing-page-root .price-why,
+  .landing-page-root .price-social {
+    font-size: 12.5px;
+  }
+  .landing-page-root .price-social {
+    justify-content: center;
+    padding-top: 14px;
+  }
+  .landing-page-root .price-why {
+    text-align: center;
+  }
+  .landing-page-root .price-cta-row {
+    padding: 16px 24px 24px;
+    max-width: 420px;
+    margin: 0 auto;
+  }
+  .landing-page-root .price-cta {
+    width: 100%;
+    color: #fff;
+    padding: 14px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform .15s, filter .15s;
+  }
+  .landing-page-root .price-cta:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+  }
+
+  /* ---------------- TRUST SECTION (WHY LUCOHIRE) ---------------- */
+  .landing-page-root .trust-section {
+    padding: 40px 20px 64px;
+    max-width: 820px !important;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .landing-page-root .trust-head {
+    font-size: 22px !important;
+    margin-bottom: 20px !important;
+  }
+  .landing-page-root .trust-row {
+    display: flex;
+    gap: 14px;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+  .landing-page-root .trust-item {
+    flex: 1;
+    text-align: center;
+    background: var(--lavender-50);
+    border-radius: 14px;
+    padding: 20px 12px;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .landing-page-root .trust-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(74, 58, 224, 0.08);
+  }
+  .landing-page-root .trust-item .ti-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--violet-700);
+  }
+  .landing-page-root .trust-item .ti-lbl {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+    line-height: 1.3;
+  }
+
+  /* Tablet adjustments (768px - 1000px) */
+  @media (max-width: 1000px) {
+    .landing-page-root .persona-grid {
+      flex-direction: column !important;
+    }
+    .landing-page-root .desktop-path-grid {
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+    }
+    .landing-page-root .frl-card {
+      grid-template-columns: 1fr !important;
+      grid-template-areas:
+        "top"
+        "meta"
+        "skills"
+        "boxes"
+        "verify"
+        "actions" !important;
+      gap: 16px !important;
+    }
+    .landing-page-root .frl-more-card {
+      grid-template-columns: 1fr !important;
+      text-align: center !important;
+    }
+    .landing-page-root .frl-more-card .n,
+    .landing-page-root .frl-more-card button,
+    .landing-page-root .frl-more-card .t,
+    .landing-page-root .frl-more-card .d {
+      grid-column: 1 !important;
+      grid-row: auto !important;
+    }
+  }
+}
+
+/* Very small mobile screen safety (<360px) */
+@media (max-width: 360px) {
+  .landing-page-root .hero-btn-row {
+    flex-direction: column !important;
+  }
+  .landing-page-root .frl-boxes {
+    flex-direction: column !important;
+  }
+  .landing-page-root .trust-row {
+    flex-direction: column !important;
+  }
+}

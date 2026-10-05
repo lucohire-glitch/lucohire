@@ -1,0 +1,1158 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LucoHire â€” Free Resume Check for Job Seekers | Hire or Find Freelancers Online</title>
+<meta name="description" content="LucoHire helps job seekers check their resume free and get job-ready, and helps freelancers and clients connect for free. One platform, two clear paths â€” free ATS resume check, and a free freelance marketplace for design, development, content, video and marketing.">
+<meta name="keywords" content="free resume check, ATS resume score, job ready plan, hire freelancers online, freelance jobs India, post a job for free, find freelancers near me, freelance marketplace India, verified freelancers, best freelancing website India">
+<meta property="og:title" content="LucoHire â€” Free Resume Check, or Hire/Find Freelancers">
+<meta property="og:description" content="Free resume check and job-readiness plan for job seekers. Free freelance marketplace for everyone else. One platform, both sides.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://lucohire.com/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --violet-900:#241A5E; --violet-700:#4A3AE0; --violet-500:#6C5CE8; --violet-200:#D8D2FA;
+    --lavender-50:#F7F6FF;
+    --green:#0E8F5F; --green-tint:#E5F6EE;
+    --amber:#B9791A; --amber-tint:#FBF1DF;
+    --red:#C0392B; --red-tint:#FBEAE8;
+    --gold:#F5C445;
+    --wa:#16A34A; --wa-tint:#EAFBF1;
+    --ink:#1C1733; --ink-soft:#75708F; --line:#ECEAF9;
+    --white:#FFFFFF;
+    --radius:18px; --radius-sm:13px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--white);color:var(--ink);font-family:'Inter',sans-serif;}
+  .app{max-width:460px;margin:0 auto;background:var(--white);min-height:100vh;position:relative;overflow-x:hidden;}
+  h1,h2,h3,h4,.num{font-family:'Space Grotesk',sans-serif;margin:0;}
+  p{margin:0;}
+  img{max-width:100%;display:block;}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;}
+  .section{padding:30px 20px;}
+  .eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--violet-700);margin:0 0 8px;}
+  .divider{display:flex;align-items:center;gap:10px;padding:4px 20px;opacity:.6;}
+  .divider .dot{width:5px;height:5px;border-radius:50%;background:var(--violet-700);flex:none;}
+  .divider .line{height:1px;flex:1;background:linear-gradient(90deg,var(--line),transparent);}
+  .divider .line.rev{background:linear-gradient(90deg,transparent,var(--line));}
+
+  /* ---------- HEADER ---------- */
+  .header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--white);}
+  .header .icon-btn{color:var(--ink);display:flex;align-items:center;padding:4px;}
+  .logo{font-family:'Space Grotesk',sans-serif;font-size:23px;font-weight:800;letter-spacing:-.3px;}
+  .logo .luco{color:var(--ink);}
+  .logo .hire{color:var(--violet-500);}
+
+  /* ---------- HERO â€” clean, minimal, white ---------- */
+  .hero{position:relative;background:var(--white);padding:28px 20px 12px;}
+  .hero h1{font-size:25px;font-weight:800;letter-spacing:-.4px;line-height:1.25;color:var(--ink);}
+  .hero h1 .accent{color:var(--violet-700);}
+  .hero p.sub{margin-top:10px;font-size:14px;color:var(--ink-soft);line-height:1.55;max-width:38ch;}
+
+  /* HERO BUTTONS â€” resume check stands alone (job seekers); find/register pair up (marketplace) */
+  .hero-btns{margin-top:20px;display:flex;flex-direction:column;gap:10px;}
+  .hero-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:16px;border-radius:14px;font-weight:700;font-size:15px;text-align:center;}
+  .hero-btn.primary{background:var(--violet-700);color:#fff;box-shadow:0 14px 26px -12px rgba(74,58,224,.45);}
+  .hero-btn.secondary{background:var(--lavender-50);color:var(--violet-700);border:1.5px solid var(--violet-200);}
+  .hero-cta-label{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin:16px 2px 2px;}
+  .hero-btn-row{display:flex;gap:10px;}
+  .hero-btn-row .hero-btn{padding:14px 8px;font-size:13px;flex-direction:column;gap:5px;line-height:1.3;}
+  .hero-btn-row .hero-btn svg{flex:none;}
+  .hero-btn-row .hero-btn.primary{box-shadow:0 10px 20px -10px rgba(74,58,224,.4);}
+  .hero-btn-row .hero-btn.secondary{background:var(--lavender-50);}
+  .hero-btn-sub{display:block;font-size:10px;font-weight:500;opacity:.75;}
+
+  /* ---------- FIND-A-FREELANCER MODAL ---------- */
+  .sheet-overlay{position:fixed;inset:0;background:rgba(28,23,51,.55);z-index:80;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
+  .sheet-overlay.show{opacity:1;pointer-events:auto;}
+  .sheet{width:100%;max-width:460px;background:#fff;border-radius:22px 22px 0 0;padding:14px 20px calc(20px + env(safe-area-inset-bottom));max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;transform:translateY(100%);transition:transform .25s;}
+  .sheet-overlay.show .sheet{transform:translateY(0);}
+  .sheet-handle{width:36px;height:4px;border-radius:3px;background:var(--line);margin:0 auto 14px;}
+  .modal-header-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .modal-title{font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;}
+  .modal-close-x{width:32px;height:32px;flex:none;border-radius:50%;background:var(--lavender-50);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .modal-cancel-btn{width:100%;margin-top:18px;padding:14px;border-radius:14px;font-weight:700;font-size:14px;color:var(--ink-soft);background:var(--lavender-50);}
+
+  .stat-row{display:flex;justify-content:space-between;margin-top:26px;}
+  .stat-row .stat{text-align:left;}
+  .stat .snum{font-size:19px;font-weight:700;font-family:'Space Grotesk';color:var(--ink);}
+  .stat .slbl{font-size:10.5px;color:var(--ink-soft);margin-top:1px;}
+  /* SEARCH CARD â€” now its own section further down the page */
+  .search-card{background:var(--lavender-50);border:1.5px solid var(--line);border-radius:22px;margin:16px 0 0;padding:20px 18px 18px;}
+  .search-field{position:relative;margin-bottom:12px;}
+  .search-field svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--ink-soft);pointer-events:none;}
+  .search-field input{width:100%;border:1.5px solid var(--line);border-radius:16px;padding:16px 16px 16px 44px;font-size:15.5px;color:var(--ink);outline:none;transition:border-color .2s,box-shadow .2s;background:var(--white);}
+  .search-field input::placeholder{color:#A6A1C4;}
+  .search-field input:focus{border-color:var(--violet-500);background:var(--white);box-shadow:0 0 0 4px rgba(108,92,232,.12);}
+  .search-hint{font-size:12px;color:var(--ink-soft);margin:-4px 0 14px 4px;}
+
+  .pill-row{display:flex;gap:8px;margin-bottom:14px;}
+  .pill-select{flex:1;display:flex;align-items:center;gap:6px;background:var(--white);border:1.5px solid var(--line);border-radius:13px;padding:11px 10px;min-width:0;position:relative;}
+  .pill-select .pill-ic{font-size:14px;flex-shrink:0;}
+  .pill-select select{appearance:none;-webkit-appearance:none;border:none;background:none;font-size:13px;font-weight:700;color:var(--ink);outline:none;flex:1;min-width:0;padding-right:4px;}
+  .pill-select input{border:none;background:none;font-size:13px;font-weight:700;color:var(--ink);outline:none;flex:1;min-width:0;padding-right:4px;font-family:inherit;}
+  .pill-select input::placeholder{color:#A6A1C4;font-weight:600;}
+  .pill-select .pill-chevron{color:var(--ink-soft);flex-shrink:0;}
+
+  .suggest-box{position:absolute;left:0;right:0;top:calc(100% + 8px);background:#fff;border:1.5px solid var(--line);border-radius:14px;box-shadow:0 18px 36px -14px rgba(20,15,80,.3);max-height:230px;overflow-y:auto;z-index:60;display:none;}
+  .suggest-box.show{display:block;}
+  .suggest-item{padding:12px 16px;font-size:13.5px;color:var(--ink);border-bottom:1px solid var(--line);}
+  .suggest-item:last-child{border-bottom:none;}
+  .suggest-item:active,.suggest-item:hover{background:var(--lavender-50);}
+  .suggest-item b{color:var(--violet-700);}
+  .suggest-empty{padding:12px 16px;font-size:12px;color:var(--ink-soft);}
+
+  .search-btn{width:100%;background:var(--violet-700);color:#fff;border:none;padding:16px;border-radius:14px;font-weight:700;font-size:16px;box-shadow:0 14px 26px -12px rgba(74,58,224,.55);display:flex;align-items:center;justify-content:center;gap:8px;}
+
+  .search-divider{display:flex;align-items:center;gap:10px;margin:16px 0;}
+  .search-divider .l{flex:1;height:1px;background:var(--line);}
+  .search-divider span{font-size:11.5px;color:var(--ink-soft);font-weight:600;}
+
+  .list-cta{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--white);border:1.5px dashed var(--violet-500);color:var(--violet-700);padding:14px;border-radius:14px;font-weight:700;font-size:14.5px;}
+  .list-cta-sub{text-align:center;font-size:11.5px;color:var(--ink-soft);margin-top:8px;line-height:1.5;}
+  .list-cta-sub b{color:var(--ink);}
+
+  .stat-row{display:flex;justify-content:space-between;margin-top:24px;}
+  .stat-row .stat{text-align:left;}
+  .stat .snum{font-size:19px;font-weight:700;font-family:'Space Grotesk';}
+  .stat .slbl{font-size:10.5px;color:rgba(255,255,255,.65);margin-top:1px;}
+
+  /* ---------- HOW IT WORKS STRIP ---------- */
+  .how-section{padding:32px 20px 8px;}
+  .how-title{font-size:19px;font-weight:700;letter-spacing:-.2px;}
+  .how-lead{font-size:13.5px;color:var(--ink-soft);margin-top:6px;line-height:1.55;max-width:38ch;}
+  .how-list{margin-top:20px;display:flex;flex-direction:column;gap:0;}
+  .how-step{display:flex;gap:14px;position:relative;padding-bottom:22px;}
+  .how-step:last-child{padding-bottom:0;}
+  .how-step:not(:last-child)::before{content:"";position:absolute;left:15px;top:34px;bottom:0;width:1.5px;background:var(--line);}
+  .how-num{flex:none;width:32px;height:32px;border-radius:50%;background:var(--violet-700);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:13.5px;z-index:1;}
+  .how-body h4{font-size:14.5px;font-weight:700;margin-bottom:4px;}
+  .how-body p{font-size:12.5px;color:var(--ink-soft);line-height:1.5;max-width:40ch;}
+
+  /* ---------- YOUR PATH TO GETTING HIRED ---------- */
+  .path2-section{padding:32px 20px 8px;}
+  .path2-badge{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--violet-200);border-radius:99px;padding:9px 16px;font-size:12px;font-weight:700;letter-spacing:.03em;color:var(--violet-700);}
+  .path2-badge .dot{width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,var(--violet-700),var(--gold));}
+  .path2-title{font-size:24px;font-weight:800;letter-spacing:-.3px;margin-top:16px;}
+  .path2-lead{font-size:13.5px;color:var(--ink-soft);margin-top:10px;line-height:1.6;max-width:38ch;}
+
+  .path2-list{margin-top:26px;display:flex;flex-direction:column;}
+  .path2-step{display:flex;gap:16px;position:relative;padding-bottom:26px;}
+  .path2-step:last-child{padding-bottom:0;}
+  .path2-step:not(:last-child)::before{content:"";position:absolute;left:17px;top:38px;bottom:0;width:1.5px;background:var(--line);}
+  .path2-num{flex:none;width:36px;height:36px;border-radius:50%;background:var(--lavender-50);border:1.5px solid var(--violet-200);color:var(--violet-700);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:14.5px;z-index:1;}
+  .path2-step.active .path2-num{background:var(--violet-700);border-color:var(--violet-700);color:#fff;}
+  .path2-body h4{font-size:16.5px;font-weight:700;display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:2px;}
+  .path2-pill{font-size:10.5px;font-weight:700;letter-spacing:.02em;background:#F1EDFF;color:var(--violet-700);padding:4px 10px;border-radius:99px;}
+  .path2-body p{font-size:13px;color:var(--ink-soft);line-height:1.55;margin-top:6px;max-width:42ch;}
+
+  .path2-progress{margin:26px 0 8px;border-radius:18px;background:var(--lavender-50);border:1px solid var(--line);padding:18px;display:flex;flex-wrap:wrap;align-items:center;gap:14px;position:relative;}
+  .path2-target{flex:none;width:46px;height:46px;border-radius:50%;background:#fff;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:20px;}
+  .path2-progress p{flex:1;min-width:200px;font-size:13.5px;color:var(--ink-soft);line-height:1.55;}
+  .path2-progress b{color:var(--violet-700);font-family:'Space Grotesk';}
+  .path2-bar{flex:1 1 100%;margin-top:2px;height:7px;border-radius:99px;background:var(--violet-200);overflow:hidden;}
+  .path2-bar span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--violet-700),var(--violet-500));}
+
+  /* ---------- FREELANCER CARDS ---------- */
+  .frl-section{padding:32px 20px 30px;}
+  .frl-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:4px;}
+  .frl-head h3{font-size:19px;font-weight:700;letter-spacing:-.2px;}
+  .frl-count{font-size:12px;color:var(--ink-soft);font-weight:600;}
+
+  .frl-filter-row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-top:16px;padding-bottom:2px;}
+  .frl-filter-row::-webkit-scrollbar{display:none;}
+  .frl-filter-chip{flex:none;font-size:12px;font-weight:600;color:var(--ink-soft);background:var(--lavender-50);border:1.5px solid var(--line);padding:7px 13px;border-radius:999px;white-space:nowrap;}
+  .frl-filter-chip.on{background:#F1EDFF;border-color:var(--violet-700);color:var(--violet-700);}
+
+  .frl-grid{display:flex;flex-direction:column;gap:16px;margin-top:16px;}
+
+  .frl-wrap{border-radius:20px;background:#fff;border:1.5px solid var(--line);box-shadow:0 16px 32px -18px rgba(20,15,80,.18);overflow:hidden;position:relative;}
+  .frl-boost-tag{display:flex;align-items:center;gap:6px;background:linear-gradient(90deg,#FFF3CE,#FDE9B0);color:#8A6300;font-size:11px;font-weight:700;padding:9px 16px;border-bottom:1px solid var(--line);}
+  .frl-card{padding:18px;}
+  .frl-top{display:flex;gap:12px;align-items:flex-start;}
+  .frl-photo-wrap{position:relative;width:52px;height:52px;flex:none;border-radius:50%;padding:2px;background:linear-gradient(135deg,var(--violet-500),var(--violet-200));}
+  .frl-photo-wrap img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;border:2px solid #fff;}
+  .frl-online{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:var(--wa);border:2.5px solid #fff;}
+  .frl-info{flex:1;min-width:0;padding-top:1px;}
+  .frl-name-row{display:flex;align-items:center;gap:5px;}
+  .frl-name{font-family:'Space Grotesk';font-size:15.5px;font-weight:700;line-height:1.2;}
+  .frl-role{font-size:12.5px;color:var(--ink-soft);margin-top:4px;font-weight:500;}
+  .frl-loc-row{font-size:11.5px;color:var(--ink-soft);margin-top:3px;}
+
+  .frl-rating-col{flex:none;text-align:right;}
+  .frl-rating{font-family:'Space Grotesk';font-size:16px;font-weight:700;color:var(--ink);}
+  .frl-rating span{color:var(--gold);}
+  .frl-rating-lbl{font-size:9.5px;color:var(--ink-soft);margin-top:1px;}
+
+  .frl-meta-row{display:flex;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);}
+  .frl-meta-col{flex:1;text-align:center;}
+  .frl-meta-col:not(:last-child){border-right:1px solid var(--line);}
+  .frl-meta-num{font-family:'Space Grotesk';font-size:14px;font-weight:700;}
+  .frl-meta-lbl{font-size:9.5px;color:var(--ink-soft);margin-top:2px;}
+
+  .frl-skills{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;}
+  .frl-chip{font-size:11px;font-weight:600;padding:5px 11px;border-radius:99px;background:var(--lavender-50);color:var(--ink-soft);}
+
+  .frl-boxes{display:flex;gap:10px;margin-top:14px;}
+  .frl-box{flex:1;border-radius:12px;padding:10px 12px;background:var(--green-tint);}
+  .frl-box .big{font-family:'Space Grotesk';font-size:14.5px;font-weight:700;color:var(--green);}
+  .frl-box .big span{font-size:10.5px;font-weight:500;color:var(--ink-soft);}
+  .frl-box .box-lbl{font-size:10px;color:var(--ink-soft);margin-top:2px;}
+  .frl-box.avail{background:var(--amber-tint);}
+  .frl-box.avail .big{color:var(--amber);}
+
+  .frl-verify-row{display:flex;flex-wrap:wrap;gap:7px 14px;margin-top:14px;}
+  .frl-verify-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--ink-soft);}
+  .frl-verify-item svg{color:var(--green);flex:none;}
+
+  .frl-actions-row{display:flex;gap:8px;margin-top:14px;}
+  .frl-btn-outline{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px solid var(--line);color:var(--ink);background:#fff;border-radius:12px;padding:11px 4px;font-size:12.5px;font-weight:700;}
+  .frl-btn-primary{flex:1.6;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--violet-700);color:#fff;border-radius:12px;padding:11px 4px;font-size:12.5px;font-weight:700;}
+  .frl-btn-heart{flex:none;width:40px;border:1.5px solid var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);background:#fff;}
+
+  .frl-more-card{border-radius:20px;border:1.5px dashed var(--violet-500);background:var(--lavender-50);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 22px;gap:8px;}
+  .frl-more-card .n{font-family:'Space Grotesk';font-size:28px;font-weight:700;color:var(--violet-700);}
+  .frl-more-card .t{font-size:14px;font-weight:700;color:var(--ink);}
+  .frl-more-card .d{font-size:12px;color:var(--ink-soft);max-width:26ch;line-height:1.5;}
+  .frl-more-card button{margin-top:8px;background:var(--violet-700);color:#fff;padding:11px 22px;border-radius:11px;font-weight:700;font-size:12.5px;}
+
+  /* ---------- HOW IT WORKS â€” PERSONA CARDS ---------- */
+  .persona-section{padding:30px 20px 4px;}
+  .persona-grid{display:flex;flex-direction:column;gap:14px;margin-top:16px;}
+  .persona-card{border-radius:20px;padding:22px 20px;background:#fff;border:1.5px solid var(--line);position:relative;box-shadow:0 4px 18px rgba(20,15,80,.05);}
+  .persona-tag{font-size:11px;font-weight:700;letter-spacing:.04em;background:var(--green-tint);color:var(--green);padding:4px 10px;border-radius:99px;display:inline-block;}
+  .persona-card h3{font-size:17.5px;font-weight:700;line-height:1.32;margin-top:12px;color:var(--ink);}
+  .persona-card>p{font-size:12.5px;color:var(--ink-soft);margin-top:8px;line-height:1.55;max-width:42ch;}
+  .persona-list{margin-top:14px;display:flex;flex-direction:column;gap:9px;}
+  .persona-item{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:var(--ink-soft);line-height:1.5;}
+  .persona-item .ic{flex:none;width:19px;height:19px;border-radius:6px;background:var(--green-tint);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:10.5px;}
+  .persona-cta{margin-top:16px;width:100%;background:var(--green);color:#fff;padding:13px;border-radius:12px;font-weight:700;font-size:13px;}
+
+  /* ---------- PRICING ---------- */
+  .pricing-section{padding:30px 20px 8px;}
+  .price-tabs{display:flex;gap:6px;background:var(--lavender-50);border:1px solid var(--line);border-radius:13px;padding:4px;margin-top:14px;}
+  .price-tab{flex:1;text-align:center;padding:10px 4px;border-radius:10px;font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .price-tab.active{color:#fff;}
+  .price-tab.active[data-c="freelancer"]{background:var(--wa);}
+  .price-tab.active[data-c="recruiter"]{background:var(--amber);}
+
+  .price-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);margin-top:12px;overflow:hidden;box-shadow:0 4px 18px rgba(20,15,80,.05);}
+  .price-cols{display:flex;}
+  .price-col{flex:1;padding:16px 14px;}
+  .price-col.free{border-right:1px solid var(--line);}
+  .price-col-lbl{font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--ink-soft);}
+  .price-col.premium{position:relative;}
+  .premium-badge{position:absolute;top:-1px;right:12px;background:var(--gold);color:#3d2e00;font-size:9px;font-weight:800;letter-spacing:.02em;padding:3px 8px;border-radius:0 0 7px 7px;}
+  .price-amt{font-family:'Space Grotesk';font-size:19px;font-weight:700;margin:6px 0 12px;}
+  .price-amt span{font-size:11px;font-weight:500;color:var(--ink-soft);}
+  .price-feat{display:flex;align-items:flex-start;gap:6px;font-size:11.5px;line-height:1.4;color:var(--ink-soft);margin-bottom:8px;}
+  .price-feat svg{flex:none;margin-top:1.5px;}
+  .price-why{padding:12px 16px;border-top:1px solid var(--line);background:var(--lavender-50);font-size:11.5px;color:var(--ink-soft);line-height:1.5;}
+  .price-why b{color:var(--ink);}
+  .price-social{display:flex;align-items:center;gap:6px;padding:10px 16px 0;font-size:11px;color:var(--ink-soft);}
+  .price-social .avatars{display:flex;flex:none;}
+  .price-social .avatars span{width:18px;height:18px;border-radius:50%;background:var(--violet-200);border:1.5px solid #fff;margin-left:-6px;}
+  .price-social .avatars span:first-child{margin-left:0;}
+  .price-cta-row{padding:14px 16px 16px;}
+  .price-cta{width:100%;color:#fff;padding:13px;border-radius:12px;font-weight:700;font-size:13.5px;}
+
+  /* ---------- TRUST / FOOTER ---------- */
+  .trust-section{padding:30px 20px;}
+  .trust-row{display:flex;gap:10px;}
+  .trust-item{flex:1;text-align:center;background:var(--lavender-50);border-radius:14px;padding:16px 8px;}
+  .trust-item .ti-num{font-family:'Space Grotesk';font-size:17px;font-weight:700;color:var(--violet-700);}
+  .trust-item .ti-lbl{font-size:10.5px;color:var(--ink-soft);margin-top:3px;line-height:1.3;}
+
+  .footer{background:var(--violet-900);color:#fff;padding:34px 20px 24px;}
+  .footer .logo{font-size:20px;}
+  .footer .logo .luco{color:#fff;}
+  .footer p.ftag{font-size:12.5px;color:rgba(255,255,255,.6);margin-top:10px;max-width:36ch;line-height:1.55;}
+  .footer-social{display:flex;gap:10px;margin-top:16px;}
+  .footer-social a{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;text-decoration:none;}
+  .footer-cols{display:flex;flex-direction:column;gap:24px;margin-top:30px;}
+  .footer-col h5{font-size:13px;font-weight:700;color:#fff;letter-spacing:.02em;margin:0 0 12px;}
+  .footer-col a{display:block;font-size:13px;color:rgba(255,255,255,.6);margin-bottom:11px;text-decoration:none;}
+  .footer-news{margin-top:30px;}
+  .footer-news h5{font-size:14px;font-weight:700;margin:0 0 6px;}
+  .footer-news p{font-size:12px;color:rgba(255,255,255,.55);margin-bottom:12px;}
+  .footer-news-row{display:flex;flex-direction:column;gap:10px;}
+  .footer-news input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:13px 14px;font-size:13px;color:#fff;outline:none;width:100%;}
+  .footer-news input::placeholder{color:rgba(255,255,255,.4);}
+  .footer-news button{background:var(--violet-500);color:#fff;padding:13px 18px;border-radius:12px;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;}
+  .footer .bottom{margin-top:26px;padding-top:16px;border-top:1px solid rgba(255,255,255,.1);display:flex;justify-content:space-between;align-items:center;font-size:11px;color:rgba(255,255,255,.45);flex-wrap:wrap;gap:8px;}
+  .footer .secure{background:rgba(34,197,94,.15);color:#8CF0C2;padding:4px 9px;border-radius:99px;font-weight:600;}
+
+  /* =====================================================
+     DESKTOP LAYOUT â€” centered, section-by-section
+     ===================================================== */
+  @media all{
+    .app{max-width:none;display:block;overflow-x:clip;}
+    .app > .divider{display:none;}
+    .app > section,.app > div{max-width:1180px;margin:0 auto;}
+    .sec-title{font-size:32px;font-weight:800;letter-spacing:-.5px;text-align:center;}
+    .sec-lead{font-size:15px;color:var(--ink-soft);margin:10px auto 0;line-height:1.6;max-width:56ch;text-align:center;}
+    .app .eyebrow{text-align:center;font-size:12.5px;}
+    html{scroll-behavior:smooth;scroll-padding-top:84px;}
+
+    /* header: logo top-left, nav centre, account right */
+    .app > .header{max-width:none;margin:0;position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:14px max(24px,calc((100% - 1180px)/2 + 20px));}
+    .brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
+    .brand-mark{flex:none;filter:drop-shadow(0 6px 10px rgba(74,58,224,.25));}
+    .logo{font-size:24px;}
+    .nav{display:flex;gap:6px;}
+    .nav a{font-size:14px;font-weight:600;color:var(--ink-soft);text-decoration:none;padding:9px 16px;border-radius:10px;transition:background .15s,color .15s;}
+    .nav a:hover{background:var(--lavender-50);color:var(--violet-700);}
+    .header .icon-btn{border-radius:10px;transition:background .15s;}
+    .header .icon-btn:hover{background:var(--lavender-50);}
+
+    /* hero: centered */
+    .hero{padding:84px 20px 28px;text-align:center;background:radial-gradient(ellipse 60% 70% at 50% 0%,var(--lavender-50),transparent 70%);}
+    .hero h1{font-size:64px;line-height:1.1;letter-spacing:-1.5px;}
+    .hero p.sub{font-size:18px;line-height:1.65;max-width:62ch;margin:22px auto 0;}
+
+    /* why-not-hired CTA block */
+    .cta-section{padding:20px 20px 64px;}
+    .hero-btns{max-width:540px;margin:0 auto;text-align:center;}
+    .hero-btn.primary{font-size:17px;padding:19px;}
+    .hero-cta-label{text-align:center;margin:26px 0 12px;}
+    .hero-btn-row{gap:14px;}
+    .hero-btn-row .hero-btn{padding:16px 10px;font-size:14px;}
+
+    /* persona cards */
+    .persona-section{padding:56px 20px 40px;}
+    .persona-grid{flex-direction:row;align-items:stretch;gap:24px;margin-top:36px;}
+    .persona-card{flex:1;min-width:0;padding:28px 24px;transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease;cursor:default;}
+    .persona-card:hover{transform:translateY(-10px);box-shadow:0 28px 48px -20px rgba(74,58,224,.35);border-color:var(--violet-500);}
+    .persona-card h3{font-size:19px;}
+    .persona-card>p,.persona-item{font-size:13.5px;}
+
+    /* path to job-ready: 5 horizontal boxes */
+    .path2-section{padding:56px 20px 40px;}
+    .center-head{text-align:center;}
+    .path2-title{font-size:36px;}
+    .path2-lead{margin:10px auto 0;max-width:56ch;font-size:15px;}
+    .path-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-top:36px;}
+    .path-card{background:#fff;border:1.5px solid var(--line);border-radius:18px;padding:22px 18px;display:flex;flex-direction:column;align-items:flex-start;box-shadow:0 4px 18px rgba(20,15,80,.05);transition:transform .22s,box-shadow .22s,border-color .22s;}
+    .path-card:hover{transform:translateY(-8px);box-shadow:0 24px 40px -20px rgba(74,58,224,.3);border-color:var(--violet-500);}
+    .path-card.active{border-color:var(--violet-700);background:var(--lavender-50);}
+    .path-card.active .path2-num{background:var(--violet-700);border-color:var(--violet-700);color:#fff;}
+    .path-card h4{font-size:16px;font-weight:700;margin-top:16px;line-height:1.3;}
+    .path-card .path2-pill{margin-top:8px;}
+    .path-card p{font-size:12.5px;color:var(--ink-soft);line-height:1.55;margin-top:8px;}
+    .path2-progress{max-width:760px;margin:28px auto 0;padding:20px 24px;}
+    .path2-progress p{font-size:14.5px;}
+    .path-cta{display:flex;justify-content:center;margin-top:26px;}
+    .path-cta .hero-btn{width:auto;min-width:320px;padding:17px 34px;}
+
+    /* pricing: centered */
+    .pricing-section{padding:56px 20px 40px;max-width:820px !important;}
+    .price-tabs{max-width:400px;margin:22px auto 0;}
+    .price-card{margin-top:18px;}
+    .price-col{padding:22px 24px;}
+    .price-amt{font-size:24px;}
+    .price-feat{font-size:13px;}
+    .price-why,.price-social{font-size:12.5px;}
+    .price-social{justify-content:center;padding-top:14px;}
+    .price-why{text-align:center;}
+    .price-cta-row{padding:16px 24px 24px;max-width:420px;margin:0 auto;}
+
+    /* trust */
+    .trust-section{padding:40px 20px 64px;max-width:820px !important;text-align:center;}
+    .trust-section h3{font-size:22px !important;margin-bottom:20px !important;}
+
+    /* footer: full-bleed, 3 zones (as before) */
+    .app > .footer{max-width:none;margin:0;
+      padding:52px max(24px,calc((100% - 1180px)/2 + 20px)) 24px;
+      display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,2fr) minmax(0,1.1fr);
+      column-gap:56px;grid-template-rows:auto auto 1fr;}
+    .footer > .logo,.footer > .ftag,.footer > .footer-social{grid-column:1;}
+    .footer .footer-cols{grid-column:2;grid-row:1 / 4;flex-direction:row;gap:36px;margin-top:0;}
+    .footer .footer-col{flex:1;}
+    .footer .footer-news{grid-column:3;grid-row:1 / 4;margin-top:0;}
+    .footer .bottom{grid-column:1 / -1;margin-top:40px;}
+    .footer-col a{transition:color .15s;}
+    .footer-col a:hover{color:#fff;}
+
+    /* hover affordances for mouse users */
+    .hero-btn,.search-btn,.persona-cta,.price-cta,.frl-btn-primary,.frl-btn-outline,.frl-btn-heart,.list-cta,.frl-filter-chip,.price-tab,.frl-more-card button,.footer-news button{transition:transform .15s,box-shadow .15s,background .15s,filter .15s;cursor:pointer;}
+    .hero-btn:hover,.search-btn:hover,.persona-cta:hover,.price-cta:hover,.frl-btn-primary:hover,.frl-more-card button:hover,.footer-news button:hover{transform:translateY(-1px);filter:brightness(1.06);}
+    .hero-btn.secondary:hover,.frl-btn-outline:hover,.frl-btn-heart:hover,.list-cta:hover,.frl-filter-chip:hover{background:#F1EDFF;}
+    .price-tab{cursor:pointer;}
+
+    /* modal â†’ centered two-pane dialog */
+    .sheet-overlay{align-items:center;}
+    .sheet{
+      width:92%;max-width:1180px;max-height:88vh;border-radius:22px;
+      padding:26px 32px 28px;
+      display:grid;grid-template-columns:400px minmax(0,1fr);column-gap:32px;align-items:start;
+      transform:translateY(20px) scale(.98);opacity:0;
+      transition:transform .25s,opacity .2s;
+    }
+    .sheet-overlay.show .sheet{transform:none;opacity:1;}
+    .sheet > *{min-width:0;}
+    .sheet-handle{display:none;}
+    .modal-header-row{grid-column:1 / -1;}
+    .sheet .search-card{grid-column:1;grid-row:2;margin:0;position:sticky;top:0;}
+    .sheet > .divider{display:none;}
+    .sheet .frl-section{grid-column:2;grid-row:2;}
+    .frl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;}
+    .frl-more-card{grid-column:1 / -1;}
+    .modal-cancel-btn{grid-column:1 / -1;grid-row:3;justify-self:end;width:auto;padding:12px 28px;}
+    .modal-close-x{cursor:pointer;transition:background .15s;}
+    .modal-close-x:hover{background:#F1EDFF;}
+    .suggest-item{cursor:pointer;}
+  }
+@media(max-width:1000px){.nav{display:none}.hero h1{font-size:44px}.persona-grid{flex-direction:column}.path-grid{grid-template-columns:repeat(2,1fr)}.app > .footer{display:block}.footer .footer-cols{flex-direction:column;margin-top:30px}.footer .footer-news{margin-top:30px}}
+
+  /* ---------- FREELANCERS ON LUCOHIRE (home) â€” vertical list ---------- */
+  .live-pill{display:inline-flex;align-items:center;gap:7px;margin-top:12px;font-size:13px;font-weight:700;color:var(--green);background:var(--green-tint);padding:6px 14px;border-radius:99px;}
+  .live-pill i{width:8px;height:8px;border-radius:50%;background:var(--wa);box-shadow:0 0 0 4px rgba(22,163,74,.18);}
+  .frl-home{padding:20px 20px 56px;}
+  .frl-home .frl-filter-row{justify-content:center;flex-wrap:wrap;margin-top:22px;}
+  .frl-home .frl-filter-chip{font-size:13px;padding:8px 16px;cursor:pointer;}
+  .frl-home .frl-grid{display:flex;flex-direction:column;gap:18px;max-width:1040px;margin:26px auto 0;}
+  .frl-home .frl-wrap{transition:transform .22s,box-shadow .22s,border-color .22s;}
+  .frl-home .frl-wrap:hover{transform:translateY(-5px);box-shadow:0 26px 44px -22px rgba(74,58,224,.35);border-color:var(--violet-500);}
+  .frl-home .frl-wrap[hidden]{display:none;}
+  .frl-home .frl-card{display:grid;grid-template-columns:1.1fr 1fr 1fr;column-gap:28px;row-gap:16px;align-items:center;padding:22px 26px;
+    grid-template-areas:"top meta boxes" "verify skills actions";}
+  .frl-home .frl-top{grid-area:top;}
+  .frl-home .frl-meta-row{grid-area:meta;margin:0;padding:0;border-top:none;}
+  .frl-home .frl-boxes{grid-area:boxes;margin:0;}
+  .frl-home .frl-verify-row{grid-area:verify;margin:0;}
+  .frl-home .frl-skills{grid-area:skills;margin:0;}
+  .frl-home .frl-actions-row{grid-area:actions;margin:0;}
+  .frl-home .frl-more-card{display:grid;grid-template-columns:auto 1fr auto;column-gap:26px;text-align:left;padding:24px 32px;align-items:center;}
+  .frl-home .frl-more-card .n{grid-row:1/3;font-size:36px;}
+  .frl-home .frl-more-card .t{grid-column:2;align-self:end;font-size:16px;}
+  .frl-home .frl-more-card .d{grid-column:2;grid-row:2;align-self:start;max-width:none;font-size:13px;}
+  .frl-home .frl-more-card button{grid-column:3;grid-row:1/3;margin:0;padding:14px 26px;font-size:14px;cursor:pointer;transition:transform .15s,filter .15s;}
+  .frl-home .frl-more-card button:hover{transform:translateY(-1px);filter:brightness(1.08);}
+  .frl-empty{text-align:center;padding:26px;border:1.5px dashed var(--line);border-radius:18px;color:var(--ink-soft);font-size:14px;}
+  .frl-empty a{color:var(--violet-700);font-weight:700;text-decoration:none;}
+  @media(max-width:1000px){.frl-home .frl-card{grid-template-columns:1fr;grid-template-areas:"top" "meta" "skills" "boxes" "verify" "actions";}.frl-home .frl-more-card{grid-template-columns:1fr;text-align:center}.frl-home .frl-more-card .n,.frl-home .frl-more-card button,.frl-home .frl-more-card .t,.frl-home .frl-more-card .d{grid-column:1;grid-row:auto}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <a class="brand" href="#" aria-label="LucoHire home">
+      <svg class="brand-mark" width="38" height="38" viewBox="0 0 40 40" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6C5CE8"/><stop offset="1" stop-color="#4A3AE0"/></linearGradient></defs><rect width="40" height="40" rx="11" fill="url(#lg)"/><path d="M13 10v15a2 2 0 0 0 2 2h4" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><path d="M21 21.5l4.2 4.2L32 17" stroke="#F5C445" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="logo"><span class="luco">Luco</span><span class="hire">Hire</span></span>
+    </a>
+    <nav class="nav">
+      <a href="#freelancers">Freelancers</a>
+      <a href="#how">How it works</a>
+      <a href="#oneFlowSection">Job-ready path</a>
+      <a href="#pricing">Free vs Paid</a>
+    </nav>
+    <button class="icon-btn" aria-label="Account">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+    </button>
+  </header>
+
+  <!-- HERO â€” centered banner -->
+  <section class="hero">
+    <h1>Your Next Job.<br>Or Your Next <span class="accent">Client.</span></h1>
+    <p class="sub">Job seekers: free resume check. Freelancers: get listed free. Recruiters: find &amp; hire freelancers free. Ek hi platform, teeno ke liye.</p>
+  </section>
+
+  <!-- WHY AM I NOT GETTING HIRED â€” directly below hero -->
+  <section class="cta-section">
+    <div class="hero-btns">
+      <button class="hero-btn primary" id="resumeCta">
+        Why am I not getting hired?
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+      <div class="hero-cta-label">Freelance marketplace â€” hire, or get hired</div>
+      <div class="hero-btn-row">
+        <button class="hero-btn primary" id="findFreelancerBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Find Freelancer
+          <span class="hero-btn-sub">I'm hiring</span>
+        </button>
+        <button class="hero-btn secondary" id="registerFreelancerBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 5v14M5 12h14"/></svg>
+          Register as Freelancer
+          <span class="hero-btn-sub">I want work</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FREELANCERS ON LUCOHIRE â€” vertical list, directly below the hire CTA -->
+  <section class="frl-home" id="freelancers">
+    <div class="center-head">
+      <h3 class="sec-title">Freelancers on LucoHire</h3>
+      <span class="live-pill"><i></i>6,200+ live</span>
+    </div>
+    <div class="frl-filter-row" id="homeFilterRow">
+      <button class="frl-filter-chip on" data-f="all">All</button>
+      <button class="frl-filter-chip" data-f="design">Design</button>
+      <button class="frl-filter-chip" data-f="dev">Development</button>
+      <button class="frl-filter-chip" data-f="content">Content</button>
+      <button class="frl-filter-chip" data-f="video">Video &amp; Audio</button>
+      <button class="frl-filter-chip" data-f="marketing">Marketing</button>
+    </div>
+    <div class="frl-grid" id="homeGrid">
+      <!-- Card 1 â€” boosted -->
+      <div class="frl-wrap" data-cat="content">
+        <div class="frl-boost-tag">âš¡ Boosted profile Â· Responds fast</div>
+        <div class="frl-card">
+          <div class="frl-top">
+            <div class="frl-photo-wrap">
+              <img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Ananya Verma">
+              <span class="frl-online"></span>
+            </div>
+            <div class="frl-info">
+              <div class="frl-name-row"><div class="frl-name">Ananya Verma</div>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="10" fill="#4A3AE0"/><path d="M6 10.2l2.4 2.4L14 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="frl-role">SaaS Content Writer</div>
+              <div class="frl-loc-row">ðŸ“ Pune Â· ðŸŒ Remote</div>
+            </div>
+            <div class="frl-rating-col">
+              <div class="frl-rating"><span>â˜…</span> 4.9</div>
+              <div class="frl-rating-lbl">120 jobs</div>
+            </div>
+          </div>
+          <div class="frl-meta-row">
+            <div class="frl-meta-col"><div class="frl-meta-num">3+ Yrs</div><div class="frl-meta-lbl">Experience</div></div>
+            <div class="frl-meta-col"><div class="frl-meta-num">100%</div><div class="frl-meta-lbl">Response rate</div></div>
+            <div class="frl-meta-col"><div class="frl-meta-num">Today</div><div class="frl-meta-lbl">Can start</div></div>
+          </div>
+          <div class="frl-skills"><span class="frl-chip">SaaS Copy</span><span class="frl-chip">SEO Writing</span><span class="frl-chip">Notion</span></div>
+          <div class="frl-boxes">
+            <div class="frl-box"><div class="big">â‚¹4<span>/word</span></div><div class="box-lbl">Starting rate</div></div>
+            <div class="frl-box avail"><div class="big">3 slots<span>open</span></div><div class="box-lbl">This month</div></div>
+          </div>
+          <div class="frl-verify-row">
+            <div class="frl-verify-item">âœ” ID Verified</div>
+            <div class="frl-verify-item">âœ” Portfolio Verified</div>
+            <div class="frl-verify-item">âœ” Payment Verified</div>
+          </div>
+          <div class="frl-actions-row">
+            <button class="frl-btn-outline">View Profile</button>
+            <button class="frl-btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Message
+            </button>
+            <button class="frl-btn-heart">â™¡</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="frl-wrap" data-cat="video">
+        <div class="frl-card">
+          <div class="frl-top">
+            <div class="frl-photo-wrap">
+              <img src="https://randomuser.me/api/portraits/men/52.jpg" alt="Rohit Malhotra">
+              <span class="frl-online"></span>
+            </div>
+            <div class="frl-info">
+              <div class="frl-name-row"><div class="frl-name">Rohit Malhotra</div></div>
+              <div class="frl-role">Voice-over &amp; Audio Editor</div>
+              <div class="frl-loc-row">ðŸ“ Lucknow Â· ðŸŒ Remote</div>
+            </div>
+            <div class="frl-rating-col">
+              <div class="frl-rating"><span>â˜…</span> 4.8</div>
+              <div class="frl-rating-lbl">80 jobs</div>
+            </div>
+          </div>
+          <div class="frl-meta-row">
+            <div class="frl-meta-col"><div class="frl-meta-num">5+ Yrs</div><div class="frl-meta-lbl">Experience</div></div>
+            <div class="frl-meta-col"><div class="frl-meta-num">95%</div><div class="frl-meta-lbl">Response rate</div></div>
+            <div class="frl-meta-col"><div class="frl-meta-num">Tomorrow</div><div class="frl-meta-lbl">Can start</div></div>
+          </div>
+          <div class="frl-skills"><span class="frl-chip">Voice-over</span><span class="frl-chip">Audio Editing</span><span class="frl-chip">Hindi + English</span></div>
+          <div class="frl-boxes">
+            <div class="frl-box"><div class="big">â‚¹2,500<span>/project</span></div><div class="box-lbl">Starting rate</div></div>
+            <div class="frl-box avail"><div class="big">5 slots<span>open</span></div><div class="box-lbl">This month</div></div>
+          </div>
+          <div class="frl-verify-row">
+            <div class="frl-verify-item">âœ” ID Verified</div>
+            <div class="frl-verify-item">âœ” Portfolio Verified</div>
+          </div>
+          <div class="frl-actions-row">
+            <button class="frl-btn-outline">View Profile</button>
+            <button class="frl-btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Message
+            </button>
+            <button class="frl-btn-heart">â™¡</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="frl-wrap" data-cat="design">
+        <div class="frl-card">
+          <div class="frl-top">
+            <div class="frl-photo-wrap">
+              <img src="https://randomuser.me/api/portraits/women/54.jpg" alt="Meher Kaur">
+              <span class="frl-online"></span>
+            </div>
+            <div class="frl-info">
+              <div class="frl-name-row"><div class="frl-name">Meher Kaur</div>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="10" fill="#4A3AE0"/><path d="M6 10.2l2.4 2.4L14 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="frl-role">Logo &amp; Brand Designer</div>
+              <div class="frl-loc-row">ðŸ“ Delhi Â· ðŸŒ Remote</div>
+            </div>
+            <div class="frl-rating-col">
+              <div class="frl-rating"><span>â˜…</span> 5.0</div>
+              <div class="frl-rating-lbl">150 jobs</div>
+            </div>
+          </div>
+          <div class="frl-meta-row">
+            <div class="frl-meta-col"><div class="frl-meta-num">4+ Yrs</div><div class="frl-meta-lbl">Experience</div></div>
+            <div class="frl-meta-col"><div class="frl-meta-num">98%</div><div class="frl-meta-lbl">Response rate</div></div>
+            <div class="frl-meta-col"><div class="frl-meta-num">Today</div><div class="frl-meta-lbl">Can start</div></div>
+          </div>
+          <div class="frl-skills"><span class="frl-chip">Figma</span><span class="frl-chip">Branding</span><span class="frl-chip">Illustration</span></div>
+          <div class="frl-boxes">
+            <div class="frl-box"><div class="big">â‚¹3,000<span>/logo</span></div><div class="box-lbl">Starting rate</div></div>
+            <div class="frl-box avail"><div class="big">2 slots<span>open</span></div><div class="box-lbl">This month</div></div>
+          </div>
+          <div class="frl-verify-row">
+            <div class="frl-verify-item">âœ” ID Verified</div>
+            <div class="frl-verify-item">âœ” Portfolio Verified</div>
+            <div class="frl-verify-item">âœ” Payment Verified</div>
+          </div>
+          <div class="frl-actions-row">
+            <button class="frl-btn-outline">View Profile</button>
+            <button class="frl-btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Message
+            </button>
+            <button class="frl-btn-heart">â™¡</button>
+          </div>
+        </div>
+      </div>
+
+      
+      <div class="frl-empty" id="homeEmpty" hidden>No featured freelancers in this category here â€” <a href="#" onclick="goAll(homeCat);return false;">browse all in this category â†’</a></div>
+      <!-- View more -->
+      <div class="frl-more-card">
+        <div class="n">+6,197</div>
+        <div class="t">More freelancers waiting</div>
+        <div class="d">Browse everyone, filtered by skill, rate, rating or location.</div>
+        <button onclick="goAll(homeCat)">View All Freelancers â†’</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW LUCOHIRE WORKS â€” FOR FREELANCERS & RECRUITERS -->
+  <div class="persona-section" id="how">
+    <p class="eyebrow">How LucoHire Works</p>
+    <h3 class="sec-title">One platform. Two sides. Real work, done fast.</h3>
+    <p class="sec-lead">Whether you're here to hire freelancers online or find freelance jobs that pay â€” here's what you get.</p>
+
+    <div class="persona-grid">
+      <div class="persona-card seeker">
+        <span class="persona-tag">FOR JOB SEEKERS</span>
+        <h3>Free resume check, then a clear plan to get job-ready.</h3>
+        <p>No more guessing why applications go unanswered. See your gaps, close them, and track your readiness for the role you actually want.</p>
+        <div class="persona-list">
+          <div class="persona-item"><span class="ic">âœ“</span>Instant ATS score with a fix-it list, not vague feedback</div>
+          <div class="persona-item"><span class="ic">âœ“</span>A 5-step guided path: Batao â†’ Padhaao â†’ Practice â†’ Test â†’ Bata do</div>
+          <div class="persona-item"><span class="ic">âš¡</span>List your skills too, and pick up freelance work while you search</div>
+        </div>
+      </div>
+
+      <div class="persona-card freelancer">
+        <span class="persona-tag">FOR FREELANCERS</span>
+        <h3>Find freelance jobs online and get hired faster.</h3>
+        <p>Create your free profile, get discovered by verified clients, and start earning from home â€” no bidding wars, no fee to apply.</p>
+        <div class="persona-list">
+          <div class="persona-item"><span class="ic">âœ“</span>Get notified the instant a client posts work matching your skill</div>
+          <div class="persona-item"><span class="ic">âœ“</span>A verified profile ranks higher and gets picked first</div>
+          <div class="persona-item"><span class="ic">âš¡</span>List every skill you freelance in â€” design, writing, dev, more</div>
+        </div>
+      </div>
+
+      <div class="persona-card recruiter">
+        <span class="persona-tag">FOR CLIENTS &amp; RECRUITERS</span>
+        <h3>Hire freelancers online â€” fast, free and verified.</h3>
+        <p>Post a job for free and get matched with ID-verified freelancers across design, development, content, video and marketing.</p>
+        <div class="persona-list">
+          <div class="persona-item"><span class="ic">âœ“</span>Message your first <b style="color:var(--green)">4 freelancers</b> free on any requirement</div>
+          <div class="persona-item"><span class="ic">âœ“</span>Every matching freelancer is notified the moment you post</div>
+          <div class="persona-item"><span class="ic">âš¡</span>Too many applicants? Let us shortlist the top 5â€“6 for you</div>
+        </div>
+      </div>
+    </div>
+  </div>
+<!-- YOUR PATH TO JOB-READY -->
+  <div class="path2-section" id="oneFlowSection">
+    <div class="center-head">
+      <span class="path2-badge"><span class="dot"></span>YOUR PATH TO JOB-READY</span>
+      <h3 class="path2-title">One flow, start to finish.</h3>
+      <p class="path2-lead">So you're not jumping across 5 apps just to prep for one job.</p>
+    </div>
+    <div class="path-grid">
+      <div class="path-card">
+        <div class="path2-num">1</div>
+        <h4>Check karo and batao</h4>
+        <p>We compare the job to your profile and name the exact gaps â€” not a generic syllabus everyone gets.</p>
+      </div>
+      <div class="path-card active">
+        <div class="path2-num">2</div>
+        <h4>Padhaao</h4><span class="path2-pill">IN PROGRESS</span>
+        <p>Bite-sized lessons on just those gaps â€” SQL joins, System Design basics, whatever's actually missing.</p>
+      </div>
+      <div class="path-card">
+        <div class="path2-num">3</div>
+        <h4>Practice karao</h4>
+        <p>Real interview-style questions and scenarios, not flashcards â€” until it actually sticks.</p>
+      </div>
+      <div class="path-card">
+        <div class="path2-num">4</div>
+        <h4>Test karo</h4>
+        <p>A timed test built like what recruiters actually screen for â€” no guessing your own score.</p>
+      </div>
+      <div class="path-card">
+        <div class="path2-num">5</div>
+        <h4>Bata do â€” ready hoon ya nahi</h4>
+        <p>One straight verdict: job-ready, or exactly what's left before you can say yes.</p>
+      </div>
+    </div>
+    <div class="path2-progress">
+      <div class="path2-target">ðŸŽ¯</div>
+      <p>Example: a Senior UX Designer candidate reaches <b>68% ready</b> after Padhaao â€” 2 topics left before "go apply."</p>
+      <div class="path2-bar"><span style="width:68%;"></span></div>
+    </div>
+    <div class="path-cta">
+      <button class="hero-btn primary" onclick="window.open('https://claude.ai/artifact/6ButkHgMDeaf94Fpsod7Rh','_blank')">
+        Start My Resume Check
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- PRICING -->
+  <div class="pricing-section" id="pricing">
+    <p class="eyebrow">Free vs Paid</p>
+    <h3 class="sec-title">What's free, and what's worth paying for</h3>
+
+    <div class="price-tabs" id="priceTabs">
+      <div class="price-tab active" data-c="freelancer" onclick="setPricing('freelancer')">Freelancer</div>
+      <div class="price-tab" data-c="recruiter" onclick="setPricing('recruiter')">Recruiter / Client</div>
+    </div>
+
+    <div class="price-card" id="price-card"><!-- filled by JS --></div>
+  </div>
+<!-- TRUST -->
+  <div class="trust-section">
+    <p class="eyebrow">Why LucoHire</p>
+    <h3 style="font-size:18px;margin-bottom:14px;">Built so both sides show up serious</h3>
+    <div class="trust-row">
+      <div class="trust-item"><div class="ti-num">98%</div><div class="ti-lbl">Requirements get a response</div></div>
+      <div class="trust-item"><div class="ti-num">~12 min</div><div class="ti-lbl">Avg. freelancer response time</div></div>
+      <div class="trust-item"><div class="ti-num">4.7â˜…</div><div class="ti-lbl">Avg. freelancer rating</div></div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="logo"><span class="luco">Luco</span><span class="hire" style="color:var(--gold);">Hire</span></div>
+    <p class="ftag">India's AI-assisted freelance marketplace to hire verified freelancers online and find freelance jobs that actually pay â€” fair distribution, WhatsApp-first support.</p>
+    <div class="footer-social">
+      <a href="#" aria-label="Facebook">f</a>
+      <a href="#" aria-label="Twitter">ð•</a>
+      <a href="#" aria-label="LinkedIn">in</a>
+      <a href="#" aria-label="Instagram">â—Ž</a>
+    </div>
+
+    <div class="footer-cols">
+      <div class="footer-col">
+        <h5>For Freelancers</h5>
+        <a href="#">Find Freelance Jobs</a>
+        <a href="#">Create Your Profile</a>
+        <a href="#">Freelancing Tips</a>
+        <a href="#">Pricing</a>
+        <a href="#">Help Center</a>
+      </div>
+      <div class="footer-col">
+        <h5>For Clients &amp; Recruiters</h5>
+        <a href="#">Post a Requirement</a>
+        <a href="freelancers.html">Find Freelancers</a>
+        <a href="#">Pricing</a>
+        <a href="#">Resources</a>
+      </div>
+      <div class="footer-col">
+        <h5>Company</h5>
+        <a href="#">About Us</a>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms &amp; Conditions</a>
+        <a href="#">Contact Us</a>
+        <a href="#">Refund Policy</a>
+      </div>
+    </div>
+
+    <div class="footer-news">
+      <h5>Stay Updated</h5>
+      <p>Freelance job alerts &amp; platform news â€” once a month.</p>
+      <div class="footer-news-row">
+        <input type="email" placeholder="you@email.com">
+        <button>Subscribe â†’</button>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <span>Â© 2026 LucoHire. All rights reserved.</span>
+      <span class="secure">ðŸ”’ Secure &amp; verified</span>
+    </div>
+  </footer>
+
+</div>
+
+  <div class="sheet-overlay" id="freelancerModalOverlay" onclick="if(event.target===this) closeFreelancerModal()">
+    <div class="sheet" id="freelancerSheet">
+      <div class="sheet-handle"></div>
+      <div class="modal-header-row">
+        <div class="modal-title">Find a Freelancer</div>
+        <button class="modal-close-x" onclick="closeFreelancerModal()" aria-label="Close">âœ•</button>
+      </div>
+
+    <div class="search-card" id="freelancePanel">
+      <div class="search-field">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="searchInput" type="text" placeholder="What do you need done? (e.g. Logo design)" autocomplete="off"
+          oninput="filterSuggest('searchInput','searchSuggest', SKILLS)" onfocus="openAll('searchInput','searchSuggest', SKILLS)">
+        <div class="suggest-box" id="searchSuggest"></div>
+      </div>
+      <p class="search-hint">e.g. Logo design, React developer, Video editing, Content writer</p>
+
+      <button class="search-btn" id="searchBtn">
+        Find Freelancers
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+
+      <div class="search-divider"><div class="l"></div><span>are you a freelancer?</span><div class="l"></div></div>
+
+      <button class="list-cta" id="listCta">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 5v14M5 12h14"/></svg>
+        Get Listed as a Freelancer
+      </button>
+      <p class="list-cta-sub">Free forever, <b>2 minutes</b> to set up. Pay only if you want a verified badge or to boost your profile.</p>
+    </div>
+
+    <div class="divider" style="padding:14px 0;"><div class="line"></div><div class="dot"></div><div class="line rev"></div></div>
+
+    <div class="frl-section" style="padding:0;">
+    <div class="frl-head">
+      <h3>Freelancers on LucoHire</h3>
+      <span class="frl-count">6,200+ live</span>
+    </div>
+
+    <div class="frl-filter-row" id="frlFilterRow">
+      <button class="frl-filter-chip on" data-f="all">All</button>
+      <button class="frl-filter-chip" data-f="design">Design</button>
+      <button class="frl-filter-chip" data-f="dev">Development</button>
+      <button class="frl-filter-chip" data-f="content">Content</button>
+      <button class="frl-filter-chip" data-f="video">Video &amp; Audio</button>
+      <button class="frl-filter-chip" data-f="marketing">Marketing</button>
+    </div>
+
+    <div class="frl-grid">
+
+      <!-- Card 1 â€” boosted -->
+      <div class="frl-wrap">
+        <div class="frl-boost-tag">âš¡ Boosted profile Â· Responds fast</div>
+        <div class="frl-card">
+          <div class="frl-top">
+            <div class="frl-photo-wrap">
+              <img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Ananya Verma">
+              <span class="frl-online"></span>
+            </div>
+            <div class="frl-info">
+              <div class="frl-name-row"><div class="frl-name">Ananya Verma</div>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="10" fill="#4A3AE0"/><path d="M6 10.2l2.4 2.4L14 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="frl-role">SaaS Content Writer</div>
+              <div class="frl-loc-row">ðŸ“ Pune Â· ðŸŒ Remote</div>
+            </div>
+            <div class="frl-rating-col">
+              <div class="frl-rating"><span>â˜…</span> 4.9</div>
+              <div class="frl-rating-lbl">120 jobs</div>
+            </div>
+          </div>
+          <div class="frl-meta-row">
+            <div class="frl-meta-col"><div class="frl-meta-num">3+ Yrs</div><div class="frl-meta-lbl">Experience</div></div>
+            <div class="frl-meta-col"><div class="frl-meta-num">100%</div><div class="frl-meta-lbl">Response rate</div></div>
+            <div class="frl-meta-col"><div class="frl-meta-num">Today</div><div class="frl-meta-lbl">Can start</div></div>
+          </div>
+          <div class="frl-skills"><span class="frl-chip">SaaS Copy</span><span class="frl-chip">SEO Writing</span><span class="frl-chip">Notion</span></div>
+          <div class="frl-boxes">
+            <div class="frl-box"><div class="big">â‚¹4<span>/word</span></div><div class="box-lbl">Starting rate</div></div>
+            <div class="frl-box avail"><div class="big">3 slots<span>open</span></div><div class="box-lbl">This month</div></div>
+          </div>
+          <div class="frl-verify-row">
+            <div class="frl-verify-item">âœ” ID Verified</div>
+            <div class="frl-verify-item">âœ” Portfolio Verified</div>
+            <div class="frl-verify-item">âœ” Payment Verified</div>
+          </div>
+          <div class="frl-actions-row">
+            <button class="frl-btn-outline">View Profile</button>
+            <button class="frl-btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Message
+            </button>
+            <button class="frl-btn-heart">â™¡</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="frl-wrap">
+        <div class="frl-card">
+          <div class="frl-top">
+            <div class="frl-photo-wrap">
+              <img src="https://randomuser.me/api/portraits/men/52.jpg" alt="Rohit Malhotra">
+              <span class="frl-online"></span>
+            </div>
+            <div class="frl-info">
+              <div class="frl-name-row"><div class="frl-name">Rohit Malhotra</div></div>
+              <div class="frl-role">Voice-over &amp; Audio Editor</div>
+              <div class="frl-loc-row">ðŸ“ Lucknow Â· ðŸŒ Remote</div>
+            </div>
+            <div class="frl-rating-col">
+              <div class="frl-rating"><span>â˜…</span> 4.8</div>
+              <div class="frl-rating-lbl">80 jobs</div>
+            </div>
+          </div>
+          <div class="frl-meta-row">
+            <div class="frl-meta-col"><div class="frl-meta-num">5+ Yrs</div><div class="frl-meta-lbl">Experience</div></div>
+            <div class="frl-meta-col"><div class="frl-meta-num">95%</div><div class="frl-meta-lbl">Response rate</div></div>
+            <div class="frl-meta-col"><div class="frl-meta-num">Tomorrow</div><div class="frl-meta-lbl">Can start</div></div>
+          </div>
+          <div class="frl-skills"><span class="frl-chip">Voice-over</span><span class="frl-chip">Audio Editing</span><span class="frl-chip">Hindi + English</span></div>
+          <div class="frl-boxes">
+            <div class="frl-box"><div class="big">â‚¹2,500<span>/project</span></div><div class="box-lbl">Starting rate</div></div>
+            <div class="frl-box avail"><div class="big">5 slots<span>open</span></div><div class="box-lbl">This month</div></div>
+          </div>
+          <div class="frl-verify-row">
+            <div class="frl-verify-item">âœ” ID Verified</div>
+            <div class="frl-verify-item">âœ” Portfolio Verified</div>
+          </div>
+          <div class="frl-actions-row">
+            <button class="frl-btn-outline">View Profile</button>
+            <button class="frl-btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Message
+            </button>
+            <button class="frl-btn-heart">â™¡</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="frl-wrap">
+        <div class="frl-card">
+          <div class="frl-top">
+            <div class="frl-photo-wrap">
+              <img src="https://randomuser.me/api/portraits/women/54.jpg" alt="Meher Kaur">
+              <span class="frl-online"></span>
+            </div>
+            <div class="frl-info">
+              <div class="frl-name-row"><div class="frl-name">Meher Kaur</div>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="10" fill="#4A3AE0"/><path d="M6 10.2l2.4 2.4L14 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="frl-role">Logo &amp; Brand Designer</div>
+              <div class="frl-loc-row">ðŸ“ Delhi Â· ðŸŒ Remote</div>
+            </div>
+            <div class="frl-rating-col">
+              <div class="frl-rating"><span>â˜…</span> 5.0</div>
+              <div class="frl-rating-lbl">150 jobs</div>
+            </div>
+          </div>
+          <div class="frl-meta-row">
+            <div class="frl-meta-col"><div class="frl-meta-num">4+ Yrs</div><div class="frl-meta-lbl">Experience</div></div>
+            <div class="frl-meta-col"><div class="frl-meta-num">98%</div><div class="frl-meta-lbl">Response rate</div></div>
+            <div class="frl-meta-col"><div class="frl-meta-num">Today</div><div class="frl-meta-lbl">Can start</div></div>
+          </div>
+          <div class="frl-skills"><span class="frl-chip">Figma</span><span class="frl-chip">Branding</span><span class="frl-chip">Illustration</span></div>
+          <div class="frl-boxes">
+            <div class="frl-box"><div class="big">â‚¹3,000<span>/logo</span></div><div class="box-lbl">Starting rate</div></div>
+            <div class="frl-box avail"><div class="big">2 slots<span>open</span></div><div class="box-lbl">This month</div></div>
+          </div>
+          <div class="frl-verify-row">
+            <div class="frl-verify-item">âœ” ID Verified</div>
+            <div class="frl-verify-item">âœ” Portfolio Verified</div>
+            <div class="frl-verify-item">âœ” Payment Verified</div>
+          </div>
+          <div class="frl-actions-row">
+            <button class="frl-btn-outline">View Profile</button>
+            <button class="frl-btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Message
+            </button>
+            <button class="frl-btn-heart">â™¡</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- View more -->
+      <div class="frl-more-card">
+        <div class="n">+6,197</div>
+        <div class="t">More freelancers waiting</div>
+        <div class="d">Browse everyone, filtered by skill, rate, rating or location.</div>
+        <button onclick="goAll('all')">View All Freelancers â†’</button>
+      </div>
+
+    </div>
+  </div>
+
+  <button class="modal-cancel-btn" onclick="closeFreelancerModal()">Cancel</button>
+    </div>
+  </div>
+
+<script>
+/* ---------- HERO BUTTONS ---------- */
+document.getElementById('resumeCta').addEventListener('click', ()=>{
+  document.getElementById('oneFlowSection').scrollIntoView({behavior:'smooth'});
+});
+document.getElementById('findFreelancerBtn').addEventListener('click', ()=> openFreelancerModal('search'));
+document.getElementById('registerFreelancerBtn').addEventListener('click', ()=> openFreelancerModal('register'));
+
+/* ---------- FIND-A-FREELANCER MODAL ---------- */
+function openFreelancerModal(focus){
+  document.getElementById('freelancerModalOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  const sheet = document.getElementById('freelancerSheet');
+  sheet.scrollTop = 0;
+  if(focus === 'register'){
+    setTimeout(()=> document.getElementById('listCta').scrollIntoView({behavior:'smooth', block:'center'}), 200);
+  }
+}
+function closeFreelancerModal(){
+  document.getElementById('freelancerModalOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+/* ---------- SMART SEARCH: autosuggest for skill, budget, location ---------- */
+const SKILLS = ["Logo Design","React Developer","Video Editing","Content Writing","SEO Expert","UI/UX Designer","WordPress Developer","Social Media Marketing","Voice-over Artist","Data Entry","App Developer","Python Developer","Graphic Designer","Photographer","Translator","Virtual Assistant","Copywriter","Illustrator","3D Animator","Digital Marketer","Video Editor","Brand Designer","SaaS Content Writer"];
+const BUDGETS = ["Any budget","Under â‚¹2,000","â‚¹2,000 â€“ â‚¹5,000","â‚¹5,000 â€“ â‚¹10,000","â‚¹10,000 â€“ â‚¹20,000","â‚¹20,000 â€“ â‚¹50,000","â‚¹50,000 â€“ â‚¹1,00,000","â‚¹1,00,000+"];
+const CITIES = ["Remote","Anywhere in India","Bengaluru","Mumbai","Delhi NCR","Pune","Hyderabad","Chennai","Kolkata","Ahmedabad","Jaipur","Chandigarh","Lucknow","Surat","Indore","Kochi","Nagpur","Bhopal","Noida","Gurugram"];
+
+function highlightMatch(text,val){
+  const idx = text.toLowerCase().indexOf(val);
+  if(idx===-1) return text;
+  return text.slice(0,idx) + '<b>' + text.slice(idx,idx+val.length) + '</b>' + text.slice(idx+val.length);
+}
+
+function filterSuggest(inputId, boxId, list){
+  const val = document.getElementById(inputId).value.trim().toLowerCase();
+  const box = document.getElementById(boxId);
+  if(!val){ openAll(inputId, boxId, list); return; }
+  const matches = list.filter(x=>x.toLowerCase().includes(val)).slice(0,7);
+  if(!matches.length){
+    box.innerHTML = '<div class="suggest-empty">No exact match â€” press enter to search anyway</div>';
+    box.classList.add('show');
+    return;
+  }
+  box.innerHTML = matches.map(m=>`<div class="suggest-item" onmousedown="pickSuggest('${inputId}','${boxId}', this)">${highlightMatch(m,val)}</div>`).join('');
+  box.classList.add('show');
+}
+
+function openAll(inputId, boxId, list){
+  const box = document.getElementById(boxId);
+  box.innerHTML = list.slice(0,7).map(m=>`<div class="suggest-item" onmousedown="pickSuggest('${inputId}','${boxId}', this)">${m}</div>`).join('');
+  box.classList.add('show');
+}
+
+function pickSuggest(inputId, boxId, el){
+  document.getElementById(inputId).value = el.textContent;
+  document.getElementById(boxId).classList.remove('show');
+}
+
+document.addEventListener('click', (e)=>{
+  document.querySelectorAll('.suggest-box.show').forEach(b=>{
+    if(!b.closest('.pill-select, .search-field').contains(e.target)) b.classList.remove('show');
+  });
+});
+
+/* Filter chips â€” visual toggle only in this mock */
+document.getElementById('frlFilterRow').addEventListener('click', (e) => {
+  const chip = e.target.closest('.frl-filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('#frlFilterRow .frl-filter-chip').forEach(c => c.classList.remove('on'));
+  chip.classList.add('on');
+});
+
+
+/* View-all â†’ separate listing page */
+let homeCat='all';
+function goAll(cat){ window.location.href='freelancers.html'+(cat&&cat!=='all'?'?cat='+cat:''); }
+document.getElementById('homeFilterRow').addEventListener('click',(e)=>{
+  const chip=e.target.closest('.frl-filter-chip'); if(!chip) return;
+  document.querySelectorAll('#homeFilterRow .frl-filter-chip').forEach(c=>c.classList.remove('on'));
+  chip.classList.add('on'); homeCat=chip.dataset.f;
+  let n=0;
+  document.querySelectorAll('#homeGrid .frl-wrap').forEach(w=>{const show=homeCat==='all'||w.dataset.cat===homeCat; w.hidden=!show; if(show)n++;});
+  document.getElementById('homeEmpty').hidden=n>0;
+});
+
+/* Pricing tabs */
+const CHK = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+
+const PRICING = {
+  freelancer: {
+    color:'var(--wa)', tint:'var(--wa-tint)',
+    freeAmt:'â‚¹0', freeUnit:'/forever',
+    free:['Create your full profile','Show up in search & get notified of matching requirements','Accept requirements & message clients','Unlimited applications'],
+    premAmt:'From â‚¹49', premUnit:'/month',
+    prem:['Verified badge â€” ID, payment & portfolio checked','Profile boost â€” placed above unverified profiles','Priority on new matching requirements'],
+    why:'<b>Free</b> gets you listed and matched. <b>Verified + Boosted</b> gets you picked first.',
+    social:'2,300+ freelancers already verified or boosted',
+    cta:'Get Verified â€” from â‚¹49/month'
+  },
+  recruiter: {
+    color:'var(--amber)', tint:'var(--amber-tint)',
+    freeAmt:'â‚¹0', freeUnit:'/forever',
+    free:['Post unlimited requirements','Search & browse every profile','Open full profiles, no limit','Message your first 4 freelancers per requirement'],
+    premAmt:'â‚¹1,499', premUnit:'/month',
+    prem:['Unlimited messages to freelancers','AI-shortlisted top 5â€“6 matches per requirement','Priority support'],
+    why:'<b>Free</b> lets you browse everyone. <b>Premium</b> tells you exactly who to message first.',
+    social:'1,100+ businesses hiring on LucoHire',
+    cta:'Upgrade â€” â‚¹1,499/month'
+  }
+};
+
+function setPricing(key){
+  document.querySelectorAll('.price-tab').forEach(t=>t.classList.toggle('active', t.dataset.c===key));
+  const d = PRICING[key];
+  const featHtml = (list, cls) => list.map(f=>`<div class="price-feat" style="color:${cls==='premium'?d.color:'var(--green)'}">${CHK}<span style="color:var(--ink-soft)">${f}</span></div>`).join('');
+  document.getElementById('price-card').innerHTML = `
+    <div class="price-cols">
+      <div class="price-col free">
+        <div class="price-col-lbl">Free</div>
+        <div class="price-amt">${d.freeAmt}<span>${d.freeUnit}</span></div>
+        ${featHtml(d.free,'free')}
+      </div>
+      <div class="price-col premium" style="background:${d.tint};">
+        <div class="premium-badge">WORTH IT</div>
+        <div class="price-col-lbl" style="color:${d.color};">Paid</div>
+        <div class="price-amt" style="color:${d.color};">${d.premAmt}<span style="color:${d.color};opacity:.7;">${d.premUnit}</span></div>
+        ${featHtml(d.prem,'premium')}
+      </div>
+    </div>
+    <div class="price-why">${d.why}</div>
+    <div class="price-social">
+      <div class="avatars"><span></span><span></span><span></span></div>
+      ${d.social}
+    </div>
+    <div class="price-cta-row"><button class="price-cta" style="background:${d.color};">${d.cta}</button></div>
+  `;
+}
+setPricing('freelancer');
+</script>
+</body>
+</html>
