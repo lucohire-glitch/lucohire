@@ -1,4 +1,4 @@
-@import "tailwindcss";
+ï»¿@import "tailwindcss";
 
 :root {
   --violet-900: #241A5E;
@@ -3825,7 +3825,7 @@ footer.wizard-footer button {
 }
 
 /* ==========================================================================
-   RESPONSIVE — Registration Screens (Desktop)
+   RESPONSIVE ï¿½ Registration Screens (Desktop)
    ========================================================================== */
 
 @media (min-width: 768px) {
@@ -3865,3 +3865,4 @@ footer.wizard-footer button {
     min-height: 400px;
   }
 }
+
