@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './CandidateDashboard.css';
 
 interface CandidateDashboardProps {
@@ -10,7 +10,7 @@ interface CandidateDashboardProps {
 }
 
 export default function CandidateDashboard({ isOpen, userData, onClose, onOpenResumeCheck, onOpenAuth }: CandidateDashboardProps) {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'leads' | 'resume' | 'signup'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'leads' | 'jobs' | 'resume' | 'signup'>('dashboard');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [openManagePanel, setOpenManagePanel] = useState<string | null>(null);
   const [openQuotePanel, setOpenQuotePanel] = useState<string | null>(null);
@@ -38,6 +38,12 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
   const [langLevel, setLangLevel] = useState('Basic');
   const [skillFilter, setSkillFilter] = useState('All skills');
   const [statusFilter, setStatusFilter] = useState('All · 6');
+  const skillFilterRef = useRef<HTMLDivElement>(null);
+  const scrollSkillFilter = (dir: 'left' | 'right') => {
+    if (skillFilterRef.current) {
+      skillFilterRef.current.scrollBy({ left: dir === 'right' ? 100 : -100, behavior: 'smooth' });
+    }
+  };
   const [sentQuotes, setSentQuotes] = useState<string[]>([]);
 
   useEffect(() => {
@@ -62,7 +68,7 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
   };
 
   return (
-    <div className="candidate-dashboard-container" style={{ position: 'fixed', inset: 0, zIndex: 1000, overflowY: 'auto' }}>
+    <div className="candidate-dashboard-container candidate-view" style={{ position: 'fixed', inset: 0, zIndex: 1000, overflowY: 'auto' }}>
       {currentView === 'dashboard' && (
         <div className="app-view active screen">
           <div className="topbar">
@@ -538,20 +544,31 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
             </div>
           </section>
 
-          <section style={{ marginTop: '18px' }}>
+          <div className="leads-sticky-filters">
             <p className="filter-label">Filter by skill — you're registered for 3</p>
-            <div className="lead-filters" style={{ marginBottom: '16px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
-              {['All skills', 'Figma UI Design', 'Logo Design', 'Brand Identity'].map(f => (
-                <div key={f} className={`skill-filter ${skillFilter === f ? 'active' : ''}`} onClick={() => setSkillFilter(f)} style={{ cursor: 'pointer' }}>{f}</div>
-              ))}
+            <div className="filter-group-container">
+              <div className="lead-filters" ref={skillFilterRef}>
+                {['All skills', 'Figma UI Design', 'Logo Design', 'Brand Identity'].map(f => (
+                  <div key={f} className={`skill-filter ${skillFilter === f ? 'active' : ''}`} onClick={() => setSkillFilter(f)}>{f}</div>
+                ))}
+              </div>
+              <div className="filter-scroll-nav">
+                <button className="filter-scroll-btn" onClick={() => scrollSkillFilter('left')}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="15.4,7.4 14,6 8,12 14,18 15.4,16.6 10.8,12 "/></svg>
+                </button>
+                <div className="filter-scroll-track"><div className="filter-scroll-thumb"></div></div>
+                <button className="filter-scroll-btn" onClick={() => scrollSkillFilter('right')}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="8.6,7.4 10,6 16,12 10,18 8.6,16.6 13.2,12 "/></svg>
+                </button>
+              </div>
             </div>
-            <p className="filter-label">Filter by status</p>
-            <div className="lead-filters" style={{ overflowX: 'auto', whiteSpace: 'nowrap' }}>
+            <p className="filter-label" style={{ marginTop: '12px' }}>Filter by status</p>
+            <div className="lead-filters">
               {['All · 6', 'New · 2', 'Replied · 3', 'Won · 1'].map(f => (
-                <div key={f} className={`lead-filter ${statusFilter === f ? 'active' : ''}`} onClick={() => setStatusFilter(f)} style={{ cursor: 'pointer' }}>{f}</div>
+                <div key={f} className={`lead-filter ${statusFilter === f ? 'active' : ''}`} onClick={() => setStatusFilter(f)}>{f}</div>
               ))}
             </div>
-          </section>
+          </div>
 
           <section style={{ marginTop: '14px' }}>
             {[
@@ -748,6 +765,22 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                 <span className="skill-pill">Logo Design <span className="price">₹3,000/project</span></span>
                 <span className="skill-pill">Brand Identity <span className="price">₹12,000/project</span></span>
               </div>
+            </div>
+
+            <div className="cand-block">
+              <div className="highlight-row">
+                <div className="highlight-box green"><span className="ic">💰</span><div><b>₹3,000</b><span>Starting price</span></div></div>
+                <div className="highlight-box amber"><span className="ic">🗣️</span><div><b>Hindi, English</b><span>2 Languages</span></div></div>
+              </div>
+            </div>
+
+            <div className="cand-block" style={{ marginBottom: 0 }}>
+              <div className="verify-list">
+                <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg></span> Resume Verified</div>
+                <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg></span> Mobile Verified</div>
+                <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg></span> Email Verified</div>
+              </div>
+              <p style={{ fontSize: '11px', color: 'var(--ink-faint)', marginTop: '11px' }}>Profile updated: 2 days ago</p>
             </div>
 
             <div className="cand-actions" style={{ marginTop: '16px' }}>

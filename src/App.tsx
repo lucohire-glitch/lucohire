@@ -11,6 +11,7 @@ import RoleChooserModal from './components/RoleChooserModal';
 import CandidateRegistration from './components/CandidateRegistration';
 import RecruiterRegistration from './components/RecruiterRegistration';
 import CandidateDashboard from './components/CandidateDashboard';
+import EmployerDashboard from './components/EmployerDashboard';
 import ResumeCheckView from './components/ResumeCheckView';
 import FreelancersView from './components/FreelancersView';
 
@@ -93,6 +94,7 @@ export default function App() {
   const [isCandidateRegOpen, setIsCandidateRegOpen] = useState(false);
   const [isRecruiterRegOpen, setIsRecruiterRegOpen] = useState(false);
   const [isProfileHomeOpen, setIsProfileHomeOpen] = useState(false);
+  const [isEmployerDashboardOpen, setIsEmployerDashboardOpen] = useState(false);
   const [candidateData, setCandidateData] = useState<any>(null);
 
   const searchCardRef = useRef<HTMLDivElement>(null);
@@ -258,8 +260,10 @@ export default function App() {
           isOpen={isRecruiterRegOpen}
           onClose={() => setIsRecruiterRegOpen(false)}
           onComplete={(data: any) => {
+            setCandidateData(data);
             setIsRecruiterRegOpen(false);
-            alert(`Account created for ${data.name || 'Recruiter'} (${data.company || 'Company'})!`);
+            setIsEmployerDashboardOpen(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onSwitchToCandidate={() => {
             setIsRecruiterRegOpen(false);
@@ -277,6 +281,25 @@ export default function App() {
           }}
           onOpenAuth={() => {
             setIsProfileHomeOpen(false);
+            setIsAuthOpen(true);
+          }}
+        />
+        <EmployerDashboard
+          isOpen={isEmployerDashboardOpen}
+          userData={candidateData || {}}
+          onClose={() => setIsEmployerDashboardOpen(false)}
+          onOpenAuth={() => {
+            setIsEmployerDashboardOpen(false);
+            setIsAuthOpen(true);
+          }}
+        />
+
+        <EmployerDashboard
+          isOpen={isEmployerDashboardOpen}
+          userData={candidateData || {}}
+          onClose={() => setIsEmployerDashboardOpen(false)}
+          onOpenAuth={() => {
+            setIsEmployerDashboardOpen(false);
             setIsAuthOpen(true);
           }}
         />
@@ -336,8 +359,10 @@ export default function App() {
           isOpen={isRecruiterRegOpen}
           onClose={() => setIsRecruiterRegOpen(false)}
           onComplete={(data: any) => {
+            setCandidateData(data);
             setIsRecruiterRegOpen(false);
-            alert(`Account created for ${data.name || 'Recruiter'} (${data.company || 'Company'})!`);
+            setIsEmployerDashboardOpen(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onSwitchToCandidate={() => {
             setIsRecruiterRegOpen(false);
@@ -358,6 +383,16 @@ export default function App() {
             setIsAuthOpen(true);
           }}
         />
+        <EmployerDashboard
+          isOpen={isEmployerDashboardOpen}
+          userData={candidateData || {}}
+          onClose={() => setIsEmployerDashboardOpen(false)}
+          onOpenAuth={() => {
+            setIsEmployerDashboardOpen(false);
+            setIsAuthOpen(true);
+          }}
+        />
+
       </>
     );
   }
@@ -786,9 +821,11 @@ export default function App() {
         isOpen={isRecruiterRegOpen}
         onClose={() => setIsRecruiterRegOpen(false)}
         onComplete={(data: any) => {
-          setIsRecruiterRegOpen(false);
-          alert(`Account created for ${data.name || 'Recruiter'} (${data.company || 'Company'})!`);
-        }}
+            setCandidateData(data);
+            setIsRecruiterRegOpen(false);
+            setIsEmployerDashboardOpen(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
         onSwitchToCandidate={() => {
           setIsRecruiterRegOpen(false);
           setIsCandidateRegOpen(true);
@@ -809,6 +846,16 @@ export default function App() {
           setIsAuthOpen(true);
         }}
       />
+        <EmployerDashboard
+          isOpen={isEmployerDashboardOpen}
+          userData={candidateData || {}}
+          onClose={() => setIsEmployerDashboardOpen(false)}
+          onOpenAuth={() => {
+            setIsEmployerDashboardOpen(false);
+            setIsAuthOpen(true);
+          }}
+        />
+
     </div>
   );
 }
