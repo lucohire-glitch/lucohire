@@ -378,7 +378,7 @@ export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAut
     const text = isAgree
       ? `✓ You agreed to ${l.bn}. ${l.n.split(' ')[0]} will see it.`
       : `✓ Your price is sent. ${l.n.split(' ')[0]} will see it.`;
-    
+
     setSentQuotes(prev => ({ ...prev, [i]: text }));
     if (l.s === 'new') {
       const updated = [...leads];
@@ -396,7 +396,7 @@ export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAut
 
   return (
     <div className="candidate-dashboard-container employer-view" style={{ position: 'fixed', inset: 0, zIndex: 1000, overflowY: 'auto' }}>
-      
+
       {/* Toast popup */}
       <div className={`x-toast ${toastMsg ? 'show' : ''}`}>{toastMsg}</div>
 
@@ -728,19 +728,19 @@ export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAut
       {/* EXACT HTML SPEC BOTTOM NAV (Dashboard [disabled], Jobs [active], Recruiter Message, Resume [disabled]) */}
       <div className="bottom-nav">
         <div className="nav-item disabled" aria-disabled="true">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
           Dashboard
         </div>
-        <div className={`nav-item ${currentView === 'jobs' ? 'active' : ''}`} onClick={() => { setCurrentView('jobs'); window.scrollTo(0,0); }}>
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        <div className={`nav-item ${currentView === 'jobs' ? 'active' : ''}`} onClick={() => { setCurrentView('jobs'); window.scrollTo(0, 0); }}>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
           Jobs{currentView === 'jobs' && <span className="nav-dot"></span>}
         </div>
-        <div className={`nav-item ${currentView === 'leads' ? 'active' : ''}`} onClick={() => { setCurrentView('leads'); window.scrollTo(0,0); }}>
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4H12a8.7 8.7 0 0 1-4-1L3 20l1.2-3.6a8.3 8.3 0 0 1-1.2-4.4A8.4 8.4 0 0 1 11.5 3h.5a8.4 8.4 0 0 1 8.4 8Z"/></svg>
+        <div className={`nav-item ${currentView === 'leads' ? 'active' : ''}`} onClick={() => { setCurrentView('leads'); window.scrollTo(0, 0); }}>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4H12a8.7 8.7 0 0 1-4-1L3 20l1.2-3.6a8.3 8.3 0 0 1-1.2-4.4A8.4 8.4 0 0 1 11.5 3h.5a8.4 8.4 0 0 1 8.4 8Z" /></svg>
           Recruiter Message{currentView === 'leads' && <span className="nav-dot"></span>}
         </div>
         <div className="nav-item disabled" aria-disabled="true">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/></svg>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M9 13h6M9 17h6" /></svg>
           Resume
         </div>
       </div>

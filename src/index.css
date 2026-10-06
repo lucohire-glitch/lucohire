@@ -3823,3 +3823,45 @@ footer.wizard-footer button {
   color: var(--ink-faint);
   margin: 9px 0 0;
 }
+
+/* ==========================================================================
+   RESPONSIVE — Registration Screens (Desktop)
+   ========================================================================== */
+
+@media (min-width: 768px) {
+  /* Center the onboarding flows on large screens */
+  .onboarding-wrapper {
+    max-width: 600px;
+    margin: 40px auto;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--line);
+    min-height: auto;
+    height: auto;
+    background: #fff;
+  }
+  
+  .wizard-footer {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    border-radius: 0 0 20px 20px;
+  }
+  
+  /* Make the header look better on desktop */
+  .onboarding-wrapper header {
+    padding-top: 24px;
+    padding-bottom: 20px;
+    background: #fff;
+  }
+  
+  /* The main content area */
+  .onboarding-wrapper main {
+    padding-top: 0;
+    padding-bottom: 30px;
+    min-height: 400px;
+  }
+}

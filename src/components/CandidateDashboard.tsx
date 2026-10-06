@@ -79,7 +79,7 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
             <div className="topbar-actions">
               <div className="icon-btn" aria-label="Notifications">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8">
-                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
                 </svg>
                 <span className="dot"></span>
               </div>
@@ -104,20 +104,20 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
           <section>
             <div className="section-head">
               <p className="section-title">Your profile</p>
-              <a className="section-link" href="#preview" onClick={(e) => {e.preventDefault(); setIsProfileModalOpen(true);}}>Preview as client</a>
+              <a className="section-link" href="#preview" onClick={(e) => { e.preventDefault(); setIsProfileModalOpen(true); }}>Preview as client</a>
             </div>
 
             <div className="candidate-card">
               <div className="cand-head-row">
                 <div className="photo-wrap">
-                  <div className="cand-photo">{(userData?.name || 'RK').substring(0,2).toUpperCase()}</div>
+                  <div className="cand-photo">{(userData?.name || 'RK').substring(0, 2).toUpperCase()}</div>
                   <span className="avail-badge-photo">Available Now</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="cand-name-row">
                     <span className="cand-name">{userData?.name || 'Rahul Kumar'}</span>
                     <span className="verified-tick" title="Identity verified">
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
                     </span>
                   </div>
                   <p className="cand-title">UI Designer & Brand Specialist</p>
@@ -157,9 +157,9 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
               <div className="cand-block" style={{ marginBottom: 0 }}>
                 <div className="verify-list">
-                  <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg></span> Resume Verified</div>
-                  <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg></span> Mobile Verified</div>
-                  <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg></span> Email Verified</div>
+                  <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12" /></svg></span> Resume Verified</div>
+                  <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12" /></svg></span> Mobile Verified</div>
+                  <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12" /></svg></span> Email Verified</div>
                 </div>
                 <p style={{ fontSize: '11px', color: 'var(--ink-faint)', marginTop: '11px' }}>Profile updated: 2 days ago</p>
               </div>
@@ -210,10 +210,10 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
               <p className="plan-desc">Move to the top of category search and clear your WhatsApp lead cap for the month.</p>
 
               <div className="plan-feats">
-                <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg></span>Unlimited WhatsApp leads, no monthly cap</div>
-                <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg></span>Priority placement in Design & Creative search</div>
-                <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg></span>Featured verified badge on your card</div>
-                <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg></span>Platform fee drops from 10% to 5%</div>
+                <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Unlimited WhatsApp leads, no monthly cap</div>
+                <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Priority placement in Design & Creative search</div>
+                <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Featured verified badge on your card</div>
+                <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Platform fee drops from 10% to 5%</div>
               </div>
 
               <div className="plan-current">
@@ -234,10 +234,10 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
               <div className={`manage-item ${openManagePanel === 'skills' ? 'open' : ''}`}>
                 <div className="manage-row" onClick={() => toggleManage('skills')}>
-                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg></div>
                   <div className="m-body"><div className="m-title">Skills & pricing</div><div className="m-sub">{skills.length} skill{skills.length !== 1 ? 's' : ''} added</div></div>
                   <span className="status-pill done">Complete</span>
-                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9"/></svg>
+                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9" /></svg>
                 </div>
                 <div className="manage-panel">
                   <div className="manage-panel-inner">
@@ -286,10 +286,10 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
               <div className={`manage-item ${openManagePanel === 'edu' ? 'open' : ''}`}>
                 <div className="manage-row" onClick={() => toggleManage('edu')}>
-                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M22 10 12 4 2 10l10 6 10-6Z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/></svg></div>
-                  <div className="m-body"><div className="m-title">Education & work experience</div><div className="m-sub">{entries.length > 0 ? entries.slice(0,2).map(e => e.title || 'Entry').join(', ') : 'Add education or experience'}</div></div>
+                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M22 10 12 4 2 10l10 6 10-6Z" /><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5" /></svg></div>
+                  <div className="m-body"><div className="m-title">Education & work experience</div><div className="m-sub">{entries.length > 0 ? entries.slice(0, 2).map(e => e.title || 'Entry').join(', ') : 'Add education or experience'}</div></div>
                   <span className="status-pill done">Complete</span>
-                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9"/></svg>
+                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9" /></svg>
                 </div>
                 <div className="manage-panel">
                   <div className="manage-panel-inner">
@@ -321,10 +321,10 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
               <div className={`manage-item ${openManagePanel === 'certs' ? 'open' : ''}`}>
                 <div className="manage-row" onClick={() => toggleManage('certs')}>
-                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg></div>
+                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" /></svg></div>
                   <div className="m-body"><div className="m-title">Certifications & portfolio</div><div className="m-sub">{certs.length} link{certs.length !== 1 ? 's' : ''} added {certs.some(c => c.type === 'Behance') ? '· Behance connected' : ''}</div></div>
                   <span className="status-pill pending">Add more</span>
-                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9"/></svg>
+                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9" /></svg>
                 </div>
                 <div className="manage-panel">
                   <div className="manage-panel-inner">
@@ -350,10 +350,10 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
               <div className={`manage-item ${openManagePanel === 'langs' ? 'open' : ''}`}>
                 <div className="manage-row" onClick={() => toggleManage('langs')}>
-                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M5 8h14M5 12h14M5 16h9"/></svg></div>
+                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M5 8h14M5 12h14M5 16h9" /></svg></div>
                   <div className="m-body"><div className="m-title">Languages</div><div className="m-sub">{langs.length > 0 ? langs.map(l => l.name).join(', ') : 'Add a language'}</div></div>
                   <span className="status-pill done">Complete</span>
-                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9"/></svg>
+                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9" /></svg>
                 </div>
                 <div className="manage-panel">
                   <div className="manage-panel-inner">
@@ -366,9 +366,9 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                         <span className="tag" key={l.id}>{l.name} · {l.level} <button onClick={(e) => { e.stopPropagation(); setLangs(langs.filter(lang => lang.id !== l.id)); }}>✕</button></span>
                       ))}
                     </div>
-                    <button className="add-skill-btn" style={{ marginTop: '11px' }} onClick={(e) => { 
-                      e.stopPropagation(); 
-                      if(langSelect && langLevel) {
+                    <button className="add-skill-btn" style={{ marginTop: '11px' }} onClick={(e) => {
+                      e.stopPropagation();
+                      if (langSelect && langLevel) {
                         setLangs([...langs, { id: Date.now(), name: langSelect, level: langLevel }]);
                         setLangSelect('Hindi'); setLangLevel('Basic');
                       }
@@ -379,10 +379,10 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
               <div className={`manage-item ${openManagePanel === 'avail' ? 'open' : ''}`}>
                 <div className="manage-row" onClick={() => toggleManage('avail')}>
-                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg></div>
                   <div className="m-body"><div className="m-title">Availability & work preferences</div><div className="m-sub">Full-time · available now</div></div>
                   <span className="status-pill done">Complete</span>
-                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9"/></svg>
+                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9" /></svg>
                 </div>
                 <div className="manage-panel">
                   <div className="manage-panel-inner">
@@ -394,12 +394,12 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                       <div className="info-card-head"><b style={{ fontSize: '12.5px' }}>Availability calendar</b></div>
                       <div className="day-pills">
                         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                          <div 
-                            key={day} 
+                          <div
+                            key={day}
                             className={`day-pill ${availDays.includes(day) ? 'active' : ''}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              if(availDays.includes(day)) {
+                              if (availDays.includes(day)) {
                                 setAvailDays(availDays.filter(d => d !== day));
                               } else {
                                 setAvailDays([...availDays, day]);
@@ -422,10 +422,10 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
               <div className={`manage-item ${openManagePanel === 'intro' ? 'open' : ''}`}>
                 <div className="manage-row" onClick={() => toggleManage('intro')}>
-                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg></div>
+                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4Z" /><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4" /></svg></div>
                   <div className="m-body"><div className="m-title">Voice & video intro</div><div className="m-sub">Adds about 8% to your profile strength</div></div>
                   <span className="status-pill pending">Not added</span>
-                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9"/></svg>
+                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9" /></svg>
                 </div>
                 <div className="manage-panel">
                   <div className="manage-panel-inner">
@@ -440,15 +440,15 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
               <div className={`manage-item ${openManagePanel === 'resume' ? 'open' : ''}`}>
                 <div className="manage-row" onClick={() => toggleManage('resume')}>
-                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg></div>
+                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /></svg></div>
                   <div className="m-body"><div className="m-title">Resume</div><div className="m-sub">rahul_kumar_resume.pdf</div></div>
                   <span className="status-pill done">Uploaded</span>
-                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9"/></svg>
+                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9" /></svg>
                 </div>
                 <div className="manage-panel">
                   <div className="manage-panel-inner">
                     <div className="upload-box done" onClick={(e) => e.stopPropagation()}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M14 3v5a1 1 0 0 0 1 1h5"/><path d="M6 21h12a1 1 0 0 0 1-1V7l-5-5H6a1 1 0 0 0-1 1v17a1 1 0 0 0 1 1z"/></svg>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M14 3v5a1 1 0 0 0 1 1h5" /><path d="M6 21h12a1 1 0 0 0 1-1V7l-5-5H6a1 1 0 0 0-1 1v17a1 1 0 0 0 1 1z" /></svg>
                       <p>rahul_kumar_resume.pdf</p>
                       <p className="small">Tap to replace</p>
                     </div>
@@ -459,10 +459,10 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
               <div className={`manage-item ${openManagePanel === 'idverify' ? 'open' : ''}`}>
                 <div className="manage-row" onClick={() => toggleManage('idverify')}>
-                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/></svg></div>
+                  <div className="m-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" /></svg></div>
                   <div className="m-body"><div className="m-title">ID verification</div><div className="m-sub">Adds about 12% and the verified tick</div></div>
                   <span className="status-pill pending">Pending</span>
-                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9"/></svg>
+                  <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA0A6" strokeWidth="1.8"><polyline points="6 9 12 15 18 9" /></svg>
                 </div>
                 <div className="manage-panel">
                   <div className="manage-panel-inner">
@@ -474,7 +474,7 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                       </div>
                     </div>
                     <div className="upload-box" onClick={(e) => e.stopPropagation()}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/></svg>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" /></svg>
                       <p>Upload ID photo</p>
                       <p className="small">Aadhaar, PAN, or Passport</p>
                     </div>
@@ -511,7 +511,7 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
             </div>
             <div className="topbar-actions">
               <div className="icon-btn" aria-label="Notifications">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
                 <span className="dot"></span>
               </div>
               <div className="avatar-chip" onClick={() => onOpenAuth?.()} title="Account & sign-in">{(userData?.name || 'R')[0].toUpperCase()}</div>
@@ -554,11 +554,11 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
               </div>
               <div className="filter-scroll-nav">
                 <button className="filter-scroll-btn" onClick={() => scrollSkillFilter('left')}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="15.4,7.4 14,6 8,12 14,18 15.4,16.6 10.8,12 "/></svg>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="15.4,7.4 14,6 8,12 14,18 15.4,16.6 10.8,12 " /></svg>
                 </button>
                 <div className="filter-scroll-track"><div className="filter-scroll-thumb"></div></div>
                 <button className="filter-scroll-btn" onClick={() => scrollSkillFilter('right')}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="8.6,7.4 10,6 16,12 10,18 8.6,16.6 13.2,12 "/></svg>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="8.6,7.4 10,6 16,12 10,18 8.6,16.6 13.2,12 " /></svg>
                 </button>
               </div>
             </div>
@@ -638,26 +638,26 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                   {lead.timeline && <span className="lead-timeline">{lead.timeline}</span>}
                   <span className={`lead-status ${lead.statusClass}`}>{lead.status}</span>
                 </div>
-                
+
                 {lead.extraQuote && (
                   <div style={{ fontSize: '13px', color: 'var(--ink-light)', marginBottom: '14px', padding: '10px', background: '#F8F9FA', borderRadius: '8px' }}>
                     {lead.extraQuote}
                   </div>
                 )}
-                
+
                 <div className="lead-actions">
                   <button className="btn btn-whatsapp">💬 Chat</button>
                   <button className="btn btn-quote" onClick={(e) => toggleQuote(e, lead.id)}>💰 Send my quote</button>
                   <button className="btn btn-call" title="Request a call">📞</button>
                 </div>
                 <button className="btn btn-ghost" style={{ width: '100%', marginTop: '8px' }}>View project</button>
-                
+
                 {sentQuotes.includes(lead.id) && (
                   <div style={{ marginTop: '12px', background: '#eaf8f0', color: '#16a34a', padding: '10px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                     ✓ Quote sent — {lead.name.split(' ')[0]} will see it on WhatsApp
                   </div>
                 )}
-                
+
                 <div className={`quote-panel ${openQuotePanel === lead.id ? 'open' : ''}`}>
                   <div className="quote-inner">
                     <div className="quote-fields">
@@ -699,15 +699,15 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
       {(currentView === 'dashboard' || currentView === 'leads') && (
         <div className="bottom-nav">
           <div className={`nav-item ${currentView === 'dashboard' ? 'active' : ''}`} onClick={() => setCurrentView('dashboard')}>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
             Dashboard{currentView === 'dashboard' && <span className="nav-dot"></span>}
           </div>
           <div className={`nav-item ${currentView === 'leads' ? 'active' : ''}`} onClick={() => setCurrentView('leads')}>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4H12a8.7 8.7 0 0 1-4-1L3 20l1.2-3.6a8.3 8.3 0 0 1-1.2-4.4A8.4 8.4 0 0 1 11.5 3h.5a8.4 8.4 0 0 1 8.4 8Z"/></svg>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4H12a8.7 8.7 0 0 1-4-1L3 20l1.2-3.6a8.3 8.3 0 0 1-1.2-4.4A8.4 8.4 0 0 1 11.5 3h.5a8.4 8.4 0 0 1 8.4 8Z" /></svg>
             Leads{currentView === 'leads' && <span className="nav-dot"></span>}
           </div>
           <div className="nav-item" onClick={() => onOpenResumeCheck?.()}>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/></svg>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M9 13h6M9 17h6" /></svg>
             Resume Journey
           </div>
         </div>
@@ -717,21 +717,21 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
       <div className={`profile-modal ${isProfileModalOpen ? 'open' : ''}`} onClick={() => setIsProfileModalOpen(false)}>
         <div className="profile-modal-sheet" onClick={(e) => e.stopPropagation()}>
           <div className="profile-modal-close" onClick={() => setIsProfileModalOpen(false)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </div>
           <p className="profile-modal-tag">Your profile — as clients see it</p>
 
           <div className="candidate-card">
             <div className="cand-head-row">
               <div className="photo-wrap">
-                <div className="cand-photo">{(userData?.name || 'RK').substring(0,2).toUpperCase()}</div>
+                <div className="cand-photo">{(userData?.name || 'RK').substring(0, 2).toUpperCase()}</div>
                 <span className="avail-badge-photo">Available Now</span>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="cand-name-row">
                   <span className="cand-name">{userData?.name || 'Rahul Kumar'}</span>
                   <span className="verified-tick" title="Identity verified">
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
                   </span>
                 </div>
                 <p className="cand-title">UI Designer & Brand Specialist</p>
@@ -776,9 +776,9 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
             <div className="cand-block" style={{ marginBottom: 0 }}>
               <div className="verify-list">
-                <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg></span> Resume Verified</div>
-                <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg></span> Mobile Verified</div>
-                <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg></span> Email Verified</div>
+                <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12" /></svg></span> Resume Verified</div>
+                <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12" /></svg></span> Mobile Verified</div>
+                <div className="verify-item"><span className="dot"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5"><polyline points="20 6 9 17 4 12" /></svg></span> Email Verified</div>
               </div>
               <p style={{ fontSize: '11px', color: 'var(--ink-faint)', marginTop: '11px' }}>Profile updated: 2 days ago</p>
             </div>
