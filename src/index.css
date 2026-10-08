@@ -73,10 +73,7 @@ html, body {
   }
 }
 
-.resume-check-container .app {
-  max-width: 440px !important;
-  margin: 0 auto !important;
-}
+
 
 h1, h2, h3, h4, .num {
   font-family: 'Space Grotesk', sans-serif;

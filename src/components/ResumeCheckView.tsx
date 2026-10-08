@@ -693,44 +693,54 @@ function goNextStep(e){
       </div>
 
       <div id="uploadFlow">
-      <p className="up-label">Upload your resume to see where you stand</p>
+        <div className="upload-col-left">
+          <p className="up-label">Upload your resume to see where you stand</p>
 
-      <div className="dropzone" id="dropzone" tabIndex={0} role="button" aria-label="Upload resume">
-        <input type="file" id="fileInput" accept=".pdf,.doc,.docx" hidden />
-        <div className="dz-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
-        <p className="dz-title">Drag and drop your resume here</p>
-        <p className="dz-sub">or <span className="dz-browse">browse files</span></p>
-        <p className="dz-hint">PDF or Word · up to 10MB</p>
-      </div>
-      <p className="dz-error-msg" id="errorMsg"></p>
+          <div className="dropzone" id="dropzone" tabIndex={0} role="button" aria-label="Upload resume">
+            <input type="file" id="fileInput" accept=".pdf,.doc,.docx" hidden />
+            <div className="dz-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
+            <p className="dz-title">Drag and drop your resume here</p>
+            <p className="dz-sub">or <span className="dz-browse">browse files</span></p>
+            <p className="dz-hint">PDF or Word · up to 10MB</p>
+          </div>
+          <p className="dz-error-msg" id="errorMsg"></p>
 
-      <button type="button" className="jd-toggle" id="jdToggle"><span className="ic">+</span>Add the job you're applying for (optional)</button>
-      <div className="jd-box" id="jdBox" hidden>
-        <div className="jd-tabs">
-          <button type="button" className="jd-tab active" data-jd="text">Job description text</button>
-          <button type="button" className="jd-tab" data-jd="url">Job posting link</button>
+          <button type="button" className="jd-toggle" id="jdToggle"><span className="ic">+</span>Add the job you're applying for (optional)</button>
+          <div className="jd-box" id="jdBox" hidden>
+            <div className="jd-tabs">
+              <button type="button" className="jd-tab active" data-jd="text">Job description text</button>
+              <button type="button" className="jd-tab" data-jd="url">Job posting link</button>
+            </div>
+            <textarea id="jdText" className="jd-textarea" placeholder="Paste the job description text here…"></textarea>
+            <input id="jdUrl" className="jd-input" type="url" placeholder="Paste the job posting URL here…" hidden />
+            <p className="jd-note"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Totally optional. Add it to get a match score for this exact role — skip it and we'll still analyze your resume against the wider market.</p>
+          </div>
+
+          <div className="filecard" id="fileCard">
+            <div className="filecard-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+            <div className="filecard-info"><div className="filecard-name" id="fileName"></div><div className="filecard-size" id="fileSize"></div></div>
+            <button className="filecard-remove" id="removeBtn" aria-label="Remove file">×</button>
+          </div>
         </div>
-        <textarea id="jdText" className="jd-textarea" placeholder="Paste the job description text here…"></textarea>
-        <input id="jdUrl" className="jd-input" type="url" placeholder="Paste the job posting URL here…" hidden />
-        <p className="jd-note"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Totally optional. Add it to get a match score for this exact role — skip it and we'll still analyze your resume against the wider market.</p>
-      </div>
 
-      <div className="or-divider"><span>or</span></div>
-      <div className="dropzone" id="buildResumeCard" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '35px 20px', border: '1.5px dashed var(--line)', borderRadius: '18px', background: '#FAFAFA', textAlign: 'center'}}>
-          <div className="dz-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg></div>
-          <p className="dz-title" style={{margin: '0', fontSize: '15px', fontWeight: 'bold', color: 'var(--ink)'}}>Don't have a resume?</p>
-          <p className="dz-sub" style={{margin: '0', fontSize: '13px', color: 'var(--ink-soft)'}}>We'll build one for you from your LucoHire profile</p>
-          <button type="button" className="brc-cta" id="buildResumeBtn" style={{marginTop: '12px', border: '1.5px solid var(--brand-700)', background: 'var(--brand-900)', color: '#fff', padding: '8px 16px', borderRadius: '99px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer'}}>Build my resume &rarr;</button>
+        <div className="upload-col-divider">
+          <span>OR</span>
+        </div>
+        <div className="or-divider or-divider-mobile" style={{ width: '100%' }}><span>OR</span></div>
+        
+        <div className="upload-col-right">
+          <div className="dropzone" id="buildResumeCard" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '35px 20px', border: '1.5px dashed var(--line)', borderRadius: '18px', background: '#FAFAFA', textAlign: 'center', height: '100%', minHeight: '220px'}}>
+              <div className="dz-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg></div>
+              <p className="dz-title" style={{margin: '0', fontSize: '15px', fontWeight: 'bold', color: 'var(--ink)'}}>Don't have a resume?</p>
+              <p className="dz-sub" style={{margin: '0', fontSize: '13px', color: 'var(--ink-soft)'}}>We'll build one for you from your LucoHire profile</p>
+              <button type="button" className="brc-cta" id="buildResumeBtn" style={{marginTop: '12px', border: '1.5px solid var(--brand-700)', background: 'var(--brand-900)', color: '#fff', padding: '8px 16px', borderRadius: '99px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer'}}>Build my resume &rarr;</button>
+          </div>
         </div>
 
-      <div className="filecard" id="fileCard">
-        <div className="filecard-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
-        <div className="filecard-info"><div className="filecard-name" id="fileName"></div><div className="filecard-size" id="fileSize"></div></div>
-        <button className="filecard-remove" id="removeBtn" aria-label="Remove file">×</button>
-      </div>
-
-      <button className="cta" id="analyzeBtn" disabled>Analyze my resume</button>
-      <p className="trust"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Private and secure — your resume is never shared</p>
+        <div className="upload-col-bottom" style={{ gridColumn: '1 / -1', width: '100%', marginTop: '24px' }}>
+          <button className="cta" id="analyzeBtn" disabled>Analyze my resume</button>
+          <p className="trust"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Private and secure — your resume is never shared</p>
+        </div>
       </div>
     </main>
   </section>
@@ -756,7 +766,6 @@ function goNextStep(e){
     
     <section className="view" id="resultsView">
     
-
     <div className="score-strip">
       <div className="score-ring-sm"><svg viewBox="0 0 52 52"><circle className="trk" cx="26" cy="26" r="22"/><circle className="fil" id="miniRing" cx="26" cy="26" r="22" strokeDasharray="138" strokeDashoffset="50"/></svg><div className="score-num-sm" id="miniRingNum">64</div></div>
       <div><div className="score-txt-title">Resume score: 64 / 100<span className="score-tag">Needs work</span></div><div className="score-txt-sub">Based on 18,000+ recent listings</div></div>
@@ -956,6 +965,7 @@ function goNextStep(e){
 
     <p className="sub-note" data-tab="skills" style={{'margin': '16px 16px 2px'}}>Yeh teen sections sirf <b>diagnosis</b> ke liye hain. Jo skill "+ Add to plan" karoge wo neeche "Choose your path" me syllabus ka hissa ban jaayegi — actual seekhna agle step, <b>Padhaao</b>, me hoga.</p>
 
+    <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
     <div className="section locked-premium" id="secDrop" data-tab="skills">
       <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
       <div className="section-head">
@@ -969,6 +979,7 @@ function goNextStep(e){
       <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
       <div className="section-head"><h2>Fading skills</h2><p>Abhi hai, par demand gir rahi hai</p></div>
       <div id="fadingList"></div>
+    </div>
     </div>
 
     
