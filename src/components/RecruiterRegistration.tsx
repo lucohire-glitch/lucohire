@@ -3,21 +3,24 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import LucoLogo from './LucoLogo';
+import './RecruiterRegistration.css';
 
 interface RecruiterRegistrationProps {
   isOpen: boolean;
   onClose: () => void;
   onComplete: (data: any) => void;
   onSwitchToCandidate: () => void;
+  onDirectOpenDashboard?: () => void;
 }
 
 export default function RecruiterRegistration({
   isOpen,
   onClose,
   onComplete,
-  onSwitchToCandidate
+  onSwitchToCandidate,
+  onDirectOpenDashboard
 }: RecruiterRegistrationProps) {
   const [recCurrent, setRecCurrent] = useState(1);
   const recTotal = 3;
@@ -51,9 +54,20 @@ export default function RecruiterRegistration({
 
   // Step 3
   const [gstToggleOn, setGstToggleOn] = useState(false);
-  const [gstType, setGstType] = useState('');
+  const [gstType, setGstType] = useState('GSTIN');
   const [gstUploaded, setGstUploaded] = useState(false);
+  const [gstFileName, setGstFileName] = useState('');
+  const [gstFileSize, setGstFileSize] = useState('');
+  const [gstFileUrl, setGstFileUrl] = useState('');
+  const [isDraggingGst, setIsDraggingGst] = useState(false);
+  const gstInputRef = useRef<HTMLInputElement>(null);
+
   const [logoUploaded, setLogoUploaded] = useState(false);
+  const [logoFileName, setLogoFileName] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [isDraggingLogo, setIsDraggingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
   const [description, setDescription] = useState('');
   const [authCheck, setAuthCheck] = useState(false);
   const [tncCheck, setTncCheck] = useState(false);
@@ -61,6 +75,99 @@ export default function RecruiterRegistration({
   // Score toast state
   const [toastMsg, setToastMsg] = useState('');
   const [showToast, setShowToast] = useState(false);
+
+  const handleGstFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setGstFileName(file.name);
+      setGstFileSize((file.size / (1024 * 1024)).toFixed(1) + ' MB');
+      const url = URL.createObjectURL(file);
+      setGstFileUrl(url);
+      setGstUploaded(true);
+      setGstToggleOn(true);
+      triggerToast('+25% employer trust score');
+    }
+  };
+
+  const handleGstDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingGst(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      setGstFileName(file.name);
+      setGstFileSize((file.size / (1024 * 1024)).toFixed(1) + ' MB');
+      const url = URL.createObjectURL(file);
+      setGstFileUrl(url);
+      setGstUploaded(true);
+      setGstToggleOn(true);
+      triggerToast('+25% employer trust score');
+    }
+  };
+
+  const handleRemoveGst = () => {
+    setGstUploaded(false);
+    setGstFileName('');
+    setGstFileSize('');
+    setGstFileUrl('');
+    if (gstInputRef.current) gstInputRef.current.value = '';
+  };
+
+  const handleSampleGst = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setGstFileName('GSTIN_29AABCB1234F1Z5_RegCert.pdf');
+    setGstFileSize('1.4 MB');
+    setGstUploaded(true);
+    setGstToggleOn(true);
+    triggerToast('+25% employer trust score');
+  };
+
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLogoFileName(file.name);
+      const url = URL.createObjectURL(file);
+      setLogoUrl(url);
+      setLogoUploaded(true);
+      triggerToast('+3% employer trust score');
+    }
+  };
+
+  const handleLogoDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingLogo(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      setLogoFileName(file.name);
+      const url = URL.createObjectURL(file);
+      setLogoUrl(url);
+      setLogoUploaded(true);
+      triggerToast('+3% employer trust score');
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoUploaded(false);
+    setLogoFileName('');
+    setLogoUrl('');
+    if (logoInputRef.current) logoInputRef.current.value = '';
+  };
+
+  const handleSampleLogo = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLogoFileName('company-brand-logo.png');
+    setLogoUrl('https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=160&auto=format&fit=crop&q=80');
+    setLogoUploaded(true);
+    triggerToast('+3% employer trust score');
+  };
+
+  React.useEffect(() => {
+    if (isOpen) {
+      const recScreen = document.getElementById('recruiterRegistrationScreen');
+      if (recScreen) {
+        recScreen.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  }, [isOpen, recCurrent]);
 
   if (!isOpen) return null;
 
@@ -142,6 +249,14 @@ export default function RecruiterRegistration({
             <a href="#" onClick={(e) => { e.preventDefault(); onClose(); onSwitchToCandidate(); }}>
               Switch to Candidate sign up →
             </a>
+            {onDirectOpenDashboard && (
+              <>
+                {' '}•{' '}
+                <a href="#" onClick={(e) => { e.preventDefault(); onDirectOpenDashboard(); }}>
+                  Open Recruiter Dashboard →
+                </a>
+              </>
+            )}
           </p>
         </header>
 
@@ -152,151 +267,155 @@ export default function RecruiterRegistration({
               <h1 className="title">Create your recruiter account</h1>
               <p className="sub-title">Post jobs free and start shortlisting candidates who actually match — verified profiles, WhatsApp-ready.</p>
 
-              <div className="field">
-                <div className="field-label">
-                  <label>Full name</label>
-                  <span className="pts" id="rpts-name">{name.trim() ? 'added ✓' : '+8%'}</span>
-                </div>
-                <input
-                  type="text"
-                  id="recNameInput"
-                  placeholder="e.g. Priya Mehta"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-
-              <div className="field">
-                <div className="field-label">
-                  <label>Your role / designation</label>
-                  <span className="pts" id="rpts-role">{role.trim() ? 'added ✓' : '+5%'}</span>
-                </div>
-                <input
-                  type="text"
-                  id="recRoleInput"
-                  placeholder="e.g. HR Manager, Talent Acquisition"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                />
-                <p className="hint">This appears on every job you post, so candidates know who's hiring.</p>
-              </div>
-
-              <div className="field">
-                <div className="field-label">
-                  <label>Work email</label>
-                  <span className="pts" id="rpts-workEmailVerified">{emailVerified ? 'added ✓' : '+15%'}</span>
-                </div>
-                {!emailVerified ? (
-                  <>
-                    <div className="verify-row" id="recWorkEmailVerifyRow">
-                      <input
-                        type="email"
-                        id="recWorkEmailInput"
-                        placeholder="e.g. priya@company.com"
-                        value={workEmail}
-                        onChange={(e) => setWorkEmail(e.target.value)}
-                      />
-                      <button
-                        className="verify-btn"
-                        id="recWorkEmailSendBtn"
-                        disabled={!(workEmail.includes('@') && workEmail.includes('.'))}
-                        onClick={() => setShowEmailOtp(true)}
-                      >
-                        Send OTP
-                      </button>
-                    </div>
-                    {showEmailOtp && (
-                      <div className="otp-box show" id="recWorkEmailOtpBox">
-                        <p className="lbl">Enter the 4-digit OTP sent to your work email</p>
-                        <div className="otp-inputs" id="recWorkEmailOtpInputs">
-                          {[0, 1, 2, 3].map((i) => (
-                            <input
-                              key={i}
-                              type="text"
-                              maxLength={1}
-                              inputMode="numeric"
-                              value={emailOtp[i]}
-                              onChange={(e) => {
-                                const next = [...emailOtp];
-                                next[i] = e.target.value;
-                                setEmailOtp(next);
-                              }}
-                            />
-                          ))}
-                        </div>
-                        <div className="otp-actions">
-                          <button onClick={() => { setShowEmailOtp(false); setEmailVerified(true); triggerToast('+15% employer trust score'); }}>Confirm</button>
-                          <span onClick={() => triggerToast('OTP resent to email!')}>Resend OTP</span>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="verified-chip">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="20 6 9 17 4 12" /></svg>
-                    {workEmail} verified
+              <div className="rec-desktop-two-col">
+                <div className="field">
+                  <div className="field-label">
+                    <label>Full name</label>
+                    <span className="pts" id="rpts-name">{name.trim() ? 'added ✓' : '+8%'}</span>
                   </div>
-                )}
-                <p className="hint">Using your company email speeds up verification and builds candidate trust.</p>
+                  <input
+                    type="text"
+                    id="recNameInput"
+                    placeholder="e.g. Priya Mehta"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+
+                <div className="field">
+                  <div className="field-label">
+                    <label>Your role / designation</label>
+                    <span className="pts" id="rpts-role">{role.trim() ? 'added ✓' : '+5%'}</span>
+                  </div>
+                  <input
+                    type="text"
+                    id="recRoleInput"
+                    placeholder="e.g. HR Manager, Talent Acquisition"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                  />
+                  <p className="hint">This appears on every job you post, so candidates know who's hiring.</p>
+                </div>
               </div>
 
-              <div className="field" style={{ marginBottom: 0 }}>
-                <div className="field-label">
-                  <label>Mobile number</label>
-                  <span className="pts" id="rpts-mobileVerified">{mobileVerified ? 'added ✓' : '+15%'}</span>
-                </div>
-                {!mobileVerified ? (
-                  <>
-                    <div className="verify-row" id="recMobileVerifyRow">
-                      <input
-                        type="tel"
-                        id="recMobileInput"
-                        maxLength={10}
-                        placeholder="10-digit mobile number"
-                        value={mobile}
-                        onChange={(e) => setMobile(e.target.value)}
-                      />
-                      <button
-                        className="verify-btn"
-                        id="recMobileSendBtn"
-                        disabled={mobile.trim().length !== 10}
-                        onClick={() => setShowMobileOtp(true)}
-                      >
-                        Send OTP
-                      </button>
-                    </div>
-                    {showMobileOtp && (
-                      <div className="otp-box show" id="recMobileOtpBox">
-                        <p className="lbl">Enter the 4-digit OTP sent to your phone</p>
-                        <div className="otp-inputs" id="recMobileOtpInputs">
-                          {[0, 1, 2, 3].map((i) => (
-                            <input
-                              key={i}
-                              type="text"
-                              maxLength={1}
-                              inputMode="numeric"
-                              value={mobileOtp[i]}
-                              onChange={(e) => {
-                                const next = [...mobileOtp];
-                                next[i] = e.target.value;
-                                setMobileOtp(next);
-                              }}
-                            />
-                          ))}
-                        </div>
-                        <div className="otp-actions">
-                          <button onClick={() => { setShowMobileOtp(false); setMobileVerified(true); triggerToast('+15% employer trust score'); }}>Confirm</button>
-                          <span onClick={() => triggerToast('OTP resent to mobile!')}>Resend OTP</span>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="verified-chip">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="20 6 9 17 4 12" /></svg>
-                    {mobile} verified
+              <div className="rec-desktop-two-col">
+                <div className="field">
+                  <div className="field-label">
+                    <label>Work email</label>
+                    <span className="pts" id="rpts-workEmailVerified">{emailVerified ? 'added ✓' : '+15%'}</span>
                   </div>
-                )}
+                  {!emailVerified ? (
+                    <>
+                      <div className="verify-row" id="recWorkEmailVerifyRow">
+                        <input
+                          type="email"
+                          id="recWorkEmailInput"
+                          placeholder="e.g. priya@company.com"
+                          value={workEmail}
+                          onChange={(e) => setWorkEmail(e.target.value)}
+                        />
+                        <button
+                          className="verify-btn"
+                          id="recWorkEmailSendBtn"
+                          disabled={!(workEmail.includes('@') && workEmail.includes('.'))}
+                          onClick={() => setShowEmailOtp(true)}
+                        >
+                          Send OTP
+                        </button>
+                      </div>
+                      {showEmailOtp && (
+                        <div className="otp-box show" id="recWorkEmailOtpBox">
+                          <p className="lbl">Enter the 4-digit OTP sent to your work email</p>
+                          <div className="otp-inputs" id="recWorkEmailOtpInputs">
+                            {[0, 1, 2, 3].map((i) => (
+                              <input
+                                key={i}
+                                type="text"
+                                maxLength={1}
+                                inputMode="numeric"
+                                value={emailOtp[i]}
+                                onChange={(e) => {
+                                  const next = [...emailOtp];
+                                  next[i] = e.target.value;
+                                  setEmailOtp(next);
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <div className="otp-actions">
+                            <button onClick={() => { setShowEmailOtp(false); setEmailVerified(true); triggerToast('+15% employer trust score'); }}>Confirm</button>
+                            <span onClick={() => triggerToast('OTP resent to email!')}>Resend OTP</span>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="verified-chip">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="20 6 9 17 4 12" /></svg>
+                      {workEmail} verified
+                    </div>
+                  )}
+                  <p className="hint">Using your company email speeds up verification and builds candidate trust.</p>
+                </div>
+
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <div className="field-label">
+                    <label>Mobile number</label>
+                    <span className="pts" id="rpts-mobileVerified">{mobileVerified ? 'added ✓' : '+15%'}</span>
+                  </div>
+                  {!mobileVerified ? (
+                    <>
+                      <div className="verify-row" id="recMobileVerifyRow">
+                        <input
+                          type="tel"
+                          id="recMobileInput"
+                          maxLength={10}
+                          placeholder="10-digit mobile number"
+                          value={mobile}
+                          onChange={(e) => setMobile(e.target.value)}
+                        />
+                        <button
+                          className="verify-btn"
+                          id="recMobileSendBtn"
+                          disabled={mobile.trim().length !== 10}
+                          onClick={() => setShowMobileOtp(true)}
+                        >
+                          Send OTP
+                        </button>
+                      </div>
+                      {showMobileOtp && (
+                        <div className="otp-box show" id="recMobileOtpBox">
+                          <p className="lbl">Enter the 4-digit OTP sent to your phone</p>
+                          <div className="otp-inputs" id="recMobileOtpInputs">
+                            {[0, 1, 2, 3].map((i) => (
+                              <input
+                                key={i}
+                                type="text"
+                                maxLength={1}
+                                inputMode="numeric"
+                                value={mobileOtp[i]}
+                                onChange={(e) => {
+                                  const next = [...mobileOtp];
+                                  next[i] = e.target.value;
+                                  setMobileOtp(next);
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <div className="otp-actions">
+                            <button onClick={() => { setShowMobileOtp(false); setMobileVerified(true); triggerToast('+15% employer trust score'); }}>Confirm</button>
+                            <span onClick={() => triggerToast('OTP resent to mobile!')}>Resend OTP</span>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="verified-chip">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="20 6 9 17 4 12" /></svg>
+                      {mobile} verified
+                    </div>
+                  )}
+                </div>
               </div>
             </section>
           )}
@@ -464,19 +583,88 @@ export default function RecruiterRegistration({
                     <option>Company PAN</option>
                   </select>
 
-                  <div
-                    className={`upload-box ${gstUploaded ? 'done' : ''}`}
-                    id="recGstUploadBox"
-                    style={{ marginBottom: 0 }}
-                    onClick={() => {
-                      setGstUploaded(true);
-                      triggerToast('+25% employer trust score');
-                    }}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 16V4M12 4l-4 4M12 4l4 4" /><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></svg>
-                    <p>{gstUploaded ? 'Uploaded ✓' : 'Upload document'}</p>
-                    {!gstUploaded && <p className="small">Photo or PDF, up to 5 MB</p>}
-                  </div>
+                  {/* Real hidden file input for business document */}
+                  <input
+                    type="file"
+                    ref={gstInputRef}
+                    accept=".pdf,image/*,.doc,.docx"
+                    style={{ display: 'none' }}
+                    onChange={handleGstFileChange}
+                  />
+
+                  {!gstUploaded ? (
+                    <div
+                      className={`rec-upload-zone ${isDraggingGst ? 'dragging' : ''}`}
+                      id="recGstUploadBox"
+                      onClick={() => gstInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setIsDraggingGst(true); }}
+                      onDragLeave={() => setIsDraggingGst(false)}
+                      onDrop={handleGstDrop}
+                      title="Click or drag & drop business document"
+                    >
+                      <div className="rec-upload-icon-circle">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="12" y1="18" x2="12" y2="12" />
+                          <polyline points="9 15 12 12 15 15" />
+                        </svg>
+                      </div>
+                      <p className="rec-upload-title">Click to upload document or drag &amp; drop</p>
+                      <p className="rec-upload-sub">Supports PDF, PNG, JPG, DOC up to 5 MB</p>
+                      <button
+                        type="button"
+                        onClick={handleSampleGst}
+                        style={{
+                          marginTop: '6px',
+                          background: '#FFFFFF',
+                          border: '1px solid var(--line)',
+                          borderRadius: '6px',
+                          padding: '4px 10px',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          color: 'var(--teal-deep)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        + Use sample certificate
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="rec-file-card">
+                      <div className="rec-file-info">
+                        <div className="rec-file-icon-box">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                          </svg>
+                        </div>
+                        <div className="rec-file-meta">
+                          <p className="rec-file-name" title={gstFileName}>{gstFileName || 'GSTIN_Registration_Certificate.pdf'}</p>
+                          <span className="rec-file-tag">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                            {gstFileSize ? `${gstFileSize} • Uploaded & Verified` : 'Uploaded & Verified'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="rec-file-actions">
+                        <button
+                          type="button"
+                          className="rec-file-btn"
+                          onClick={() => gstInputRef.current?.click()}
+                        >
+                          Replace
+                        </button>
+                        <button
+                          type="button"
+                          className="rec-file-btn danger"
+                          onClick={handleRemoveGst}
+                        >
+                          ✕ Remove
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="trust-row">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1FA854" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
@@ -487,19 +675,96 @@ export default function RecruiterRegistration({
               </div>
 
               <div className="field">
-                <div className="field-label"><label>Company logo</label><span className="pts" id="rpts-logo">{logoUploaded ? 'added ✓' : '+3%'}</span></div>
-                <div
-                  className={`upload-box ${logoUploaded ? 'done' : ''}`}
-                  id="recLogoUpload"
-                  onClick={() => {
-                    setLogoUploaded(true);
-                    triggerToast('+3% employer trust score');
-                  }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 8a2 2 0 0 1 2-2h1l1-2h8l1 2h1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z" /><circle cx="12" cy="13" r="3.5" /></svg>
-                  <p>{logoUploaded ? 'Uploaded ✓' : 'Upload logo'}</p>
-                  {!logoUploaded && <p className="small">PNG or JPG, square works best</p>}
+                <div className="field-label">
+                  <label>Company logo</label>
+                  <span className="pts" id="rpts-logo">{logoUploaded ? 'added ✓' : '+3%'}</span>
                 </div>
+
+                {/* Real hidden file input for company logo */}
+                <input
+                  type="file"
+                  ref={logoInputRef}
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleLogoFileChange}
+                />
+
+                {!logoUploaded ? (
+                  <div
+                    className={`rec-upload-zone ${isDraggingLogo ? 'dragging' : ''}`}
+                    id="recLogoUpload"
+                    onClick={() => logoInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); setIsDraggingLogo(true); }}
+                    onDragLeave={() => setIsDraggingLogo(false)}
+                    onDrop={handleLogoDrop}
+                    title="Click or drag & drop company logo"
+                  >
+                    <div className="rec-upload-icon-circle">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M4 8a2 2 0 0 1 2-2h1l1-2h8l1 2h1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z" />
+                        <circle cx="12" cy="13" r="3.5" />
+                      </svg>
+                    </div>
+                    <p className="rec-upload-title">Click to upload company logo or drag &amp; drop</p>
+                    <p className="rec-upload-sub">PNG, JPG, SVG — square format recommended (min 150x150)</p>
+                    <button
+                      type="button"
+                      onClick={handleSampleLogo}
+                      style={{
+                        marginTop: '6px',
+                        background: '#FFFFFF',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '11.5px',
+                        fontWeight: 600,
+                        color: 'var(--teal-deep)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      + Use sample logo
+                    </button>
+                  </div>
+                ) : (
+                  <div className="rec-file-card">
+                    <div className="rec-file-info">
+                      {logoUrl ? (
+                        <img src={logoUrl} alt="Company logo preview" className="rec-logo-preview-box" />
+                      ) : (
+                        <div className="rec-file-icon-box">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="rec-file-meta">
+                        <p className="rec-file-name" title={logoFileName}>{logoFileName || 'company-brand-logo.png'}</p>
+                        <span className="rec-file-tag">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                          Logo ready &amp; active
+                        </span>
+                      </div>
+                    </div>
+                    <div className="rec-file-actions">
+                      <button
+                        type="button"
+                        className="rec-file-btn"
+                        onClick={() => logoInputRef.current?.click()}
+                      >
+                        Change
+                      </button>
+                      <button
+                        type="button"
+                        className="rec-file-btn danger"
+                        onClick={handleRemoveLogo}
+                      >
+                        ✕ Remove
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="field">

@@ -1,0 +1,1290 @@
+/**
+ * Desktop responsive & compact spacing styles for CandidateRegistration (#registrationScreen)
+ * Mobile (< 768px) layout structure is preserved.
+ * Extra blank space removed across headers, cards, footers and between fields.
+ * All styles strictly scoped under #registrationScreen to protect other pages.
+ */
+
+/* Mobile fallback: zero effect on mobile layout */
+.cr-desktop-two-col {
+  display: contents;
+}
+
+/* Remove excessive bottom padding globally inside #registrationScreen */
+#registrationScreen main.wizard-main {
+  padding-bottom: 28px;
+}
+
+/* ============================================================
+   TABLET & DESKTOP RESPONSIVE & COMPACT (>= 768px, 100%, 125%, 150% zoom)
+   ============================================================ */
+@media (min-width: 768px) {
+  #registrationScreen {
+    background: #EFEFEA;
+    padding: 16px 16px 32px;
+    display: block;
+  }
+
+  #registrationScreen .shell {
+    max-width: 820px;
+    width: min(820px, calc(100% - 32px));
+    margin: 8px auto 24px;
+    min-height: auto;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    box-shadow: 0 16px 40px -12px rgba(27, 31, 35, 0.08);
+    background: var(--paper);
+    overflow: hidden;
+  }
+
+  #registrationScreen .reg-close {
+    top: 18px;
+    right: 24px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+
+  #registrationScreen .reg-close:hover {
+    background: var(--teal-wash);
+    color: var(--teal-deep);
+    transform: scale(1.05);
+  }
+
+  /* Wizard Header - Compact Spacing */
+  #registrationScreen header.wizard-header {
+    padding: 20px 32px 14px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    border-radius: 18px 18px 0 0;
+  }
+
+  #registrationScreen .brand-row {
+    margin-bottom: 10px;
+  }
+
+  #registrationScreen .brand-title {
+    font-size: 17px;
+  }
+
+  #registrationScreen .score-pill {
+    gap: 8px;
+  }
+
+  #registrationScreen .score-ring {
+    width: 32px;
+    height: 32px;
+  }
+
+  #registrationScreen .score-ring span {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+
+  #registrationScreen .score-txt {
+    font-size: 12.5px;
+  }
+
+  #registrationScreen .steps {
+    gap: 6px;
+  }
+
+  #registrationScreen .step-track {
+    height: 4px;
+    border-radius: 4px;
+  }
+
+  #registrationScreen .step-meta {
+    font-size: 12.5px;
+    margin-top: 8px;
+  }
+
+  #registrationScreen .switch-role-link {
+    font-size: 12.5px;
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+
+  /* Wizard Main - Compact Padding */
+  #registrationScreen main.wizard-main {
+    padding: 24px 32px 28px;
+    background: var(--paper);
+  }
+
+  #registrationScreen .wizard-main h1.title {
+    font-size: 25px;
+    line-height: 1.25;
+    margin-bottom: 4px;
+  }
+
+  #registrationScreen .wizard-main p.sub-title {
+    font-size: 14px;
+    line-height: 1.45;
+    margin-bottom: 18px;
+  }
+
+  /* Two Column Grid for Form Fields */
+  #registrationScreen .cr-desktop-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 0;
+  }
+
+  #registrationScreen .field {
+    margin-bottom: 16px;
+  }
+
+  #registrationScreen .field-label {
+    margin-bottom: 5px;
+  }
+
+  #registrationScreen .field-label label {
+    font-size: 13.5px;
+  }
+
+  #registrationScreen input[type=text],
+  #registrationScreen input[type=tel],
+  #registrationScreen input[type=number],
+  #registrationScreen input[type=email],
+  #registrationScreen select,
+  #registrationScreen textarea {
+    font-size: 14px;
+    padding: 11px 14px;
+    border-radius: 9px;
+  }
+
+  #registrationScreen textarea {
+    min-height: 95px;
+  }
+
+  /* Card Blocks */
+  #registrationScreen .card-block {
+    padding: 16px 20px;
+    border-radius: 14px;
+    margin-bottom: 16px;
+  }
+
+  #registrationScreen .card-head-row {
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+
+  /* Resume Dropzone */
+  #registrationScreen .resume-dropzone {
+    padding: 22px 18px;
+    border-radius: 12px;
+  }
+
+  #registrationScreen .rd-title {
+    font-size: 14.5px;
+    margin: 6px 0 2px;
+  }
+
+  #registrationScreen .rd-hint {
+    font-size: 12px;
+    margin: 0;
+  }
+
+  /* Photo Row */
+  #registrationScreen .photo-row {
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    gap: 14px;
+  }
+
+  #registrationScreen .photo-circle {
+    width: 52px;
+    height: 52px;
+  }
+
+  /* STEP 2 : SKILLS */
+  #registrationScreen .skill-card {
+    padding: 16px 18px;
+    border-radius: 14px;
+    margin-bottom: 14px;
+    background: #FAF9F6;
+    border: 1px solid var(--line);
+  }
+
+  #registrationScreen .skill-card-head {
+    margin-bottom: 12px;
+  }
+
+  #registrationScreen .skill-card-head select {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  #registrationScreen .skill-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1.3fr 1.2fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  #registrationScreen .skill-proof {
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+  }
+
+  #registrationScreen .skill-proof-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: center;
+  }
+
+  #registrationScreen .mini-upload {
+    white-space: nowrap;
+    padding: 8px 14px;
+    height: 38px;
+    border-radius: 8px;
+  }
+
+  #registrationScreen .add-skill-btn {
+    padding: 12px 20px;
+    font-size: 13.5px;
+    font-weight: 600;
+    border-radius: 9px;
+    margin-bottom: 10px;
+  }
+
+  /* STEP 3 : PROFESSIONAL PROOF */
+  #registrationScreen .entry-card {
+    padding: 16px 18px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    background: #FAF9F6;
+    border: 1px solid var(--line);
+  }
+
+  #registrationScreen .entry-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1.5fr;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  #registrationScreen .link-upload-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+  }
+
+  /* STEP 4 : WORK PREFERENCES */
+  #registrationScreen .profile-score {
+    padding: 14px 18px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+
+  #registrationScreen .preview-card-wrap {
+    margin-bottom: 16px;
+  }
+
+  #registrationScreen .preview-card {
+    max-width: 480px;
+    margin: 8px auto 0;
+    border-radius: 14px;
+    padding: 14px 18px;
+  }
+
+  #registrationScreen .lang-add-row {
+    display: grid;
+    grid-template-columns: 1.6fr 1.2fr auto;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  #registrationScreen .lang-add-btn {
+    padding: 10px 20px;
+    font-weight: 600;
+    border-radius: 8px;
+  }
+
+  #registrationScreen .info-card {
+    padding: 16px 18px;
+    border-radius: 12px;
+  }
+
+  #registrationScreen .day-pills {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  #registrationScreen .day-pill {
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 9px;
+  }
+
+  #registrationScreen .time-row {
+    max-width: 400px;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  #registrationScreen .medium-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  #registrationScreen .medium-item {
+    padding: 12px 8px;
+    border-radius: 9px;
+  }
+
+  #registrationScreen .upload-box {
+    padding: 18px 16px;
+    border-radius: 10px;
+  }
+
+  #registrationScreen .wa-summary-card {
+    border-radius: 12px;
+  }
+
+  #registrationScreen .wa-summary-head {
+    padding: 12px 18px;
+    font-size: 13.5px;
+  }
+
+  #registrationScreen .wa-summary-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 20px;
+    padding: 10px 18px;
+  }
+
+  #registrationScreen .wa-summary-row {
+    padding: 6px 0;
+    border-bottom: 1px solid #ECEAE4;
+  }
+
+  /* Wizard Footer - Compact Height */
+  #registrationScreen footer.wizard-footer {
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 14px 32px calc(14px + env(safe-area-inset-bottom, 0px));
+    border-radius: 0 0 18px 18px;
+    background: var(--paper);
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+  }
+
+  #registrationScreen #backBtn {
+    min-width: 120px;
+    padding: 12px 20px;
+    font-size: 14px;
+    border-radius: 10px;
+    border: 1.5px solid var(--line);
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  #registrationScreen #backBtn:hover:not(:disabled) {
+    background: var(--teal-wash);
+    border-color: var(--teal);
+    color: var(--teal-deep);
+  }
+
+  #registrationScreen #nextBtn {
+    min-width: 200px;
+    padding: 12px 28px;
+    font-size: 14px;
+    border-radius: 10px;
+    font-weight: 700;
+    box-shadow: 0 8px 20px -6px rgba(76, 47, 217, 0.45);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  #registrationScreen #nextBtn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px -6px rgba(76, 47, 217, 0.55);
+  }
+}
+
+/* ============================================================
+   RESUME UPLOADED CARD & PREVIEW MODAL (Mobile & Desktop)
+   ============================================================ */
+#registrationScreen .cr-resume-uploaded-card {
+  border: 1.5px solid #1FA854;
+  background: #F6FCF8;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#registrationScreen .cr-resume-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+#registrationScreen .cr-resume-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #E5F5EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#registrationScreen .cr-resume-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+#registrationScreen .cr-resume-name {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+#registrationScreen .cr-resume-status {
+  font-size: 11.5px;
+  color: #1FA854;
+  font-weight: 500;
+  margin: 2px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#registrationScreen .cr-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1FA854;
+}
+
+#registrationScreen .cr-resume-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+#registrationScreen .cr-resume-btn {
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: inherit;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+#registrationScreen .cr-resume-btn.preview {
+  background: var(--teal);
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+
+#registrationScreen .cr-resume-btn.preview:hover {
+  background: var(--teal-deep);
+  transform: translateY(-1px);
+}
+
+#registrationScreen .cr-resume-btn.replace {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+#registrationScreen .cr-resume-btn.replace:hover {
+  background: var(--bg);
+  border-color: var(--ink-faint);
+}
+
+#registrationScreen .cr-resume-btn.remove {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 13px;
+  justify-content: center;
+}
+
+#registrationScreen .cr-resume-btn.remove:hover {
+  background: #FBEBE7;
+  color: #C24F3F;
+  border-color: #C24F3F;
+}
+
+/* Modal Backdrop & Container */
+.cr-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 20, 24, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: crFadeIn 0.15s ease-out;
+}
+
+.cr-preview-modal {
+  background: #fff;
+  width: 100%;
+  max-width: 680px;
+  max-height: 88vh;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.35);
+  animation: crPopIn 0.2s ease-out;
+}
+
+.cr-preview-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #FAFAFA;
+}
+
+.cr-preview-title-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cr-doc-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #ECE8FB;
+  color: #4C2FD9;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.cr-preview-filename {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+}
+
+.cr-preview-sub {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin: 2px 0 0;
+}
+
+.cr-preview-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-soft);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.cr-preview-close:hover {
+  background: #F4F4F0;
+  color: var(--ink);
+}
+
+.cr-preview-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  background: #F3F4F6;
+  min-height: 320px;
+}
+
+.cr-preview-iframe {
+  width: 100%;
+  height: 520px;
+  border: none;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.cr-resume-sheet {
+  background: #fff;
+  padding: 28px 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  color: #1B1F23;
+  font-family: 'Inter', sans-serif;
+}
+
+.cr-sheet-header h2 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  color: #111827;
+}
+
+.cr-sheet-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4C2FD9;
+  margin: 0 0 6px;
+}
+
+.cr-sheet-contact {
+  font-size: 12px;
+  color: #6B7280;
+  margin-bottom: 16px;
+}
+
+.cr-sheet-divider {
+  border: none;
+  border-top: 1.5px solid #E5E7EB;
+  margin: 0 0 16px;
+}
+
+.cr-sheet-section {
+  margin-bottom: 16px;
+}
+
+.cr-sheet-section h4 {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #374151;
+  margin: 0 0 6px;
+}
+
+.cr-sheet-section p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #4B5563;
+  margin: 0;
+}
+
+.cr-sheet-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.cr-sheet-chip {
+  background: #F3F4F6;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #1F2937;
+}
+
+.cr-sheet-item {
+  font-size: 12.5px;
+  color: #374151;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cr-sheet-year {
+  color: #9CA3AF;
+  font-size: 11.5px;
+}
+
+.cr-preview-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: #fff;
+}
+
+.cr-preview-action-btn {
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s ease;
+}
+
+.cr-preview-action-btn.secondary {
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.cr-preview-action-btn.secondary:hover {
+  background: #F4F4F0;
+}
+
+.cr-preview-action-btn.primary {
+  background: var(--teal);
+  color: #fff;
+}
+
+.cr-preview-action-btn.primary:hover {
+  background: var(--teal-deep);
+}
+
+@keyframes crPopIn {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes crFadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   VOICE INTRO RECORDER & AUDIO PLAYER
+   ============================================================ */
+#registrationScreen .cr-voice-recorder-active {
+  background: #FFF1F0;
+  border: 1.5px solid #F5222D;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: crFadeIn 0.2s ease-out;
+}
+
+#registrationScreen .cr-rec-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#registrationScreen .cr-rec-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #CF1322;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#registrationScreen .cr-rec-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #F5222D;
+  box-shadow: 0 0 0 0 rgba(245, 34, 45, 0.7);
+  animation: crPulse 1.2s infinite;
+}
+
+@keyframes crPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(245, 34, 45, 0.7);
+  }
+
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 8px rgba(245, 34, 45, 0);
+  }
+
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(245, 34, 45, 0);
+  }
+}
+
+#registrationScreen .cr-rec-timer {
+  font-size: 12px;
+  font-weight: 700;
+  color: #CF1322;
+  font-variant-numeric: tabular-nums;
+}
+
+#registrationScreen .cr-waveform-bars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 24px;
+}
+
+#registrationScreen .cr-waveform-bar {
+  width: 3.5px;
+  background: #F5222D;
+  border-radius: 3px;
+  animation: crSoundWave 0.9s ease-in-out infinite alternate;
+}
+
+#registrationScreen .cr-waveform-bar.live {
+  animation: none;
+}
+
+#registrationScreen .cr-waveform-bar:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+#registrationScreen .cr-waveform-bar:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+#registrationScreen .cr-waveform-bar:nth-child(4) {
+  animation-delay: 0.45s;
+}
+
+#registrationScreen .cr-waveform-bar:nth-child(5) {
+  animation-delay: 0.2s;
+}
+
+#registrationScreen .cr-waveform-bar:nth-child(6) {
+  animation-delay: 0.35s;
+}
+
+#registrationScreen .cr-waveform-bar:nth-child(7) {
+  animation-delay: 0.1s;
+}
+
+@keyframes crSoundWave {
+  0% {
+    height: 4px;
+  }
+
+  100% {
+    height: 22px;
+  }
+}
+
+#registrationScreen .cr-rec-stop-btn {
+  background: #F5222D;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+#registrationScreen .cr-rec-stop-btn:hover {
+  background: #CF1322;
+}
+
+/* Audio Player */
+#registrationScreen .cr-audio-player-card {
+  background: #F6FCF8;
+  border: 1.5px solid #1FA854;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: crFadeIn 0.2s ease-out;
+}
+
+#registrationScreen .cr-audio-main-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#registrationScreen .cr-audio-play-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1FA854;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+#registrationScreen .cr-audio-play-btn:hover {
+  background: #178943;
+  transform: scale(1.05);
+}
+
+#registrationScreen .cr-audio-track {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+#registrationScreen .cr-audio-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+#registrationScreen .cr-audio-tag {
+  color: #1FA854;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#registrationScreen .cr-audio-time {
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+#registrationScreen .cr-audio-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: #D9EFE2;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+}
+
+#registrationScreen .cr-audio-progress-fill {
+  height: 100%;
+  background: #1FA854;
+  border-radius: 4px;
+  transition: width 0.1s linear;
+}
+
+#registrationScreen .cr-audio-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+#registrationScreen .cr-audio-action-btn {
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+#registrationScreen .cr-audio-action-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--ink);
+}
+
+#registrationScreen .cr-audio-action-btn.danger:hover {
+  background: #FFF1F0;
+  color: #F5222D;
+}
+
+/* ============================================================
+   VIDEO INTRO RECORDER & PLAYER
+   ============================================================ */
+#registrationScreen .cr-video-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+#registrationScreen .cr-video-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--line);
+  background: #fff;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+#registrationScreen .cr-video-btn:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+#registrationScreen .cr-video-live-box {
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  animation: crFadeIn 0.2s ease-out;
+}
+
+#registrationScreen .cr-video-live-preview {
+  width: 100%;
+  height: 160px;
+  min-height: 140px;
+  object-fit: cover;
+  background: #111;
+  transform: scaleX(-1);
+}
+
+#registrationScreen .cr-video-live-overlay {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#registrationScreen .cr-video-rec-badge {
+  background: rgba(245, 34, 45, 0.9);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: uppercase;
+}
+
+#registrationScreen .cr-video-time-badge {
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+#registrationScreen .cr-video-live-footer {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+#registrationScreen .cr-video-stop-btn {
+  background: #F5222D;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+#registrationScreen .cr-video-player-box {
+  background: #F6FCF8;
+  border: 1.5px solid #1FA854;
+  border-radius: 10px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: crFadeIn 0.2s ease-out;
+}
+
+#registrationScreen .cr-video-preview-elem {
+  width: 100%;
+  height: 160px;
+  min-height: 140px;
+  border-radius: 6px;
+  background: #000;
+  object-fit: cover;
+}
+
+#registrationScreen .cr-video-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ============================================================
+   RECENT RESUMES SECTION
+   ============================================================ */
+#registrationScreen .cr-recent-resumes-wrap {
+  margin-top: 14px;
+  border-top: 1px dashed var(--line);
+  padding-top: 12px;
+}
+
+#registrationScreen .cr-recent-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#registrationScreen .cr-recent-item {
+  background: #FAFAF8;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  transition: all 0.15s ease;
+}
+
+#registrationScreen .cr-recent-item:hover {
+  background: #F4F4F0;
+  border-color: var(--ink-faint);
+}
+
+#registrationScreen .cr-recent-item-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+#registrationScreen .cr-recent-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+#registrationScreen .cr-recent-sub {
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin: 0;
+}
+
+#registrationScreen .cr-recent-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+#registrationScreen .cr-recent-btn {
+  border: none;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+#registrationScreen .cr-recent-btn.use {
+  background: var(--teal-wash);
+  color: var(--teal-deep);
+}
+
+#registrationScreen .cr-recent-btn.use:hover {
+  background: var(--teal);
+  color: #fff;
+}
+
+#registrationScreen .cr-recent-btn.del {
+  background: transparent;
+  color: var(--ink-faint);
+}
+
+#registrationScreen .cr-recent-btn.del:hover {
+  background: #FFF1F0;
+  color: #F5222D;
+}

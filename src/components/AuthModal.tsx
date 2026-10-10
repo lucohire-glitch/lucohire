@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import LucoLogo from './LucoLogo';
+import './AuthModal.css';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -50,57 +51,17 @@ export default function AuthModal({ isOpen, onClose, onOpenRoleChooser }: AuthMo
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1100,
-        background: '#141A33',
-        overflowY: 'auto',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-        WebkitOverflowScrolling: 'touch'
-      }}
+      className="auth-modal-overlay"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '420px',
-          borderRadius: '24px',
-          overflow: 'hidden',
-          background: '#FFFFFF',
-          position: 'relative',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.55)',
-          margin: 'auto'
-        }}
-      >
+      <div className="auth-modal-content">
         {/* Subtle Close button */}
         <button
           onClick={onClose}
           aria-label="Close"
-          style={{
-            position: 'absolute',
-            top: '16px',
-            right: '16px',
-            width: '32px',
-            height: '32px',
-            borderRadius: '50%',
-            background: 'rgba(255, 255, 255, 0.15)',
-            border: 'none',
-            color: '#FFFFFF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            zIndex: 30,
-            transition: 'background .15s'
-          }}
+          className="auth-modal-close-btn"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M18 6L6 18M6 6l12 12" />
@@ -108,27 +69,9 @@ export default function AuthModal({ isOpen, onClose, onOpenRoleChooser }: AuthMo
         </button>
 
         {/* HERO HEADER */}
-        <header
-          style={{
-            background: 'radial-gradient(120% 140% at 85% 0%, rgba(91,33,214,0.35), transparent 55%), linear-gradient(160deg, #141A33 0%, #26246E 55%, #5B21D6 100%)',
-            padding: '32px 26px 48px 26px',
-            position: 'relative',
-            overflow: 'hidden'
-          }}
-        >
+        <header className="auth-modal-header">
           {/* Decorative circular line in top right (exact match to screenshot & html) */}
-          <div
-            style={{
-              position: 'absolute',
-              right: '-40px',
-              top: '-40px',
-              width: '180px',
-              height: '180px',
-              borderRadius: '50%',
-              border: '1px solid rgba(200, 190, 255, 0.18)',
-              pointerEvents: 'none'
-            }}
-          />
+          <div className="auth-modal-header-circle" />
 
           {/* Brand Logo & Name */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -160,46 +103,16 @@ export default function AuthModal({ isOpen, onClose, onOpenRoleChooser }: AuthMo
             </span>
           </div>
 
-          <h1
-            style={{
-              fontFamily: "'Fraunces', serif",
-              fontWeight: 500,
-              fontSize: '26px',
-              lineHeight: 1.2,
-              color: '#FBFAFF',
-              margin: '24px 0 8px 0',
-              maxWidth: '280px'
-            }}
-          >
+          <h1 className="auth-modal-title">
             Welcome back to LucoHire
           </h1>
-          <p
-            style={{
-              color: '#CCD0E8',
-              fontSize: '13.5px',
-              lineHeight: 1.5,
-              margin: 0,
-              maxWidth: '290px'
-            }}
-          >
+          <p className="auth-modal-subtitle">
             Sign in to manage your gigs, or create a free profile to start getting hired.
           </p>
         </header>
 
         {/* SHEET / FORM */}
-        <main
-          style={{
-            background: '#FFFFFF',
-            borderRadius: '24px 24px 0 0',
-            marginTop: '-24px',
-            position: 'relative',
-            zIndex: 2,
-            padding: '24px 26px 24px 26px',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 -12px 30px rgba(20,26,51,0.06)'
-          }}
-        >
+        <main className="auth-modal-body">
           {/* TABS */}
           <nav
             style={{
