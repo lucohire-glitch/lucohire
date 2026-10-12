@@ -38,12 +38,12 @@
   }
 
   #registrationScreen .reg-close {
-    top: 18px;
-    right: 24px;
+    position: static !important;
     width: 34px;
     height: 34px;
     border-radius: 50%;
     transition: background 0.15s ease, transform 0.15s ease;
+    flex-shrink: 0;
   }
 
   #registrationScreen .reg-close:hover {

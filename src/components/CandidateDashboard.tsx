@@ -17,6 +17,76 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
   const [resumeConverted, setResumeConverted] = useState(false);
   const [pct, setPct] = useState(0);
 
+  // Point 15: Topbar notifications and profile dropdown state
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(2);
+  const [notifications, setNotifications] = useState([
+    {
+      id: 'n1',
+      sender: 'Priya Malhotra',
+      avatar: 'P',
+      title: 'New project inquiry for Logo + basic brand kit',
+      desc: 'Offered ₹12,000 · Needed within 10 days',
+      time: '12 min ago',
+      unread: true,
+      action: 'lead',
+      leadId: 'q1'
+    },
+    {
+      id: 'n2',
+      sender: 'Simran Kaur',
+      avatar: 'S',
+      title: 'Simran viewed your ₹27,000 quote',
+      desc: 'Waiting on client review for Booking App UI redesign.',
+      time: '1 hour ago',
+      unread: true,
+      action: 'lead',
+      leadId: 'q3'
+    },
+    {
+      id: 'n3',
+      sender: 'Nimbus Foods',
+      avatar: 'N',
+      title: '₹18,000 Payment released & advance paid',
+      desc: 'Packaging design for 4 SKUs confirmed and paid.',
+      time: '3 days ago',
+      unread: false,
+      action: 'lead',
+      leadId: 'q4'
+    },
+    {
+      id: 'n4',
+      sender: 'LucoHire System',
+      avatar: '⚡',
+      title: 'Profile views jumped +18% this week',
+      desc: '128 recruiters browsed your profile in Noida & remote.',
+      time: '5 days ago',
+      unread: false,
+      action: 'profile'
+    }
+  ]);
+
+  const markAllNotificationsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+    setUnreadNotifications(0);
+  };
+
+  const handleNotificationClick = (item: any) => {
+    setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, unread: false } : n));
+    setUnreadNotifications(prev => Math.max(0, prev - (item.unread ? 1 : 0)));
+    setIsNotificationsOpen(false);
+    if (item.action === 'lead') {
+      setCurrentView('leads');
+      const foundLead = ALL_LEADS.find(l => l.id === item.leadId);
+      if (foundLead) {
+        setSelectedProject(foundLead);
+      }
+    } else if (item.action === 'profile') {
+      setIsProfileModalOpen(true);
+    }
+  };
+
   const [skills, setSkills] = useState([
     { id: 1, name: 'Figma UI Design', level: 'Expert', exp: '3-5 yrs', price: '8000', type: 'Per project' },
     { id: 2, name: 'Logo Design', level: 'Expert', exp: '3-5 yrs', price: '3000', type: 'Per project' },
@@ -45,12 +115,103 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
     }
   };
   const [sentQuotes, setSentQuotes] = useState<string[]>([]);
+  const [selectedProject, setSelectedProject] = useState<any>(null);
 
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => setPct(72), 120);
     }
   }, [isOpen]);
+
+  
+  const ALL_LEADS = [
+    {
+      id: 'q1',
+      chips: ['🎯 Logo Design', '🎯 Brand Identity'],
+      avatar: 'P',
+      name: 'Priya Malhotra',
+      time: '12 min ago',
+      brief: 'Needs a logo + basic brand kit for a new D2C skincare label, launching next month.',
+      budget: '💰 Offered ₹12,000',
+      timeline: '⏱ needed within 10 days',
+      status: 'New',
+      statusClass: 'new'
+    },
+    {
+      id: 'q2',
+      chips: ['🎯 Figma UI Design'],
+      avatar: 'A',
+      name: 'Arjun Studios',
+      time: '2 hr ago',
+      brief: 'Looking for ongoing Figma support, roughly 10 hrs/week for an internal dashboard product.',
+      budget: '💰 Offered ₹8,000/project',
+      timeline: '⏱ needed within 5 days',
+      status: 'New',
+      statusClass: 'new'
+    },
+    {
+      id: 'q3',
+      chips: ['🎯 Figma UI Design'],
+      avatar: 'S',
+      name: 'Simran Kaur',
+      time: 'Yesterday',
+      brief: 'Wants a full UI redesign for a booking app — sent over a Notion doc with references.',
+      budget: '💰 Offered ₹25,000',
+      timeline: '⏱ needed within 15 days',
+      status: 'Replied',
+      statusClass: 'replied',
+      extraQuote: "You quoted: ₹27,000 - 12 days — waiting on Simran's reply"
+    },
+    {
+      id: 'q4',
+      chips: ['🎯 Logo Design'],
+      avatar: 'N',
+      name: 'Nimbus Foods',
+      time: '3 days ago',
+      brief: 'Packaging design for 4 SKUs — confirmed and advance paid.',
+      budget: '💰 Agreed ₹18,000 - paid',
+      timeline: '',
+      status: 'Won',
+      statusClass: 'won'
+    },
+    {
+      id: 'q5',
+      chips: ['🎯 Brand Identity'],
+      avatar: 'R',
+      name: 'Rohan Mehra',
+      time: '4 days ago',
+      brief: 'Brand identity and guideline doc for an EV startup looking to raise seed capital.',
+      budget: '💰 Offered ₹30,000',
+      timeline: '⏱ needed within 20 days',
+      status: 'Replied',
+      statusClass: 'replied',
+      extraQuote: "You quoted: ₹30,000 - 18 days — negotiation in progress"
+    },
+    {
+      id: 'q6',
+      chips: ['🎯 Figma UI Design', '🎯 Logo Design'],
+      avatar: 'K',
+      name: 'Kavita Verma',
+      time: '5 days ago',
+      brief: 'Landing page design in Figma + matching vector logo icon.',
+      budget: '💰 Offered ₹15,000',
+      timeline: '⏱ needed within 7 days',
+      status: 'Replied',
+      statusClass: 'replied',
+      extraQuote: "You quoted: ₹16,000 - 6 days — client reviewing mockup samples"
+    }
+  ];
+
+  const filteredLeads = ALL_LEADS.filter(lead => {
+    if (skillFilter !== 'All skills') {
+      const matchSkill = lead.chips.some(c => c.toLowerCase().includes(skillFilter.toLowerCase()));
+      if (!matchSkill) return false;
+    }
+    if (statusFilter.startsWith('New') && lead.status !== 'New') return false;
+    if (statusFilter.startsWith('Replied') && lead.status !== 'Replied') return false;
+    if (statusFilter.startsWith('Won') && lead.status !== 'Won') return false;
+    return true;
+  });
 
   if (!isOpen) return null;
 
@@ -76,16 +237,180 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
               <p className="greeting-eyebrow">Wednesday, 6 May</p>
               <p className="greeting">Namaste, {userData?.name?.split(' ')[0] || 'Rahul'}</p>
             </div>
-            <div className="topbar-actions">
-              <div className="icon-btn" aria-label="Notifications">
+            <div className="topbar-actions" style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className={`icon-btn ${isNotificationsOpen ? 'active' : ''}`}
+                aria-label="Notifications"
+                onClick={() => {
+                  setIsNotificationsOpen(prev => !prev);
+                  setIsProfileMenuOpen(false);
+                }}
+                title="Notifications"
+              >
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8">
                   <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
                 </svg>
-                <span className="dot"></span>
-              </div>
-              <div className="avatar-chip" onClick={() => onOpenAuth?.()} title="Account & sign-in">
+                {unreadNotifications > 0 && <span className="dot"></span>}
+              </button>
+
+              <button
+                type="button"
+                className={`avatar-chip ${isProfileMenuOpen ? 'ring-active' : ''}`}
+                onClick={() => {
+                  setIsProfileMenuOpen(prev => !prev);
+                  setIsNotificationsOpen(false);
+                }}
+                title="Account & Profile Menu"
+                aria-label="Account Profile"
+              >
                 {(userData?.name || 'R')[0].toUpperCase()}
-              </div>
+              </button>
+
+              {/* Notifications Dropdown */}
+              {isNotificationsOpen && (
+                <>
+                  <div className="popover-backdrop" onClick={() => setIsNotificationsOpen(false)} />
+                  <div className="notifications-popover">
+                    <div className="notif-head">
+                      <div className="notif-title-row">
+                        <h4>Notifications</h4>
+                        {unreadNotifications > 0 && (
+                          <span className="notif-count-pill">{unreadNotifications} new</span>
+                        )}
+                      </div>
+                      {unreadNotifications > 0 && (
+                        <button className="notif-mark-read" onClick={markAllNotificationsRead}>Mark all read</button>
+                      )}
+                    </div>
+
+                    <div className="notif-list">
+                      {notifications.map(n => (
+                        <div
+                          key={n.id}
+                          className={`notif-item ${n.unread ? 'unread' : ''}`}
+                          onClick={() => handleNotificationClick(n)}
+                        >
+                          <div className="notif-avatar">{n.avatar}</div>
+                          <div className="notif-body">
+                            <div className="notif-top">
+                              <span className="notif-sender">{n.sender}</span>
+                              <span className="notif-time">{n.time}</span>
+                            </div>
+                            <p className="notif-title">{n.title}</p>
+                            <p className="notif-desc">{n.desc}</p>
+                          </div>
+                          {n.unread && <span className="notif-unread-dot" />}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="notif-footer">
+                      <button
+                        className="notif-footer-btn"
+                        onClick={() => {
+                          setIsNotificationsOpen(false);
+                          setCurrentView('leads');
+                        }}
+                      >
+                        View all leads & updates →
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Profile Menu Dropdown */}
+              {isProfileMenuOpen && (
+                <>
+                  <div className="popover-backdrop" onClick={() => setIsProfileMenuOpen(false)} />
+                  <div className="profile-menu-popover">
+                    <div className="prof-menu-header">
+                      <div className="prof-menu-avatar">
+                        {(userData?.name || 'R')[0].toUpperCase()}
+                      </div>
+                      <div className="prof-menu-meta">
+                        <h4>{userData?.name || 'Rahul Kumar'}</h4>
+                        <p>UI Designer & Brand Specialist</p>
+                        <span className="prof-status-tag">🟢 Available Now · Noida</span>
+                      </div>
+                    </div>
+
+                    <div className="prof-menu-links">
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          setIsProfileModalOpen(true);
+                        }}
+                      >
+                        <span className="prof-icon">👁️</span>
+                        <div>
+                          <div className="prof-item-title">Preview Public Profile</div>
+                          <div className="prof-item-sub">How clients and recruiters see your card</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          setCurrentView('dashboard');
+                          setOpenManagePanel('skills');
+                          const el = document.querySelector('.manage-list');
+                          if (el) el.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
+                        <span className="prof-icon">✏️</span>
+                        <div>
+                          <div className="prof-item-title">Edit Skills & Pricing</div>
+                          <div className="prof-item-sub">Update rates, experience, and certifications</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          onOpenResumeCheck?.();
+                        }}
+                      >
+                        <span className="prof-icon">📄</span>
+                        <div>
+                          <div className="prof-item-title">Resume Journey</div>
+                          <div className="prof-item-sub">AI keyword checks & instant optimization</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          onClose?.();
+                        }}
+                      >
+                        <span className="prof-icon">🏠</span>
+                        <div>
+                          <div className="prof-item-title">Back to LucoHire Home</div>
+                          <div className="prof-item-sub">Return to homepage search & browse</div>
+                        </div>
+                      </button>
+                    </div>
+
+                    <div className="prof-menu-footer">
+                      <button
+                        className="prof-signout-btn"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          onOpenAuth?.();
+                        }}
+                      >
+                        🚪 Sign Out / Switch Account
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -509,12 +834,180 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
               <p className="greeting-eyebrow">Wednesday, 6 May</p>
               <p className="greeting">Your leads</p>
             </div>
-            <div className="topbar-actions">
-              <div className="icon-btn" aria-label="Notifications">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
-                <span className="dot"></span>
-              </div>
-              <div className="avatar-chip" onClick={() => onOpenAuth?.()} title="Account & sign-in">{(userData?.name || 'R')[0].toUpperCase()}</div>
+            <div className="topbar-actions" style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className={`icon-btn ${isNotificationsOpen ? 'active' : ''}`}
+                aria-label="Notifications"
+                onClick={() => {
+                  setIsNotificationsOpen(prev => !prev);
+                  setIsProfileMenuOpen(false);
+                }}
+                title="Notifications"
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                </svg>
+                {unreadNotifications > 0 && <span className="dot"></span>}
+              </button>
+
+              <button
+                type="button"
+                className={`avatar-chip ${isProfileMenuOpen ? 'ring-active' : ''}`}
+                onClick={() => {
+                  setIsProfileMenuOpen(prev => !prev);
+                  setIsNotificationsOpen(false);
+                }}
+                title="Account & Profile Menu"
+                aria-label="Account Profile"
+              >
+                {(userData?.name || 'R')[0].toUpperCase()}
+              </button>
+
+              {/* Notifications Dropdown */}
+              {isNotificationsOpen && (
+                <>
+                  <div className="popover-backdrop" onClick={() => setIsNotificationsOpen(false)} />
+                  <div className="notifications-popover">
+                    <div className="notif-head">
+                      <div className="notif-title-row">
+                        <h4>Notifications</h4>
+                        {unreadNotifications > 0 && (
+                          <span className="notif-count-pill">{unreadNotifications} new</span>
+                        )}
+                      </div>
+                      {unreadNotifications > 0 && (
+                        <button className="notif-mark-read" onClick={markAllNotificationsRead}>Mark all read</button>
+                      )}
+                    </div>
+
+                    <div className="notif-list">
+                      {notifications.map(n => (
+                        <div
+                          key={n.id}
+                          className={`notif-item ${n.unread ? 'unread' : ''}`}
+                          onClick={() => handleNotificationClick(n)}
+                        >
+                          <div className="notif-avatar">{n.avatar}</div>
+                          <div className="notif-body">
+                            <div className="notif-top">
+                              <span className="notif-sender">{n.sender}</span>
+                              <span className="notif-time">{n.time}</span>
+                            </div>
+                            <p className="notif-title">{n.title}</p>
+                            <p className="notif-desc">{n.desc}</p>
+                          </div>
+                          {n.unread && <span className="notif-unread-dot" />}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="notif-footer">
+                      <button
+                        className="notif-footer-btn"
+                        onClick={() => {
+                          setIsNotificationsOpen(false);
+                          setCurrentView('leads');
+                        }}
+                      >
+                        View all leads & updates →
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Profile Menu Dropdown */}
+              {isProfileMenuOpen && (
+                <>
+                  <div className="popover-backdrop" onClick={() => setIsProfileMenuOpen(false)} />
+                  <div className="profile-menu-popover">
+                    <div className="prof-menu-header">
+                      <div className="prof-menu-avatar">
+                        {(userData?.name || 'R')[0].toUpperCase()}
+                      </div>
+                      <div className="prof-menu-meta">
+                        <h4>{userData?.name || 'Rahul Kumar'}</h4>
+                        <p>UI Designer & Brand Specialist</p>
+                        <span className="prof-status-tag">🟢 Available Now · Noida</span>
+                      </div>
+                    </div>
+
+                    <div className="prof-menu-links">
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          setIsProfileModalOpen(true);
+                        }}
+                      >
+                        <span className="prof-icon">👁️</span>
+                        <div>
+                          <div className="prof-item-title">Preview Public Profile</div>
+                          <div className="prof-item-sub">How clients and recruiters see your card</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          setCurrentView('dashboard');
+                          setOpenManagePanel('skills');
+                          const el = document.querySelector('.manage-list');
+                          if (el) el.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
+                        <span className="prof-icon">✏️</span>
+                        <div>
+                          <div className="prof-item-title">Edit Skills & Pricing</div>
+                          <div className="prof-item-sub">Update rates, experience, and certifications</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          onOpenResumeCheck?.();
+                        }}
+                      >
+                        <span className="prof-icon">📄</span>
+                        <div>
+                          <div className="prof-item-title">Resume Journey</div>
+                          <div className="prof-item-sub">AI keyword checks & instant optimization</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          onClose?.();
+                        }}
+                      >
+                        <span className="prof-icon">🏠</span>
+                        <div>
+                          <div className="prof-item-title">Back to LucoHire Home</div>
+                          <div className="prof-item-sub">Return to homepage search & browse</div>
+                        </div>
+                      </button>
+                    </div>
+
+                    <div className="prof-menu-footer">
+                      <button
+                        className="prof-signout-btn"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          onOpenAuth?.();
+                        }}
+                      >
+                        🚪 Sign Out / Switch Account
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -552,15 +1045,6 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                   <div key={f} className={`skill-filter ${skillFilter === f ? 'active' : ''}`} onClick={() => setSkillFilter(f)}>{f}</div>
                 ))}
               </div>
-              <div className="filter-scroll-nav">
-                <button className="filter-scroll-btn" onClick={() => scrollSkillFilter('left')}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="15.4,7.4 14,6 8,12 14,18 15.4,16.6 10.8,12 " /></svg>
-                </button>
-                <div className="filter-scroll-track"><div className="filter-scroll-thumb"></div></div>
-                <button className="filter-scroll-btn" onClick={() => scrollSkillFilter('right')}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="8.6,7.4 10,6 16,12 10,18 8.6,16.6 13.2,12 " /></svg>
-                </button>
-              </div>
             </div>
             <p className="filter-label" style={{ marginTop: '12px' }}>Filter by status</p>
             <div className="lead-filters">
@@ -571,57 +1055,17 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
           </div>
 
           <section style={{ marginTop: '14px' }}>
-            {[
-              {
-                id: 'q1',
-                chips: ['🎯 Logo Design', '🎯 Brand Identity'],
-                avatar: 'P',
-                name: 'Priya Malhotra',
-                time: '12 min ago',
-                brief: 'Needs a logo + basic brand kit for a new D2C skincare label, launching next month.',
-                budget: '💰 Offered ₹12,000',
-                timeline: '⏱ needed within 10 days',
-                status: 'New',
-                statusClass: 'new'
-              },
-              {
-                id: 'q2',
-                chips: ['🎯 Figma UI Design'],
-                avatar: 'A',
-                name: 'Arjun Studios',
-                time: '2 hr ago',
-                brief: 'Looking for ongoing Figma support, roughly 10 hrs/week for an internal dashboard product.',
-                budget: '💰 Offered ₹8,000/project',
-                timeline: '⏱ needed within 5 days',
-                status: 'New',
-                statusClass: 'new'
-              },
-              {
-                id: 'q3',
-                chips: ['🎯 Figma UI Design'],
-                avatar: 'S',
-                name: 'Simran Kaur',
-                time: 'Yesterday',
-                brief: 'Wants a full UI redesign for a booking app — sent over a Notion doc with references.',
-                budget: '💰 Offered ₹25,000',
-                timeline: '⏱ needed within 15 days',
-                status: 'Replied',
-                statusClass: 'replied',
-                extraQuote: "You quoted: ₹27,000 - 12 days — waiting on Simran's reply"
-              },
-              {
-                id: 'q4',
-                chips: ['🎯 Logo Design'],
-                avatar: 'N',
-                name: 'Nimbus Foods',
-                time: '3 days ago',
-                brief: 'Packaging design for 4 SKUs — confirmed and advance paid.',
-                budget: '💰 Agreed ₹18,000 - paid',
-                timeline: '',
-                status: 'Won',
-                statusClass: 'won'
-              }
-            ].map((lead) => (
+            {filteredLeads.length === 0 ? (
+              <div style={{ padding: '32px 16px', textAlign: 'center', background: '#F8F9FA', borderRadius: '12px', color: 'var(--ink-soft)' }}>
+                <p style={{ fontWeight: 600, fontSize: '14px', margin: 0 }}>No leads match this filter</p>
+                <button 
+                  onClick={() => { setSkillFilter('All skills'); setStatusFilter('All · 6'); }} 
+                  style={{ marginTop: '10px', fontSize: '13px', color: 'var(--teal)', fontWeight: 600, border: 'none', background: 'none', cursor: 'pointer' }}
+                >
+                  Reset filters
+                </button>
+              </div>
+            ) : filteredLeads.map((lead) => (
               <div className="lead-card" key={lead.id} style={{ marginBottom: '14px' }}>
                 <div className="lead-match-row">
                   {lead.chips.map(c => <span key={c} className="lead-match-chip">{c}</span>)}
@@ -646,11 +1090,11 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                 )}
 
                 <div className="lead-actions">
-                  <button className="btn btn-whatsapp">💬 Chat</button>
+                  <button className="btn btn-whatsapp" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Hi ${lead.name}, I am interested in your project on LucoHire: "${lead.brief}"`)}`, '_blank')}>💬 Chat</button>
                   <button className="btn btn-quote" onClick={(e) => toggleQuote(e, lead.id)}>💰 Send my quote</button>
-                  <button className="btn btn-call" title="Request a call">📞</button>
+                  <button className="btn btn-call" title="Request a call" onClick={() => alert(`Call request registered for ${lead.name}. LucoHire WhatsApp will connect you shortly.`)}>📞</button>
                 </div>
-                <button className="btn btn-ghost" style={{ width: '100%', marginTop: '8px' }}>View project</button>
+                <button className="btn btn-ghost" style={{ width: '100%', marginTop: '8px' }} onClick={() => setSelectedProject(lead)}>View project</button>
 
                 {sentQuotes.includes(lead.id) && (
                   <div style={{ marginTop: '12px', background: '#eaf8f0', color: '#16a34a', padding: '10px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -698,17 +1142,92 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
       {(currentView === 'dashboard' || currentView === 'leads') && (
         <div className="bottom-nav">
-          <div className={`nav-item ${currentView === 'dashboard' ? 'active' : ''}`} onClick={() => setCurrentView('dashboard')}>
+          <div className={`nav-item ${currentView === 'dashboard' ? 'active' : ''}`} onClick={() => {
+            setCurrentView('dashboard');
+            const container = document.querySelector('.candidate-dashboard-container');
+            if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
+          }}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
             Dashboard{currentView === 'dashboard' && <span className="nav-dot"></span>}
           </div>
-          <div className={`nav-item ${currentView === 'leads' ? 'active' : ''}`} onClick={() => setCurrentView('leads')}>
+          <div className={`nav-item ${currentView === 'leads' ? 'active' : ''}`} onClick={() => {
+            setCurrentView('leads');
+            const container = document.querySelector('.candidate-dashboard-container');
+            if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
+          }}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4H12a8.7 8.7 0 0 1-4-1L3 20l1.2-3.6a8.3 8.3 0 0 1-1.2-4.4A8.4 8.4 0 0 1 11.5 3h.5a8.4 8.4 0 0 1 8.4 8Z" /></svg>
             Leads{currentView === 'leads' && <span className="nav-dot"></span>}
           </div>
           <div className="nav-item" onClick={() => onOpenResumeCheck?.()}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M9 13h6M9 17h6" /></svg>
             Resume Journey
+          </div>
+        </div>
+      )}
+
+      
+      {/* Project Details Modal (Bug 9) */}
+      {selectedProject && (
+        <div className="profile-modal open" onClick={() => setSelectedProject(null)} style={{ zIndex: 1200 }}>
+          <div className="profile-modal-sheet" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div className="profile-modal-close" onClick={() => setSelectedProject(null)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </div>
+            <p className="profile-modal-tag">Project requirement details</p>
+            
+            <div style={{ marginTop: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                <div className="lead-avatar" style={{ width: '42px', height: '42px', fontSize: '16px' }}>{selectedProject.avatar}</div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--ink)' }}>{selectedProject.name}</h3>
+                  <span style={{ fontSize: '12px', color: 'var(--ink-soft)' }}>Posted {selectedProject.time}</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+                {selectedProject.chips.map((c: string) => <span key={c} className="lead-match-chip">{c}</span>)}
+              </div>
+
+              <div style={{ background: '#F8F9FA', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>Project Brief</h4>
+                <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.5', color: 'var(--ink-light)' }}>{selectedProject.brief}</p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ flex: 1, padding: '10px 12px', background: 'var(--teal-wash)', borderRadius: '10px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--teal-deep)', fontWeight: 600 }}>Budget</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--teal-deep)', marginTop: '2px' }}>{selectedProject.budget}</div>
+                </div>
+                {selectedProject.timeline && (
+                  <div style={{ flex: 1, padding: '10px 12px', background: '#F8F9FA', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--ink-soft)', fontWeight: 600 }}>Timeline</div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink)', marginTop: '2px' }}>{selectedProject.timeline}</div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button 
+                  className="btn btn-whatsapp" 
+                  style={{ width: '100%', justifyContent: 'center', padding: '12px' }}
+                  onClick={() => {
+                    window.open(`https://wa.me/?text=${encodeURIComponent(`Hi ${selectedProject.name}, I saw your project on LucoHire: "${selectedProject.brief}". I'd like to discuss the scope and timeline.`)}`, '_blank');
+                  }}
+                >
+                  💬 Chat on WhatsApp
+                </button>
+                <button 
+                  className="btn btn-quote" 
+                  style={{ width: '100%', justifyContent: 'center', padding: '12px' }}
+                  onClick={(e) => {
+                    toggleQuote(e, selectedProject.id);
+                    setSelectedProject(null);
+                  }}
+                >
+                  💰 Send customized quote
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

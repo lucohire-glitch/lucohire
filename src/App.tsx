@@ -222,7 +222,26 @@ export default function App() {
       <>
         <ResumeCheckView
           onBack={() => setIsResumeCheckOpen(false)}
-          onGoToFreelancers={() => scrollTo('frlSection')}
+          onGoToFreelancers={() => {
+            setIsResumeCheckOpen(false);
+            setTimeout(() => {
+              const el = document.getElementById('frlSection');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+          }}
+          onOpenCandidateReg={() => setIsCandidateRegOpen(true)}
+          onOpenRoleChooser={() => setIsRoleChooserOpen(true)}
+          onOpenAuth={() => setIsAuthOpen(true)}
+          onGoToPricing={() => {
+            setIsResumeCheckOpen(false);
+            window.location.hash = 'pricingSection';
+            setTimeout(() => {
+              const el = document.getElementById('pricingSection');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 120);
+          }}
         />
         <AuthModal
           isOpen={isAuthOpen}

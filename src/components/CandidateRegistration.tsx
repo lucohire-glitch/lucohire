@@ -1077,25 +1077,26 @@ export default function CandidateRegistration({
     <div id="registrationScreen">
       {showToast && <div className="score-toast show">{toastMsg}</div>}
       <div className="shell">
-        <button className="reg-close" onClick={onClose} aria-label="Close and go back">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
-
         <header className="wizard-header">
-          <div className="brand-row">
+          <div className="brand-row" style={{ paddingRight: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div className="brand-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #E5E7EB', flexShrink: 0 }}>
                 <LucoLogo size={20} />
               </div>
               <p className="brand-title">LucoHire</p>
             </div>
-            <div className="score-pill">
-              <div className="score-ring" id="scoreRing" style={{ '--pct': score } as any}>
-                <span id="scoreNum">{score}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="score-pill" style={{ marginRight: 0 }}>
+                <div className="score-ring" id="scoreRing" style={{ '--pct': score } as any}>
+                  <span id="scoreNum">{score}</span>
+                </div>
+                <div className="score-txt">profile <b id="scoreLine">{score}%</b> ready</div>
               </div>
-              <div className="score-txt">profile <b id="scoreLine">{score}%</b> ready</div>
+              <button className="reg-close" style={{ position: 'static', margin: 0, flexShrink: 0 }} onClick={onClose} aria-label="Close and go back">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
 

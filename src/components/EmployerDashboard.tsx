@@ -37,6 +37,59 @@ export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAut
   // Max seats for jobs
   const XMAX = 15;
 
+  // Point 15: Recruiter Topbar notifications & profile menu
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(2);
+  const [notifications, setNotifications] = useState([
+    {
+      id: 'en1',
+      sender: 'Rahul Kumar',
+      avatar: 'R',
+      title: 'New candidate application received',
+      desc: 'Applied for UI/UX Designer — Contract (94% match).',
+      time: '10 min ago',
+      unread: true,
+      action: 'jobs'
+    },
+    {
+      id: 'en2',
+      sender: 'Simran Kaur',
+      avatar: 'S',
+      title: 'Candidate replied with custom proposal',
+      desc: 'Sent price breakdown for Booking App redesign.',
+      time: '2 hours ago',
+      unread: true,
+      action: 'leads'
+    },
+    {
+      id: 'en3',
+      sender: 'LucoHire Verified',
+      avatar: '⚡',
+      title: 'Job listing boosted to top',
+      desc: 'Your Figma UI Designer post is ranking #1 in Noida.',
+      time: 'Yesterday',
+      unread: false,
+      action: 'jobs'
+    }
+  ]);
+
+  const markAllNotificationsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+    setUnreadNotifications(0);
+  };
+
+  const handleNotificationClick = (item: any) => {
+    setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, unread: false } : n));
+    setUnreadNotifications(prev => Math.max(0, prev - (item.unread ? 1 : 0)));
+    setIsNotificationsOpen(false);
+    if (item.action === 'jobs') {
+      setCurrentView('jobs');
+    } else if (item.action === 'leads') {
+      setCurrentView('leads');
+    }
+  };
+
   // Jobs state (XJ from media HTML)
   const [jobs, setJobs] = useState([
     {
@@ -500,10 +553,177 @@ export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAut
               <p className="greeting">Jobs for you</p>
               <p className="x-sub" style={{ marginTop: '8px', marginBottom: 0 }}>Pick a job and apply. Then wait for the recruiter to reply.</p>
             </div>
-            <div className="topbar-actions">
-              <div className="avatar-chip" onClick={() => onOpenAuth?.()} title="Account & sign-in">
-                {(userData?.name || 'R')[0].toUpperCase()}
-              </div>
+            <div className="topbar-actions" style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className={`icon-btn ${isNotificationsOpen ? 'active' : ''}`}
+                aria-label="Notifications"
+                onClick={() => {
+                  setIsNotificationsOpen(prev => !prev);
+                  setIsProfileMenuOpen(false);
+                }}
+                title="Notifications"
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                </svg>
+                {unreadNotifications > 0 && <span className="dot"></span>}
+              </button>
+
+              <button
+                type="button"
+                className={`avatar-chip ${isProfileMenuOpen ? 'ring-active' : ''}`}
+                onClick={() => {
+                  setIsProfileMenuOpen(prev => !prev);
+                  setIsNotificationsOpen(false);
+                }}
+                title="Account & Profile Menu"
+                aria-label="Account Profile"
+              >
+                {(userData?.name || 'P')[0].toUpperCase()}
+              </button>
+
+              {/* Notifications Dropdown */}
+              {isNotificationsOpen && (
+                <>
+                  <div className="popover-backdrop" onClick={() => setIsNotificationsOpen(false)} />
+                  <div className="notifications-popover">
+                    <div className="notif-head">
+                      <div className="notif-title-row">
+                        <h4>Recruiter Notifications</h4>
+                        {unreadNotifications > 0 && (
+                          <span className="notif-count-pill">{unreadNotifications} new</span>
+                        )}
+                      </div>
+                      {unreadNotifications > 0 && (
+                        <button className="notif-mark-read" onClick={markAllNotificationsRead}>Mark all read</button>
+                      )}
+                    </div>
+
+                    <div className="notif-list">
+                      {notifications.map(n => (
+                        <div
+                          key={n.id}
+                          className={`notif-item ${n.unread ? 'unread' : ''}`}
+                          onClick={() => handleNotificationClick(n)}
+                        >
+                          <div className="notif-avatar">{n.avatar}</div>
+                          <div className="notif-body">
+                            <div className="notif-top">
+                              <span className="notif-sender">{n.sender}</span>
+                              <span className="notif-time">{n.time}</span>
+                            </div>
+                            <p className="notif-title">{n.title}</p>
+                            <p className="notif-desc">{n.desc}</p>
+                          </div>
+                          {n.unread && <span className="notif-unread-dot" />}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="notif-footer">
+                      <button
+                        className="notif-footer-btn"
+                        onClick={() => {
+                          setIsNotificationsOpen(false);
+                          setCurrentView('leads');
+                        }}
+                      >
+                        View all candidate responses →
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Profile Menu Dropdown */}
+              {isProfileMenuOpen && (
+                <>
+                  <div className="popover-backdrop" onClick={() => setIsProfileMenuOpen(false)} />
+                  <div className="profile-menu-popover">
+                    <div className="prof-menu-header">
+                      <div className="prof-menu-avatar">
+                        {(userData?.name || 'P')[0].toUpperCase()}
+                      </div>
+                      <div className="prof-menu-meta">
+                        <h4>{userData?.name || 'Priya Malhotra'}</h4>
+                        <p>{userData?.company || 'Zentro Labs · Recruiter'}</p>
+                        <span className="prof-status-tag">🟢 Active · Hiring Mode</span>
+                      </div>
+                    </div>
+
+                    <div className="prof-menu-links">
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          setCurrentView('jobs');
+                        }}
+                      >
+                        <span className="prof-icon">📋</span>
+                        <div>
+                          <div className="prof-item-title">Active Requirements</div>
+                          <div className="prof-item-sub">View applied candidates & vacancies</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          setCurrentView('leads');
+                        }}
+                      >
+                        <span className="prof-icon">💬</span>
+                        <div>
+                          <div className="prof-item-title">Candidate Messages</div>
+                          <div className="prof-item-sub">Inquiries, quotes & chat history</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          openBoostModal();
+                        }}
+                      >
+                        <span className="prof-icon">⚡</span>
+                        <div>
+                          <div className="prof-item-title">Boost Job Listing</div>
+                          <div className="prof-item-sub">Show at top of category search</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          onClose?.();
+                        }}
+                      >
+                        <span className="prof-icon">🏠</span>
+                        <div>
+                          <div className="prof-item-title">Back to LucoHire Home</div>
+                          <div className="prof-item-sub">Return to homepage search & browse</div>
+                        </div>
+                      </button>
+                    </div>
+
+                    <div className="prof-menu-footer">
+                      <button
+                        className="prof-signout-btn"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          onOpenAuth?.();
+                        }}
+                      >
+                        🚪 Sign Out / Switch Account
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -599,10 +819,177 @@ export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAut
               <p className="greeting">Recruiter Message</p>
               <p className="x-sub" style={{ marginTop: '8px', marginBottom: 0 }}>These people want to hire you. Reply fast to get the work.</p>
             </div>
-            <div className="topbar-actions">
-              <div className="avatar-chip" onClick={() => onOpenAuth?.()} title="Account & sign-in">
-                {(userData?.name || 'R')[0].toUpperCase()}
-              </div>
+            <div className="topbar-actions" style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className={`icon-btn ${isNotificationsOpen ? 'active' : ''}`}
+                aria-label="Notifications"
+                onClick={() => {
+                  setIsNotificationsOpen(prev => !prev);
+                  setIsProfileMenuOpen(false);
+                }}
+                title="Notifications"
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5B6168" strokeWidth="1.8">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                </svg>
+                {unreadNotifications > 0 && <span className="dot"></span>}
+              </button>
+
+              <button
+                type="button"
+                className={`avatar-chip ${isProfileMenuOpen ? 'ring-active' : ''}`}
+                onClick={() => {
+                  setIsProfileMenuOpen(prev => !prev);
+                  setIsNotificationsOpen(false);
+                }}
+                title="Account & Profile Menu"
+                aria-label="Account Profile"
+              >
+                {(userData?.name || 'P')[0].toUpperCase()}
+              </button>
+
+              {/* Notifications Dropdown */}
+              {isNotificationsOpen && (
+                <>
+                  <div className="popover-backdrop" onClick={() => setIsNotificationsOpen(false)} />
+                  <div className="notifications-popover">
+                    <div className="notif-head">
+                      <div className="notif-title-row">
+                        <h4>Recruiter Notifications</h4>
+                        {unreadNotifications > 0 && (
+                          <span className="notif-count-pill">{unreadNotifications} new</span>
+                        )}
+                      </div>
+                      {unreadNotifications > 0 && (
+                        <button className="notif-mark-read" onClick={markAllNotificationsRead}>Mark all read</button>
+                      )}
+                    </div>
+
+                    <div className="notif-list">
+                      {notifications.map(n => (
+                        <div
+                          key={n.id}
+                          className={`notif-item ${n.unread ? 'unread' : ''}`}
+                          onClick={() => handleNotificationClick(n)}
+                        >
+                          <div className="notif-avatar">{n.avatar}</div>
+                          <div className="notif-body">
+                            <div className="notif-top">
+                              <span className="notif-sender">{n.sender}</span>
+                              <span className="notif-time">{n.time}</span>
+                            </div>
+                            <p className="notif-title">{n.title}</p>
+                            <p className="notif-desc">{n.desc}</p>
+                          </div>
+                          {n.unread && <span className="notif-unread-dot" />}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="notif-footer">
+                      <button
+                        className="notif-footer-btn"
+                        onClick={() => {
+                          setIsNotificationsOpen(false);
+                          setCurrentView('leads');
+                        }}
+                      >
+                        View all candidate responses →
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Profile Menu Dropdown */}
+              {isProfileMenuOpen && (
+                <>
+                  <div className="popover-backdrop" onClick={() => setIsProfileMenuOpen(false)} />
+                  <div className="profile-menu-popover">
+                    <div className="prof-menu-header">
+                      <div className="prof-menu-avatar">
+                        {(userData?.name || 'P')[0].toUpperCase()}
+                      </div>
+                      <div className="prof-menu-meta">
+                        <h4>{userData?.name || 'Priya Malhotra'}</h4>
+                        <p>{userData?.company || 'Zentro Labs · Recruiter'}</p>
+                        <span className="prof-status-tag">🟢 Active · Hiring Mode</span>
+                      </div>
+                    </div>
+
+                    <div className="prof-menu-links">
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          setCurrentView('jobs');
+                        }}
+                      >
+                        <span className="prof-icon">📋</span>
+                        <div>
+                          <div className="prof-item-title">Active Requirements</div>
+                          <div className="prof-item-sub">View applied candidates & vacancies</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          setCurrentView('leads');
+                        }}
+                      >
+                        <span className="prof-icon">💬</span>
+                        <div>
+                          <div className="prof-item-title">Candidate Messages</div>
+                          <div className="prof-item-sub">Inquiries, quotes & chat history</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          openBoostModal();
+                        }}
+                      >
+                        <span className="prof-icon">⚡</span>
+                        <div>
+                          <div className="prof-item-title">Boost Job Listing</div>
+                          <div className="prof-item-sub">Show at top of category search</div>
+                        </div>
+                      </button>
+
+                      <button
+                        className="prof-menu-item"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          onClose?.();
+                        }}
+                      >
+                        <span className="prof-icon">🏠</span>
+                        <div>
+                          <div className="prof-item-title">Back to LucoHire Home</div>
+                          <div className="prof-item-sub">Return to homepage search & browse</div>
+                        </div>
+                      </button>
+                    </div>
+
+                    <div className="prof-menu-footer">
+                      <button
+                        className="prof-signout-btn"
+                        onClick={() => {
+                          setIsProfileMenuOpen(false);
+                          onOpenAuth?.();
+                        }}
+                      >
+                        🚪 Sign Out / Switch Account
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

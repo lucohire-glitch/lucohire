@@ -28,7 +28,7 @@ export interface FreelancerItem {
   img: string;
 }
 
-const FREELANCERS_DATA: FreelancerItem[] = [
+export const FREELANCERS_DATA: FreelancerItem[] = [
   { id: 0, name: "Ananya Verma", role: "SaaS Content Writer", cat: "content", city: "Pune", rating: 4.9, jobs: 120, exp: 3, resp: 100, start: 0, skills: ["SaaS Copy", "SEO Writing", "Notion"], rate: "₹4", unit: "/word", proj: 2000, slots: 3, ver: [1, 1, 1], boost: true, img: "women/68" },
   { id: 1, name: "Rohit Malhotra", role: "Voice-over & Audio Editor", cat: "video", city: "Lucknow", rating: 4.8, jobs: 80, exp: 5, resp: 95, start: 1, skills: ["Voice-over", "Audio Editing", "Hindi + English"], rate: "₹2,500", unit: "/project", proj: 2500, slots: 5, ver: [1, 1, 0], boost: false, img: "men/52" },
   { id: 2, name: "Meher Kaur", role: "Logo & Brand Designer", cat: "design", city: "Delhi", rating: 5.0, jobs: 150, exp: 4, resp: 98, start: 0, skills: ["Figma", "Branding", "Illustration"], rate: "₹3,000", unit: "/logo", proj: 3000, slots: 2, ver: [1, 1, 1], boost: false, img: "women/54" },
@@ -204,6 +204,10 @@ export default function FreelancersView({
   const [ver, setVer] = useState(false);
   const [fast, setFast] = useState(false);
   const [boost, setBoost] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState<FreelancerItem | null>(null);
+  const [messageTarget, setMessageTarget] = useState<FreelancerItem | null>(null);
+  const [messageSent, setMessageSent] = useState(false);
   const [sort, setSort] = useState<'rec' | 'rating' | 'jobs' | 'exp' | 'rate'>('rec');
   const [shownCount, setShownCount] = useState(PAGE_SIZE);
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
@@ -281,6 +285,7 @@ export default function FreelancersView({
       if (ver && !d.ver.every(Boolean)) return false;
       if (fast && d.resp < 95) return false;
       if (boost && !d.boost) return false;
+      if (showFavoritesOnly && !likedIds.has(d.id)) return false;
       return true;
     }).sort((a, b) => {
       if (sort === 'rec') {
@@ -302,7 +307,7 @@ export default function FreelancersView({
       }
       return 0;
     });
-  }, [q, cat, city, budget, exp, rating, start, ver, fast, boost, sort]);
+  }, [q, cat, city, budget, exp, rating, start, ver, fast, boost, sort, showFavoritesOnly, likedIds]);
 
   // Active filters list for chips
   const activeTags = useMemo(() => {
@@ -421,9 +426,6 @@ export default function FreelancersView({
 
       {/* PAGE TITLE */}
       <section className="pg-head">
-          <button className="crumb" onClick={onBack}>
-            ← Back to home
-          </button>
           <h1>Freelancers on LucoHire</h1>
           <p>Browse 6,200+ verified freelancers. Narrow down by skill, city, budget and availability — then message the first 4 free.</p>
         </section>
@@ -478,12 +480,15 @@ export default function FreelancersView({
             </div>
 
             {/* Category Chips */}
-            <div className="f-chips" id="catChips">
+            
+            {/* Category Chips + Favorites Tab */}
+            <div className="f-chips" id="catChips" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               {['all', 'design', 'dev', 'content', 'video', 'marketing'].map((key) => (
                 <button
                   key={key}
-                  className={`frl-filter-chip ${cat === key ? 'on' : ''}`}
+                  className={`frl-filter-chip ${cat === key && !showFavoritesOnly ? 'on' : ''}`}
                   onClick={() => {
+                    setShowFavoritesOnly(false);
                     setCat(key);
                     setShownCount(PAGE_SIZE);
                   }}
@@ -491,6 +496,16 @@ export default function FreelancersView({
                   {CATEGORIES[key]}
                 </button>
               ))}
+              <button
+                className={`frl-filter-chip ${showFavoritesOnly ? 'on' : ''}`}
+                style={{ marginLeft: 'auto', background: showFavoritesOnly ? 'var(--brand-700, #4A3AE0)' : undefined, color: showFavoritesOnly ? '#fff' : undefined }}
+                onClick={() => {
+                  setShowFavoritesOnly(prev => !prev);
+                  setShownCount(PAGE_SIZE);
+                }}
+              >
+                ♥ Saved Favorites ({likedIds.size})
+              </button>
             </div>
 
             {/* 5 Dropdowns Grid */}
@@ -742,10 +757,10 @@ export default function FreelancersView({
                       </div>
 
                       <div className="frl-actions-row">
-                        <button className="frl-btn-outline" onClick={onOpenRoleChooser}>
+                        <button className="frl-btn-outline" onClick={() => setSelectedProfile(d)}>
                           View Profile
                         </button>
-                        <button className="frl-btn-primary" onClick={onOpenRoleChooser}>
+                        <button className="frl-btn-primary" onClick={() => { setMessageTarget(d); setMessageSent(false); }}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
                             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                           </svg>
@@ -824,6 +839,160 @@ export default function FreelancersView({
           <span style={{ background: 'rgba(34,197,94,0.15)', color: '#8CF0C2', padding: '4px 9px', borderRadius: '99px', fontWeight: 600 }}>🔒 Secure &amp; verified</span>
         </div>
       </footer>
+    {/* FREELANCER FULL PROFILE MODAL (Bug 2) */}
+      {selectedProfile && (
+        <div className="cr-preview-backdrop" onClick={() => setSelectedProfile(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div className="cr-preview-modal" onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', padding: '24px', position: 'relative', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <button 
+              onClick={() => setSelectedProfile(null)} 
+              style={{ position: 'absolute', top: '18px', right: '18px', width: '32px', height: '32px', borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'var(--ink-soft)' }}
+            >
+              ✕
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
+              <img 
+                src={`https://randomuser.me/api/portraits/${selectedProfile.img}.jpg`} 
+                alt={selectedProfile.name}
+                style={{ width: '68px', height: '68px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--violet-700, #4A3AE0)' }}
+              />
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--ink)' }}>{selectedProfile.name}</h3>
+                  <span style={{ color: 'var(--violet-700, #4A3AE0)', fontSize: '14px' }}>✓</span>
+                </div>
+                <p style={{ margin: '3px 0 0', fontSize: '13.5px', color: 'var(--ink-soft)' }}>{selectedProfile.role}</p>
+                <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--ink-faint)' }}>📍 {selectedProfile.city} · 🌐 Remote Available</p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', margin: '20px 0', background: 'var(--tint, #F6F6F3)', padding: '14px', borderRadius: '14px', textAlign: 'center' }}>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--ink)' }}>★ {selectedProfile.rating.toFixed(1)}</div>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft)', marginTop: '2px' }}>{selectedProfile.jobs} jobs completed</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--ink)' }}>{selectedProfile.exp}+ Yrs</div>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft)', marginTop: '2px' }}>Experience</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--green, #1FA854)' }}>{selectedProfile.resp}%</div>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft)', marginTop: '2px' }}>Response rate</div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <h4 style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>About & Experience</h4>
+              <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.6', color: 'var(--ink-soft)' }}>
+                Experienced {selectedProfile.role} with a proven track record delivering high quality projects for startups and businesses. Specialized in fast turnarounds, clear communication, and production-ready deliverables.
+              </p>
+            </div>
+
+            <div style={{ marginBottom: '18px' }}>
+              <h4 style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>Specialized Skills</h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {selectedProfile.skills.map((s: string, idx: number) => (
+                  <span key={idx} style={{ background: 'var(--tint, #F6F6F3)', border: '1px solid var(--line)', padding: '5px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, color: 'var(--ink)' }}>
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', padding: '12px 14px', background: '#FAFAFA', borderRadius: '12px', border: '1px solid var(--line)' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>Starting rate</div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--ink)', marginTop: '2px' }}>{selectedProfile.rate} <span style={{ fontSize: '12px', fontWeight: 500 }}>{selectedProfile.unit}</span></div>
+              </div>
+              <div style={{ flex: 1, borderLeft: '1px solid var(--line)', paddingLeft: '12px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>Availability</div>
+                <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--green, #1FA854)', marginTop: '3px' }}>{selectedProfile.slots} slots open this month</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={() => {
+                  const p = selectedProfile;
+                  setSelectedProfile(null);
+                  setMessageTarget(p);
+                  setMessageSent(false);
+                }}
+                style={{ flex: 1, background: 'var(--brand-700, #4A3AE0)', color: '#fff', padding: '12px', borderRadius: '10px', border: 'none', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                💬 Message Freelancer
+              </button>
+              <button 
+                onClick={() => toggleLike(selectedProfile.id)}
+                style={{ padding: '0 16px', borderRadius: '10px', border: '1px solid var(--line)', background: '#fff', fontSize: '18px', cursor: 'pointer', color: likedIds.has(selectedProfile.id) ? '#E11D48' : 'var(--ink)' }}
+                title="Save to favorites"
+              >
+                {likedIds.has(selectedProfile.id) ? '♥' : '♡'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MESSAGE PANEL MODAL (Bug 2) */}
+      {messageTarget && (
+        <div className="cr-preview-backdrop" onClick={() => setMessageTarget(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div className="cr-preview-modal" onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '480px', padding: '24px', position: 'relative', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <button 
+              onClick={() => setMessageTarget(null)} 
+              style={{ position: 'absolute', top: '18px', right: '18px', width: '32px', height: '32px', borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'var(--ink-soft)' }}
+            >
+              ✕
+            </button>
+
+            <h3 style={{ margin: '0 0 4px', fontSize: '17px', fontWeight: 700, color: 'var(--ink)' }}>Message {messageTarget.name}</h3>
+            <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--ink-soft)' }}>Typically responds in ~{messageTarget.resp > 95 ? '15 minutes' : '1 hour'} · Direct contact</p>
+
+            {messageSent ? (
+              <div style={{ background: '#E5F5EB', color: '#16A34A', padding: '16px', borderRadius: '12px', textAlign: 'center', margin: '16px 0' }}>
+                <div style={{ fontSize: '20px', marginBottom: '6px' }}>✓</div>
+                <b style={{ fontSize: '14px' }}>Message delivered!</b>
+                <p style={{ margin: '4px 0 0', fontSize: '12.5px' }}>{messageTarget.name} has been notified via LucoHire WhatsApp & Email notification.</p>
+                <button 
+                  onClick={() => setMessageTarget(null)}
+                  style={{ marginTop: '12px', background: '#16A34A', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <>
+                <textarea 
+                  id="directMsgText"
+                  rows={4}
+                  defaultValue={`Hi ${messageTarget.name}, I found your profile on LucoHire for ${messageTarget.role}. Are you available for a project this month?`}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--line)', fontSize: '13px', fontFamily: 'inherit', resize: 'none', outline: 'none', boxSizing: 'border-box', marginBottom: '14px' }}
+                />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <button 
+                    onClick={() => {
+                      const text = (document.getElementById('directMsgText') as HTMLTextAreaElement)?.value;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(text || '')}`, '_blank');
+                      setMessageSent(true);
+                    }}
+                    style={{ width: '100%', background: '#1FA854', color: '#fff', padding: '12px', borderRadius: '10px', border: 'none', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  >
+                    💬 Chat Directly on WhatsApp
+                  </button>
+                  <button 
+                    onClick={() => setMessageSent(true)}
+                    style={{ width: '100%', background: 'var(--brand-700, #4A3AE0)', color: '#fff', padding: '12px', borderRadius: '10px', border: 'none', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer' }}
+                  >
+                    Send via LucoHire Portal
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

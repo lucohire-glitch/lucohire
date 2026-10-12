@@ -1,9 +1,17 @@
 import React, { useEffect, useRef } from 'react';
 import './ResumeCheckView.css';
 
-export default function ResumeCheckView({ onBack }: any) {
+export default function ResumeCheckView({ onBack, onGoToFreelancers, onOpenAuth, onOpenRoleChooser, onOpenCandidateReg, onGoToPricing }: any) {
   useEffect(() => {
     window.scrollTo(0, 0);
+    (window as any).lucoGoToPricing = () => {
+      if (onGoToPricing) onGoToPricing();
+      else {
+        window.location.hash = 'pricingSection';
+        const el = document.getElementById('pricingSection');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
     // Setup vanilla JS logic exactly as it was
     const script = document.createElement('script');
     script.innerHTML = `
@@ -48,57 +56,82 @@ function acceptFile(file){
   if(file.size>MAX_SIZE){ showError('That file is over 10MB — try a smaller version.'); return; }
   clearError(); currentFile=file;
   fileName.textContent=file.name; fileSize.textContent=formatSize(file.size);
-  fileCard.classList.add('show'); dropzone.style.display='none'; analyzeBtn.disabled=false;
+  const dzDef = document.getElementById('dropzoneDefaultContent'); if(dzDef) dzDef.style.display='none'; fileCard.classList.add('show'); analyzeBtn.disabled=false;
   document.getElementById('buildResumeCard').classList.add('used');
 }
-dropzone.addEventListener('click',()=>fileInput.click());
+dropzone.addEventListener('click',(e)=>{ if(e.target.closest('#fileCard') || currentFile) return; fileInput.click(); });
 dropzone.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') fileInput.click(); });
 ['dragenter','dragover'].forEach(evt=>dropzone.addEventListener(evt,e=>{e.preventDefault();dropzone.classList.add('drag');}));
 ['dragleave','drop'].forEach(evt=>dropzone.addEventListener(evt,e=>{e.preventDefault();dropzone.classList.remove('drag');}));
 dropzone.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) acceptFile(f); });
 fileInput.addEventListener('change',()=>{ if(fileInput.files[0]) acceptFile(fileInput.files[0]); });
-removeBtn.addEventListener('click',e=>{ e.stopPropagation(); currentFile=null; fileInput.value=''; fileCard.classList.remove('show'); dropzone.style.display='flex'; analyzeBtn.disabled=true; clearError(); document.getElementById('buildResumeCard').classList.remove('used'); });
+removeBtn.addEventListener('click',e=>{ e.stopPropagation(); currentFile=null; fileInput.value=''; fileCard.classList.remove('show'); const dzDef=document.getElementById('dropzoneDefaultContent'); if(dzDef) dzDef.style.display='flex'; analyzeBtn.disabled=true; clearError(); document.getElementById('buildResumeCard').classList.remove('used'); });
 
 /* "Don't have a resume? We'll build one for you" — generates a stand-in resume from the
    candidate's LucoHire profile so they can still get an analysis without a file on hand */
-document.getElementById('buildResumeBtn').addEventListener('click', ()=>{
+function triggerBuildResume() {
   clearError();
-  currentFile='generated';
-  fileName.textContent='LucoHire-Profile-Resume.pdf';
-  fileSize.textContent='Built from your profile';
-  fileCard.classList.add('show'); dropzone.style.display='none'; analyzeBtn.disabled=false;
-  document.getElementById('buildResumeCard').classList.add('used');
-});
+  currentFile = 'generated';
+  const fn = document.getElementById('fileName');
+  const fs = document.getElementById('fileSize');
+  const fc = document.getElementById('fileCard');
+  const ab = document.getElementById('analyzeBtn');
+  const brc = document.getElementById('buildResumeCard');
+  const dzDef = document.getElementById('dropzoneDefaultContent');
+  if (fn) fn.textContent = 'LucoHire-Profile-Resume.pdf';
+  if (fs) fs.textContent = 'Built from your profile';
+  if (dzDef) dzDef.style.display = 'none';
+  if (fc) fc.classList.add('show');
+  if (ab) ab.disabled = false;
+  if (brc) brc.classList.add('used');
+}
+window.lucoBuildResume = triggerBuildResume;
+document.getElementById('buildResumeBtn')?.addEventListener('click', triggerBuildResume);
 
 analyzeBtn.addEventListener('click', () => {
     if (!currentFile) return;
     
-    // Hide upload UI parts
-    const uploadFlow = document.getElementById('uploadFlow');
-    if(uploadFlow) uploadFlow.style.display = 'none';
-    
-    // Show loader
+    const resultsView = document.getElementById('resultsView');
     const loader = document.getElementById('themeLoader');
-    if(loader) loader.style.display = 'flex';
+    const analyzeBtnElem = document.getElementById('analyzeBtn');
+    
+    // Disable button & show analyzing state on button
+    if (analyzeBtnElem) {
+      analyzeBtnElem.disabled = true;
+      analyzeBtnElem.textContent = 'Analyzing resume...';
+    }
+    
+    // Show loader right above the results section
+    if (loader) {
+      loader.style.display = 'flex';
+      loader.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
     
     const loaderText = document.getElementById('loaderText');
-    const steps = ['Reading your resume...', 'Matching against 18,000+ listings...', 'Checking skill demand & trends...', 'Building your roadmap...'];
+    const steps = [
+      'Reading your resume...',
+      'Matching against 18,000+ listings...',
+      'Checking skill demand & trends...',
+      'Building your roadmap...'
+    ];
     let i = 0;
-    if(loaderText) loaderText.textContent = steps[0];
+    if (loaderText) loaderText.textContent = steps[0];
     
     const iv = setInterval(() => {
       i++;
       if (i < steps.length) { 
-        if(loaderText) loaderText.textContent = steps[i]; 
+        if (loaderText) loaderText.textContent = steps[i]; 
         return; 
       }
       clearInterval(iv);
       
-      // Hide loader, show results
-      if(loader) loader.style.display = 'none';
-      const resultsView = document.getElementById('resultsView');
-      if(resultsView) {
-        resultsView.style.display = 'block';
+      // Loader done: hide loader, restore button, smoothly scroll to results
+      if (loader) loader.style.display = 'none';
+      if (analyzeBtnElem) {
+        analyzeBtnElem.disabled = false;
+        analyzeBtnElem.textContent = 'Analyze my resume';
+      }
+      if (resultsView) {
         resultsView.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }, 700);
@@ -426,11 +459,11 @@ const PATHS=[
 let activeTab='overview';
 let reportUnlocked=true;
 const tabAnchor={overview:'secOverview', fixes:'secAnalysis', recruiter:'secRecruiterScan', skills:'secDrop'};
-function applyTab(tab){
+function applyTab(tab, shouldScroll = true){
   activeTab=tab;
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   const target=document.getElementById(tabAnchor[tab]);
-  if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+  if(target && shouldScroll) target.scrollIntoView({behavior:'smooth', block:'start'});
   updatePaywallVisibility();
 }
 function updatePaywallVisibility(){
@@ -447,6 +480,22 @@ let selectedPaths={}, expandedPaths={};
 /* skills the user has explicitly added from "Skills on the rise" / "Staying relevant through 2030" —
    these flow into every path's syllabus box below, and can be switched off per-path from there */
 let addedSkills=new Set();
+
+window.toggleMissingKw = function(chipId, kwName) {
+  const el = document.getElementById(chipId);
+  if(!el) return;
+  const isAdded = el.classList.contains('hit');
+  if(isAdded) {
+    el.classList.remove('hit');
+    el.classList.add('miss');
+    el.textContent = '+ ' + kwName;
+  } else {
+    el.classList.remove('miss');
+    el.classList.add('hit');
+    el.textContent = '✓ ' + kwName + ' (Added to resume)';
+  }
+};
+
 let pathSkillOff={}; // pathSkillOff[pathId] = Set of skill names turned OFF for that path's plan
 
 function renderResults(){
@@ -554,7 +603,7 @@ function renderPaths(){
           <div><span class="path-oneline">\${p.oneLiner}</span></div>
         </div>
       </div>
-      <div class="path-detail" \${exp?'':'hidden'}>
+      <div class="path-detail">
         <div class="path-detail-label">Syllabus — tap a skill to include or leave it out</div>
         <div class="path-syllabus">\${chipSkills.map(s=>{
           const on=isSkillOn(p.id,s);
@@ -621,7 +670,7 @@ document.getElementById('startBtn').addEventListener('click', goNextStep);
 
 renderResults(); // the report is always visible on the page — Analyze just scrolls you to it
 setExperience('experienced'); // matches the default active pill; also syncs Leadership section visibility
-applyTab('overview'); // clean, minimal default landing view
+applyTab('overview', false); // clean, minimal default landing view (no auto-scroll on mount)
 
 /* ---- single-file shell bridge: works embedded (single merged file) or standalone ---- */
 function LucoTo(e, href){
@@ -645,24 +694,17 @@ function LucoTo(e, href){
 }
 
 function goNextStep(e){
-  e.preventDefault();
-  const ids=Object.keys(selectedPaths).filter(k=>selectedPaths[k]);
-  const pathIds=ids.length?ids:['p1'];
-  // only the skills still toggled "on" in each selected path's syllabus box carry forward
-  const finalSkills=[...new Set(pathIds.flatMap(id=>{
-    const p=PATHS.find(x=>x.id===id);
-    const chips=p?[...p.syllabus, ...addedSkills].filter((v,i,a)=>a.indexOf(v)===i):[];
-    return chips.filter(s=>isSkillOn(id,s));
-  }))];
-  const qs='score=64&paths='+encodeURIComponent(pathIds.join(','))+'&skills='+encodeURIComponent(finalSkills.join(','));
-  if(window.parent && window.parent!==window && window.parent.LucoNav){
-    window.parent.LucoState.paths=pathIds;
-    window.parent.LucoState.skills=finalSkills;
-    window.parent.LucoState.score=64;
-    window.parent.LucoNav('pricing');
-  } else {
-    window.location.href='pricing.html?'+qs;
+  e && e.preventDefault();
+  if (window.lucoGoToPricing) {
+    window.lucoGoToPricing();
+    return false;
   }
+  const pricingEl = document.getElementById('pricingSection');
+  if (pricingEl) {
+    pricingEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return false;
+  }
+  window.location.hash = 'pricingSection';
   return false;
 }
 `;
@@ -683,7 +725,42 @@ function goNextStep(e){
 
   {/*  ================= UPLOAD VIEW =================  */}
   <section className="view" id="uploadView">
-    <header className="header"><div className="logo"><span className="luco">Luco</span><span className="hire">Hire</span></div></header>
+    <header className="header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button
+          type="button"
+          onClick={onBack || (() => window.history.back())}
+          className="header-back-btn"
+          aria-label="Back"
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14.5px', fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', background: 'none', border: 'none', padding: '6px 8px', borderRadius: '8px' }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+          <span>Back</span>
+        </button>
+        <div className="logo" style={{ marginLeft: '4px', cursor: 'pointer' }} onClick={onBack}>
+          <span className="luco">Luco</span><span className="hire" style={{ color: 'var(--brand-700)' }}>Hire</span>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button
+          type="button"
+          onClick={onOpenAuth}
+          style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px' }}
+        >
+          Login
+        </button>
+        <span style={{ color: 'var(--line)', userSelect: 'none' }}>/</span>
+        <button
+          type="button"
+          onClick={onOpenRoleChooser || onOpenAuth}
+          style={{ fontSize: '14px', fontWeight: 600, color: 'var(--brand-700)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px' }}
+        >
+          Signup
+        </button>
+      </div>
+    </header>
     <main>
       <div className="no-resume" id="noResumeState">
         <div className="no-resume-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15l3-3 3 3"/></svg></div>
@@ -692,16 +769,27 @@ function goNextStep(e){
         <a className="no-resume-cta" id="noResumeCta" href="signup.html">Signup pe jao →</a>
       </div>
 
+      <div className="upload-heading-wrap" style={{ marginBottom: '14px' }}>
+        <p className="up-label" style={{ margin: 0 }}>Upload your resume to see where you stand</p>
+      </div>
+
       <div id="uploadFlow">
         <div className="upload-col-left">
-          <p className="up-label">Upload your resume to see where you stand</p>
-
           <div className="dropzone" id="dropzone" tabIndex={0} role="button" aria-label="Upload resume">
             <input type="file" id="fileInput" accept=".pdf,.doc,.docx" hidden />
-            <div className="dz-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
-            <p className="dz-title">Drag and drop your resume here</p>
-            <p className="dz-sub">or <span className="dz-browse">browse files</span></p>
-            <p className="dz-hint">PDF or Word · up to 10MB</p>
+            
+            <div id="dropzoneDefaultContent" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '10px' }}>
+              <div className="dz-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
+              <p className="dz-title">Drag and drop your resume here</p>
+              <p className="dz-sub">or <span className="dz-browse">browse files</span></p>
+              <p className="dz-hint">PDF or Word · up to 10MB</p>
+            </div>
+
+            <div className="filecard" id="fileCard" style={{ width: '100%', maxWidth: '360px', margin: 'auto' }}>
+              <div className="filecard-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+              <div className="filecard-info"><div className="filecard-name" id="fileName"></div><div className="filecard-size" id="fileSize"></div></div>
+              <button className="filecard-remove" id="removeBtn" aria-label="Remove file">×</button>
+            </div>
           </div>
           <p className="dz-error-msg" id="errorMsg"></p>
 
@@ -715,12 +803,6 @@ function goNextStep(e){
             <input id="jdUrl" className="jd-input" type="url" placeholder="Paste the job posting URL here…" hidden />
             <p className="jd-note"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Totally optional. Add it to get a match score for this exact role — skip it and we'll still analyze your resume against the wider market.</p>
           </div>
-
-          <div className="filecard" id="fileCard">
-            <div className="filecard-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
-            <div className="filecard-info"><div className="filecard-name" id="fileName"></div><div className="filecard-size" id="fileSize"></div></div>
-            <button className="filecard-remove" id="removeBtn" aria-label="Remove file">×</button>
-          </div>
         </div>
 
         <div className="upload-col-divider">
@@ -729,11 +811,34 @@ function goNextStep(e){
         <div className="or-divider or-divider-mobile" style={{ width: '100%' }}><span>OR</span></div>
         
         <div className="upload-col-right">
-          <div className="dropzone" id="buildResumeCard" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', padding: '35px 20px', border: '1.5px dashed var(--line)', borderRadius: '18px', background: '#FAFAFA', textAlign: 'center', height: '100%', minHeight: '220px'}}>
-              <div className="dz-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg></div>
-              <p className="dz-title" style={{margin: '0', fontSize: '15px', fontWeight: 'bold', color: 'var(--ink)'}}>Don't have a resume?</p>
-              <p className="dz-sub" style={{margin: '0', fontSize: '13px', color: 'var(--ink-soft)'}}>We'll build one for you from your LucoHire profile</p>
-              <button type="button" className="brc-cta" id="buildResumeBtn" style={{marginTop: '12px', border: '1.5px solid var(--brand-700)', background: 'var(--brand-900)', color: '#fff', padding: '8px 16px', borderRadius: '99px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer'}}>Build my resume &rarr;</button>
+          <div 
+            className="dropzone" 
+            id="buildResumeCard" 
+            tabIndex={0} 
+            role="button" 
+            aria-label="Build resume from profile"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (onOpenCandidateReg) {
+                onOpenCandidateReg();
+              } else if (onOpenRoleChooser) {
+                onOpenRoleChooser();
+              } else if ((window as any).lucoBuildResume) {
+                (window as any).lucoBuildResume();
+              }
+            }}
+          >
+            <div className="dz-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+                <path d="M12 18v-6M9 15l3-3 3 3"/>
+              </svg>
+            </div>
+            <p className="dz-title">Don't have a resume?</p>
+            <p className="dz-sub">or <span className="dz-browse" id="buildResumeBtn">build my resume</span></p>
+            <p className="dz-hint">We'll build one for you from your LucoHire profile</p>
           </div>
         </div>
 
@@ -764,7 +869,7 @@ function goNextStep(e){
       <div id="loaderText" style={{ color: 'var(--brand-900)', fontWeight: 'bold', fontSize: '16px' }}>Analyzing...</div>
     </div>
     
-    <section className="view" id="resultsView">
+    <section className="view" id="resultsView" style={{ display: 'block' }}>
     
     <div className="score-strip">
       <div className="score-ring-sm"><svg viewBox="0 0 52 52"><circle className="trk" cx="26" cy="26" r="22"/><circle className="fil" id="miniRing" cx="26" cy="26" r="22" strokeDasharray="138" strokeDashoffset="50"/></svg><div className="score-num-sm" id="miniRingNum">64</div></div>
@@ -923,18 +1028,65 @@ function goNextStep(e){
         <div style={{'fontSize': '12px', 'color': 'var(--ink-soft)', 'lineHeight': '1.5'}}><b style={{'color': 'var(--ink)'}}>18 of 30</b> JD keywords match. Baaki 12 missing — inhe (genuinely) add karne se match 85%+ ja sakta hai.</div>
       </div>
 
-      <div style={{'marginTop': '16px'}}>
-        <div className="mini-label">Missing keywords (add karo agar genuinely aata hai)</div>
-          <div id="missingKeywordsContainer" style={{'display': 'flex', 'flexWrap': 'wrap', 'gap': '7px'}}>
-            <span className="kw-chip miss">Figma Variables</span>
-            <span className="kw-chip miss">Design Systems</span>
-            <span className="kw-chip miss">A/B Testing</span>
-            <span className="kw-chip miss">Accessibility (WCAG)</span>
-          </div>
-          <div style={{'display': 'flex', 'gap': '8px', 'marginTop': '12px'}}>
-            <input type="text" id="newKeywordInput" placeholder="Add missing keyword..." style={{'flex': '1', 'padding': '8px 12px', 'borderRadius': '8px', 'border': '1px solid var(--line)', 'fontSize': '13px', 'outline': 'none'}} onKeyDown={(e) => { if(e.key === 'Enter') { const btn = document.getElementById('addKeywordBtn'); if(btn) btn.click(); } }} />
-            <button id="addKeywordBtn" type="button" style={{'background': 'var(--brand-900)', 'color': '#fff', 'border': 'none', 'borderRadius': '8px', 'padding': '0 16px', 'fontSize': '13px', 'fontWeight': 'bold', 'cursor': 'pointer', 'display': 'flex', 'alignItems': 'center', 'gap': '4px'}} onClick={() => { const input = document.getElementById('newKeywordInput') as HTMLInputElement; if(input && input.value.trim()) { const container = document.getElementById('missingKeywordsContainer'); if(container) { const span = document.createElement('span'); span.className = 'kw-chip miss'; span.textContent = input.value.trim(); container.appendChild(span); input.value = ''; } } }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg> Add</button>
-          </div>
+            <div style={{'marginTop': '16px'}}>
+        <div className="mini-label">Missing keywords (tap + to add to your resume)</div>
+        <div id="missingKeywordsContainer" style={{'display': 'flex', 'flexWrap': 'wrap', 'gap': '8px'}}>
+          {[
+            'Figma Variables',
+            'Design Systems',
+            'A/B Testing',
+            'Accessibility (WCAG)'
+          ].map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              className="kw-chip miss"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                border: '1px solid rgba(194,79,63,0.2)',
+                background: 'var(--red-tint)',
+                color: 'var(--red)',
+                padding: '6px 12px',
+                borderRadius: '99px',
+                fontWeight: 600,
+                fontSize: '12px',
+                transition: 'all 0.15s ease'
+              }}
+              onClick={(e) => {
+                const btn = e.currentTarget;
+                const isAdded = btn.classList.contains('hit');
+                if (!isAdded) {
+                  btn.classList.remove('miss');
+                  btn.classList.add('hit');
+                  btn.style.background = 'var(--green-tint)';
+                  btn.style.color = 'var(--green)';
+                  btn.style.borderColor = 'rgba(31,168,84,0.3)';
+                  btn.innerHTML = '<span>' + tag + '</span><span style="font-size:13px;font-weight:700;">✓ Added</span>';
+                  
+                  // Also add to candidate top skills if canvas is refreshed
+                  try {
+                    if ((window as any).CARD_CANDIDATE && !(window as any).CARD_CANDIDATE.skills.includes(tag)) {
+                      (window as any).CARD_CANDIDATE.skills.push(tag);
+                    }
+                  } catch(err){}
+                } else {
+                  btn.classList.remove('hit');
+                  btn.classList.add('miss');
+                  btn.style.background = 'var(--red-tint)';
+                  btn.style.color = 'var(--red)';
+                  btn.style.borderColor = 'rgba(194,79,63,0.2)';
+                  btn.innerHTML = '<span>' + tag + '</span><span style="font-size:14px;font-weight:700;line-height:1;">+</span>';
+                }
+              }}
+            >
+              <span>{tag}</span>
+              <span style={{ fontSize: '14px', fontWeight: 700, lineHeight: 1 }}>+</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div style={{'marginTop': '16px'}}>
@@ -1120,16 +1272,9 @@ function goNextStep(e){
       <div id="pathList"></div>
     </div>
 
-<div className="section" id="stepperNavSection" style={{'marginBottom': '132px'}}>
-      <div className="stepper-nav">
-        <div className="stepper-label">Step 1 of 5 — Batao: Resume Check</div>
-        <div className="stepper-dots"><i className="active"></i><i></i><i></i><i></i><i></i></div>
-      </div>
-    </div>
-
     <div className="summary-bar" id="summaryBar" hidden>
       <p className="summary-text" id="summaryText"></p>
-      <button className="cta" id="startBtn" style={{'marginTop': '0'}}>Next: Choose your plan →</button>
+      <button className="cta" id="startBtn" style={{'marginTop': '0'}} onClick={(e) => { e.preventDefault(); if (onGoToPricing) onGoToPricing(); else if ((window as any).lucoGoToPricing) (window as any).lucoGoToPricing(); }}>Next: Choose your plan →</button>
     </div>
   </section>
 

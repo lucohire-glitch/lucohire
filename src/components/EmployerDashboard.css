@@ -1671,8 +1671,13 @@
   }
 
   .candidate-dashboard-container .btn-whatsapp {
-    background: var(--whatsapp);
+    background: var(--indigo);
     color: #fff;
+    transition: background 0.15s ease, opacity 0.15s ease;
+  }
+
+  .candidate-dashboard-container .btn-whatsapp:hover {
+    background: var(--indigo-deep);
   }
 
   .candidate-dashboard-container .btn-quote {
@@ -2131,3 +2136,11 @@
       padding: 40px 24px;
     }
   }
+/* Popover support for Employer view */
+.candidate-dashboard-container.employer-view .avatar-chip.ring-active {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--indigo);
+}
+.candidate-dashboard-container.employer-view .icon-btn.active {
+  background: var(--indigo-wash);
+  border-color: var(--indigo);
+}

@@ -1,3 +1,4 @@
+import { FREELANCERS_DATA, FreelancerItem } from './FreelancersView';
 import React, { useState, useEffect } from 'react';
 import './LandingPage.css';
 
@@ -10,9 +11,26 @@ interface LandingPageProps {
 export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOpenFreelancerSearch }: LandingPageProps) {
   const [pricingTab, setPricingTab] = useState<'freelancer' | 'recruiter'>('freelancer');
   const [activeFrlFilter, setActiveFrlFilter] = useState('all');
+  const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
+  const [selectedProfile, setSelectedProfile] = useState<FreelancerItem | null>(null);
+  const [messageTarget, setMessageTarget] = useState<FreelancerItem | null>(null);
+  const [messageSent, setMessageSent] = useState(false);
+
+  const displayedFreelancers = FREELANCERS_DATA.filter((f: FreelancerItem) => {
+    if (activeFrlFilter === 'all') return true;
+    return f.cat === activeFrlFilter;
+  });
+
 
   useEffect(() => {
-    // Force scroll to top on mount to fix the issue where it loads at the bottom on refresh
+    if (window.location.hash) {
+      const targetId = window.location.hash.replace('#', '');
+      const el = document.getElementById(targetId);
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+        return;
+      }
+    }
     window.scrollTo(0, 0);
   }, []);
 
@@ -142,142 +160,111 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
         </div>
 
         <div className="frl-grid">
+          {displayedFreelancers.slice(0, 6).map((d: FreelancerItem) => {
+            const isLiked = likedIds.has(d.id);
+            const verifyItems = ['ID Verified', 'Portfolio Verified', 'Payment Verified'].filter((_, k) => d.ver[k]);
 
-          {/* Card 1 — boosted */}
-          <div className="frl-wrap">
-            <div className="frl-boost-tag">⚡ Boosted profile · Responds fast</div>
-            <div className="frl-card">
-              <div className="frl-top">
-                <div className="frl-photo-wrap">
-                  <img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Ananya Verma" />
-                  <span className="frl-online"></span>
-                </div>
-                <div className="frl-info">
-                  <div className="frl-name-row"><div className="frl-name">Ananya Verma</div>
-                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="10" fill="#4A3AE0"/><path d="M6 10.2l2.4 2.4L14 7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            return (
+              <div className="frl-wrap" key={d.id}>
+                {d.boost && (
+                  <div className="frl-boost-tag">⚡ Boosted profile · Responds fast</div>
+                )}
+                <div className="frl-card">
+                  <div className="frl-top">
+                    <div className="frl-photo-wrap">
+                      <img 
+                        src={`https://randomuser.me/api/portraits/${d.img}.jpg`} 
+                        alt={d.name}
+                        onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+                      />
+                      <span className="frl-online"></span>
+                    </div>
+                    <div className="frl-info">
+                      <div className="frl-name-row">
+                        <div className="frl-name">{d.name}</div>
+                        {d.ver.every(Boolean) && (
+                          <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                            <circle cx="10" cy="10" r="10" fill="#4A3AE0"/>
+                            <path d="M6 10.2l2.4 2.4L14 7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <div className="frl-role">{d.role}</div>
+                      <div className="frl-loc-row">📍 {d.city} · 🌐 Remote</div>
+                    </div>
+                    <div className="frl-rating-col">
+                      <div className="frl-rating"><span>★</span> {d.rating.toFixed(1)}</div>
+                      <div className="frl-rating-lbl">{d.jobs} jobs</div>
+                    </div>
                   </div>
-                  <div className="frl-role">SaaS Content Writer</div>
-                  <div className="frl-loc-row">📍 Pune · 🌐 Remote</div>
-                </div>
-                <div className="frl-rating-col">
-                  <div className="frl-rating"><span>★</span> 4.9</div>
-                  <div className="frl-rating-lbl">120 jobs</div>
-                </div>
-              </div>
-              <div className="frl-meta-row">
-                <div className="frl-meta-col"><div className="frl-meta-num">3+ Yrs</div><div className="frl-meta-lbl">Experience</div></div>
-                <div className="frl-meta-col"><div className="frl-meta-num">100%</div><div className="frl-meta-lbl">Response rate</div></div>
-                <div className="frl-meta-col"><div className="frl-meta-num">Today</div><div className="frl-meta-lbl">Can start</div></div>
-              </div>
-              <div className="frl-skills"><span className="frl-chip">SaaS Copy</span><span className="frl-chip">SEO Writing</span><span className="frl-chip">Notion</span></div>
-              <div className="frl-boxes">
-                <div className="frl-box"><div className="big">₹4<span>/word</span></div><div className="box-lbl">Starting rate</div></div>
-                <div className="frl-box avail"><div className="big">3 slots<span>open</span></div><div className="box-lbl">This month</div></div>
-              </div>
-              <div className="frl-verify-row">
-                <div className="frl-verify-item">✔ ID Verified</div>
-                <div className="frl-verify-item">✔ Portfolio Verified</div>
-                <div className="frl-verify-item">✔ Payment Verified</div>
-              </div>
-              <div className="frl-actions-row">
-                <button className="frl-btn-outline" onClick={onOpenFreelancerSearch}>View Profile</button>
-                <button className="frl-btn-primary" onClick={onOpenFreelancerSearch}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                  Message
-                </button>
-                <button className="frl-btn-heart">♡</button>
-              </div>
-            </div>
-          </div>
 
-          {/* Card 2 */}
-          <div className="frl-wrap">
-            <div className="frl-card">
-              <div className="frl-top">
-                <div className="frl-photo-wrap">
-                  <img src="https://randomuser.me/api/portraits/men/52.jpg" alt="Rohit Malhotra" />
-                  <span className="frl-online"></span>
-                </div>
-                <div className="frl-info">
-                  <div className="frl-name-row"><div className="frl-name">Rohit Malhotra</div></div>
-                  <div className="frl-role">Voice-over &amp; Audio Editor</div>
-                  <div className="frl-loc-row">📍 Lucknow · 🌐 Remote</div>
-                </div>
-                <div className="frl-rating-col">
-                  <div className="frl-rating"><span>★</span> 4.8</div>
-                  <div className="frl-rating-lbl">80 jobs</div>
-                </div>
-              </div>
-              <div className="frl-meta-row">
-                <div className="frl-meta-col"><div className="frl-meta-num">5+ Yrs</div><div className="frl-meta-lbl">Experience</div></div>
-                <div className="frl-meta-col"><div className="frl-meta-num">95%</div><div className="frl-meta-lbl">Response rate</div></div>
-                <div className="frl-meta-col"><div className="frl-meta-num">Tomorrow</div><div className="frl-meta-lbl">Can start</div></div>
-              </div>
-              <div className="frl-skills"><span className="frl-chip">Voice-over</span><span className="frl-chip">Audio Editing</span><span className="frl-chip">Hindi + English</span></div>
-              <div className="frl-boxes">
-                <div className="frl-box"><div className="big">₹2,500<span>/project</span></div><div className="box-lbl">Starting rate</div></div>
-                <div className="frl-box avail"><div className="big">5 slots<span>open</span></div><div className="box-lbl">This month</div></div>
-              </div>
-              <div className="frl-verify-row">
-                <div className="frl-verify-item">✔ ID Verified</div>
-                <div className="frl-verify-item">✔ Portfolio Verified</div>
-              </div>
-              <div className="frl-actions-row">
-                <button className="frl-btn-outline" onClick={onOpenFreelancerSearch}>View Profile</button>
-                <button className="frl-btn-primary" onClick={onOpenFreelancerSearch}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                  Message
-                </button>
-                <button className="frl-btn-heart">♡</button>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3 */}
-          <div className="frl-wrap">
-            <div className="frl-card">
-              <div className="frl-top">
-                <div className="frl-photo-wrap">
-                  <img src="https://randomuser.me/api/portraits/women/54.jpg" alt="Meher Kaur" />
-                  <span className="frl-online"></span>
-                </div>
-                <div className="frl-info">
-                  <div className="frl-name-row"><div className="frl-name">Meher Kaur</div>
-                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="10" fill="#4A3AE0"/><path d="M6 10.2l2.4 2.4L14 7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <div className="frl-meta-row">
+                    <div className="frl-meta-col">
+                      <div className="frl-meta-num">{d.exp}+ Yrs</div>
+                      <div className="frl-meta-lbl">Experience</div>
+                    </div>
+                    <div className="frl-meta-col">
+                      <div className="frl-meta-num">{d.resp}%</div>
+                      <div className="frl-meta-lbl">Response rate</div>
+                    </div>
+                    <div className="frl-meta-col">
+                      <div className="frl-meta-num">{d.start === 0 ? 'Today' : d.start === 1 ? 'Tomorrow' : 'This week'}</div>
+                      <div className="frl-meta-lbl">Can start</div>
+                    </div>
                   </div>
-                  <div className="frl-role">Logo &amp; Brand Designer</div>
-                  <div className="frl-loc-row">📍 Delhi · 🌐 Remote</div>
+
+                  <div className="frl-skills">
+                    {d.skills.map((s: string, idx: number) => (
+                      <span key={idx} className="frl-chip">{s}</span>
+                    ))}
+                  </div>
+
+                  <div className="frl-boxes">
+                    <div className="frl-box">
+                      <div className="big">{d.rate}<span>{d.unit}</span></div>
+                      <div className="box-lbl">Starting rate</div>
+                    </div>
+                    <div className="frl-box avail">
+                      <div className="big">{d.slots} slots<span>open</span></div>
+                      <div className="box-lbl">This month</div>
+                    </div>
+                  </div>
+
+                  <div className="frl-verify-row">
+                    {verifyItems.map((v, idx) => (
+                      <div key={idx} className="frl-verify-item">✔ {v}</div>
+                    ))}
+                  </div>
+
+                  <div className="frl-actions-row">
+                    <button className="frl-btn-outline" onClick={() => setSelectedProfile(d)}>
+                      View Profile
+                    </button>
+                    <button className="frl-btn-primary" onClick={() => { setMessageTarget(d); setMessageSent(false); }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                      </svg>
+                      Message
+                    </button>
+                    <button 
+                      className={`frl-btn-heart ${isLiked ? 'liked' : ''}`}
+                      onClick={() => {
+                        setLikedIds(prev => {
+                          const next = new Set(prev);
+                          if (next.has(d.id)) next.delete(d.id);
+                          else next.add(d.id);
+                          return next;
+                        });
+                      }}
+                      style={{ color: isLiked ? '#E11D48' : undefined }}
+                    >
+                      {isLiked ? '♥' : '♡'}
+                    </button>
+                  </div>
                 </div>
-                <div className="frl-rating-col">
-                  <div className="frl-rating"><span>★</span> 5.0</div>
-                  <div className="frl-rating-lbl">150 jobs</div>
-                </div>
               </div>
-              <div className="frl-meta-row">
-                <div className="frl-meta-col"><div className="frl-meta-num">4+ Yrs</div><div className="frl-meta-lbl">Experience</div></div>
-                <div className="frl-meta-col"><div className="frl-meta-num">98%</div><div className="frl-meta-lbl">Response rate</div></div>
-                <div className="frl-meta-col"><div className="frl-meta-num">Today</div><div className="frl-meta-lbl">Can start</div></div>
-              </div>
-              <div className="frl-skills"><span className="frl-chip">Figma</span><span className="frl-chip">Branding</span><span className="frl-chip">Illustration</span></div>
-              <div className="frl-boxes">
-                <div className="frl-box"><div className="big">₹3,000<span>/logo</span></div><div className="box-lbl">Starting rate</div></div>
-                <div className="frl-box avail"><div className="big">2 slots<span>open</span></div><div className="box-lbl">This month</div></div>
-              </div>
-              <div className="frl-verify-row">
-                <div className="frl-verify-item">✔ ID Verified</div>
-                <div className="frl-verify-item">✔ Portfolio Verified</div>
-                <div className="frl-verify-item">✔ Payment Verified</div>
-              </div>
-              <div className="frl-actions-row">
-                <button className="frl-btn-outline" onClick={onOpenFreelancerSearch}>View Profile</button>
-                <button className="frl-btn-primary" onClick={onOpenFreelancerSearch}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                  Message
-                </button>
-                <button className="frl-btn-heart">♡</button>
-              </div>
-            </div>
-          </div>
+            );
+          })}
 
           {/* View more */}
           <div className="frl-more-card">
@@ -499,6 +486,168 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
           <div className="trust-item"><div className="ti-num">4.7★</div><div className="ti-lbl">Avg. freelancer rating</div></div>
         </div>
       </div>
+    
+      {/* FREELANCER FULL PROFILE MODAL */}
+      {selectedProfile && (
+        <div className="cr-preview-backdrop" onClick={() => setSelectedProfile(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div className="cr-preview-modal" onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', padding: '24px', position: 'relative', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <button 
+              onClick={() => setSelectedProfile(null)} 
+              style={{ position: 'absolute', top: '18px', right: '18px', width: '32px', height: '32px', borderRadius: '50%', border: '1px solid #E5E7EB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'var(--ink-soft)' }}
+            >
+              ✕
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
+              <img 
+                src={`https://randomuser.me/api/portraits/${selectedProfile.img}.jpg`} 
+                alt={selectedProfile.name}
+                style={{ width: '68px', height: '68px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--violet-700, #4A3AE0)' }}
+              />
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--ink)' }}>{selectedProfile.name}</h3>
+                  <span style={{ color: 'var(--violet-700, #4A3AE0)', fontSize: '14px' }}>✓</span>
+                </div>
+                <p style={{ margin: '3px 0 0', fontSize: '13.5px', color: 'var(--ink-soft)' }}>{selectedProfile.role}</p>
+                <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--ink-faint)' }}>📍 {selectedProfile.city} · 🌐 Remote Available</p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', margin: '20px 0', background: 'var(--lavender-50, #F6F6F3)', padding: '14px', borderRadius: '14px', textAlign: 'center' }}>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--ink)' }}>★ {selectedProfile.rating.toFixed(1)}</div>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft)', marginTop: '2px' }}>{selectedProfile.jobs} jobs completed</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--ink)' }}>{selectedProfile.exp}+ Yrs</div>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft)', marginTop: '2px' }}>Experience</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--teal-deep, #1FA854)' }}>{selectedProfile.resp}%</div>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft)', marginTop: '2px' }}>Response rate</div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <h4 style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>About & Experience</h4>
+              <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.6', color: 'var(--ink-soft)' }}>
+                Top-rated {selectedProfile.role} with verified experience in delivering high impact projects for startups and businesses. Fast turnaround, clean communication, and reliable delivery.
+              </p>
+            </div>
+
+            <div style={{ marginBottom: '18px' }}>
+              <h4 style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>Top Skills</h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {selectedProfile.skills.map((s: string, idx: number) => (
+                  <span key={idx} style={{ background: '#F4F5F7', border: '1px solid #E5E7EB', padding: '5px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, color: 'var(--ink)' }}>
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', padding: '12px 14px', background: '#FAFAFA', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>Starting rate</div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--ink)', marginTop: '2px' }}>{selectedProfile.rate} <span style={{ fontSize: '12px', fontWeight: 500 }}>{selectedProfile.unit}</span></div>
+              </div>
+              <div style={{ flex: 1, borderLeft: '1px solid #E5E7EB', paddingLeft: '12px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>Availability</div>
+                <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#10B981', marginTop: '3px' }}>{selectedProfile.slots} slots open this month</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={() => {
+                  const p = selectedProfile;
+                  setSelectedProfile(null);
+                  setMessageTarget(p);
+                  setMessageSent(false);
+                }}
+                style={{ flex: 1, background: 'var(--violet-700, #4A3AE0)', color: '#fff', padding: '12px', borderRadius: '10px', border: 'none', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                💬 Message Freelancer
+              </button>
+              <button 
+                onClick={() => {
+                  setLikedIds(prev => {
+                    const next = new Set(prev);
+                    if (next.has(selectedProfile.id)) next.delete(selectedProfile.id);
+                    else next.add(selectedProfile.id);
+                    return next;
+                  });
+                }}
+                style={{ padding: '0 16px', borderRadius: '10px', border: '1px solid #E5E7EB', background: '#fff', fontSize: '18px', cursor: 'pointer', color: likedIds.has(selectedProfile.id) ? '#E11D48' : 'var(--ink)' }}
+                title="Save to favorites"
+              >
+                {likedIds.has(selectedProfile.id) ? '♥' : '♡'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MESSAGE PANEL MODAL */}
+      {messageTarget && (
+        <div className="cr-preview-backdrop" onClick={() => setMessageTarget(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div className="cr-preview-modal" onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '480px', padding: '24px', position: 'relative', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <button 
+              onClick={() => setMessageTarget(null)} 
+              style={{ position: 'absolute', top: '18px', right: '18px', width: '32px', height: '32px', borderRadius: '50%', border: '1px solid #E5E7EB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'var(--ink-soft)' }}
+            >
+              ✕
+            </button>
+
+            <h3 style={{ margin: '0 0 4px', fontSize: '17px', fontWeight: 700, color: 'var(--ink)' }}>Message {messageTarget.name}</h3>
+            <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--ink-soft)' }}>Typically responds in ~{messageTarget.resp > 95 ? '15 minutes' : '1 hour'} · Direct contact</p>
+
+            {messageSent ? (
+              <div style={{ background: '#E5F5EB', color: '#16A34A', padding: '16px', borderRadius: '12px', textAlign: 'center', margin: '16px 0' }}>
+                <div style={{ fontSize: '20px', marginBottom: '6px' }}>✓</div>
+                <b style={{ fontSize: '14px' }}>Message delivered!</b>
+                <p style={{ margin: '4px 0 0', fontSize: '12.5px' }}>{messageTarget.name} has been notified via LucoHire WhatsApp & Email notification.</p>
+                <button 
+                  onClick={() => setMessageTarget(null)}
+                  style={{ marginTop: '12px', background: '#16A34A', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <>
+                <textarea 
+                  id="landingMsgText"
+                  rows={4}
+                  defaultValue={`Hi ${messageTarget.name}, I found your profile on LucoHire for ${messageTarget.role}. Are you available for a project this month?`}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '13px', fontFamily: 'inherit', resize: 'none', outline: 'none', boxSizing: 'border-box', marginBottom: '14px' }}
+                />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <button 
+                    onClick={() => {
+                      const text = (document.getElementById('landingMsgText') as HTMLTextAreaElement)?.value;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(text || '')}`, '_blank');
+                      setMessageSent(true);
+                    }}
+                    style={{ width: '100%', background: '#1FA854', color: '#fff', padding: '12px', borderRadius: '10px', border: 'none', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  >
+                    💬 Chat Directly on WhatsApp
+                  </button>
+                  <button 
+                    onClick={() => setMessageSent(true)}
+                    style={{ width: '100%', background: 'var(--violet-700, #4A3AE0)', color: '#fff', padding: '12px', borderRadius: '10px', border: 'none', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer' }}
+                  >
+                    Send via LucoHire Portal
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

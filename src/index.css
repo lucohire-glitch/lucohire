@@ -2204,6 +2204,7 @@ footer.footnote a {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 14px;
+  padding-right: 48px;
 }
 .brand-logo {
   display: flex;
@@ -3086,7 +3087,7 @@ footer.wizard-footer button {
   cursor: not-allowed;
 }
 #nextBtn.final:not(:disabled), #recNextBtn.final:not(:disabled) {
-  background: var(--whatsapp);
+  background: var(--teal);
 }
 .toggle-switch {
   position: relative;
