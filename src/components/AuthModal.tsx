@@ -6,14 +6,16 @@
 import React, { useState } from 'react';
 import LucoLogo from './LucoLogo';
 import './AuthModal.css';
+import { login } from '../api';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenRoleChooser: () => void;
+  onLoginSuccess?: (data: { token: string; role: string; user: any }) => void;
 }
 
-export default function AuthModal({ isOpen, onClose, onOpenRoleChooser }: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose, onOpenRoleChooser, onLoginSuccess }: AuthModalProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,6 +23,7 @@ export default function AuthModal({ isOpen, onClose, onOpenRoleChooser }: AuthMo
   const [passwordError, setPasswordError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [apiError, setApiError] = useState('');
 
   if (!isOpen) return null;
 
@@ -34,14 +37,21 @@ export default function AuthModal({ isOpen, onClose, onOpenRoleChooser }: AuthMo
 
     if (isEmailValid && isPwValid) {
       setIsSubmitting(true);
-      setTimeout(() => {
-        setIsSubmitting(false);
-        setSuccessMessage('Signed in successfully!');
-        setTimeout(() => {
-          setSuccessMessage('');
-          onClose();
-        }, 1100);
-      }, 700);
+      setApiError('');
+      login(email.trim(), password)
+        .then((data: any) => {
+          setIsSubmitting(false);
+          setSuccessMessage('Signed in successfully!');
+          setTimeout(() => {
+            setSuccessMessage('');
+            onClose();
+            onLoginSuccess?.(data);
+          }, 900);
+        })
+        .catch((err: Error) => {
+          setIsSubmitting(false);
+          setApiError(err.message);
+        });
     }
   };
 
@@ -301,6 +311,10 @@ export default function AuthModal({ isOpen, onClose, onOpenRoleChooser }: AuthMo
                   Forgot password?
                 </a>
               </div>
+
+              {apiError && (
+                <span style={{ fontSize: '12.5px', color: '#B3492F' }}>{apiError}</span>
+              )}
 
               {/* Sign in submit button (100% exact match to HTML & screenshot) */}
               <button

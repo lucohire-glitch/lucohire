@@ -149,6 +149,7 @@
   #registrationScreen input[type=tel],
   #registrationScreen input[type=number],
   #registrationScreen input[type=email],
+  #registrationScreen input[type=password],
   #registrationScreen select,
   #registrationScreen textarea {
     font-size: 14px;

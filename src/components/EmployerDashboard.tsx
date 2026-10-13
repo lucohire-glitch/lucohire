@@ -6,9 +6,10 @@ interface EmployerDashboardProps {
   userData?: any;
   onClose: () => void;
   onOpenAuth?: () => void;
+  onLogout?: () => void;
 }
 
-export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAuth }: EmployerDashboardProps) {
+export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAuth, onLogout }: EmployerDashboardProps) {
   const [currentView, setCurrentView] = useState<'jobs' | 'leads'>('jobs');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastTimer, setToastTimer] = useState<any>(null);
@@ -715,10 +716,14 @@ export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAut
                         className="prof-signout-btn"
                         onClick={() => {
                           setIsProfileMenuOpen(false);
-                          onOpenAuth?.();
+                          if (onLogout) {
+                            onLogout();
+                          } else {
+                            onOpenAuth?.();
+                          }
                         }}
                       >
-                        🚪 Sign Out / Switch Account
+                        🚪 Sign Out
                       </button>
                     </div>
                   </div>

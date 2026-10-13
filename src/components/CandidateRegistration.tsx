@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import LucoLogo from './LucoLogo';
 import './CandidateRegistration.css';
+import { candidateSignup } from '../api';
 
 // Audio Buffer to WAV encoder helper
 function audioBufferToWav(buffer: AudioBuffer): Blob {
@@ -85,6 +86,8 @@ export default function CandidateRegistration({
   const [title, setTitle] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [mobileVerified, setMobileVerified] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
   const [showMobileOtp, setShowMobileOtp] = useState(false);
@@ -1054,8 +1057,19 @@ export default function CandidateRegistration({
 
   const headlineSkill = skills.find((s) => s.isHeadline) || skills[0];
 
-  const handleFinish = () => {
-    if (!tncCheck) return;
+  const handleFinish = async () => {
+    if (!tncCheck || submitting) return;
+    const alreadyAuthed = !!localStorage.getItem('luco_token');
+    if (!alreadyAuthed && (!name.trim() || !email.includes('@'))) {
+      triggerToast('Please enter your name and email in step 1');
+      setCurrentStep(1);
+      return;
+    }
+    if (!alreadyAuthed && password.length < 8) {
+      triggerToast('Create a password (min 8 characters) in step 1');
+      setCurrentStep(1);
+      return;
+    }
     const finalData = {
       name: name || 'Rahul Kumar',
       title: title || 'UI Designer & Brand Specialist',
@@ -1066,7 +1080,29 @@ export default function CandidateRegistration({
       startingRate: headlineSkill?.price ? `₹${headlineSkill.price}` : '₹3,000',
       whatsapp: mobile || '9876543210'
     };
-    onComplete(finalData);
+    setSubmitting(true);
+    if (alreadyAuthed) {
+      setSubmitting(false);
+      onComplete(finalData);
+      return;
+    }
+    try {
+      await candidateSignup({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        mobile,
+        title,
+        city,
+        state,
+        profile: { ...finalData, category, experience, about, achievement, skills, languages, availType, availStart }
+      });
+      onComplete(finalData);
+    } catch (err: any) {
+      triggerToast(err.message || 'Signup failed');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const avatarInitials = name.trim()
@@ -1387,6 +1423,19 @@ export default function CandidateRegistration({
                     </div>
                   )}
                 </div>
+              </div>
+
+              <div className="field">
+                <div className="field-label"><label>Create password</label></div>
+                <input
+                  type="password"
+                  id="passwordInput"
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <p className="hint">You'll use your email and this password to sign in.</p>
               </div>
 
               {/* Location & travel radius card */}

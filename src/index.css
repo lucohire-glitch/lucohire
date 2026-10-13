@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 :root {
   --violet-900: #241A5E;
@@ -2346,6 +2346,7 @@ main.wizard-main {
 .wizard-main input[type=tel],
 .wizard-main input[type=number],
 .wizard-main input[type=email],
+.wizard-main input[type=password],
 .wizard-main select,
 .wizard-main textarea {
   width: 100%;

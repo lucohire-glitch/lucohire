@@ -7,9 +7,10 @@ interface CandidateDashboardProps {
   onClose: () => void;
   onOpenResumeCheck?: () => void;
   onOpenAuth?: () => void;
+  onLogout?: () => void;
 }
 
-export default function CandidateDashboard({ isOpen, userData, onClose, onOpenResumeCheck, onOpenAuth }: CandidateDashboardProps) {
+export default function CandidateDashboard({ isOpen, userData, onClose, onOpenResumeCheck, onOpenAuth, onLogout }: CandidateDashboardProps) {
   const [currentView, setCurrentView] = useState<'dashboard' | 'leads' | 'jobs' | 'resume' | 'signup'>('dashboard');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [openManagePanel, setOpenManagePanel] = useState<string | null>(null);
@@ -402,10 +403,14 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                         className="prof-signout-btn"
                         onClick={() => {
                           setIsProfileMenuOpen(false);
-                          onOpenAuth?.();
+                          if (onLogout) {
+                            onLogout();
+                          } else {
+                            onOpenAuth?.();
+                          }
                         }}
                       >
-                        🚪 Sign Out / Switch Account
+                        🚪 Sign Out
                       </button>
                     </div>
                   </div>

@@ -6,6 +6,7 @@
 import React, { useState, useRef } from 'react';
 import LucoLogo from './LucoLogo';
 import './RecruiterRegistration.css';
+import { recruiterSignup } from '../api';
 
 interface RecruiterRegistrationProps {
   isOpen: boolean;
@@ -34,6 +35,8 @@ export default function RecruiterRegistration({
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [workEmail, setWorkEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [mobile, setMobile] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
   const [mobileVerified, setMobileVerified] = useState(false);
@@ -195,16 +198,55 @@ export default function RecruiterRegistration({
   if (description.trim()) score += 2;
   score = Math.min(100, score);
 
-  const handleFinish = () => {
-    if (!authCheck || !tncCheck) return;
-    onComplete({
-      name: name || 'Priya Mehta',
-      company: company || 'Brightside Retail Pvt Ltd',
-      role: role || 'HR Manager',
-      city: city || 'Bengaluru',
-      score,
-      verified: gstUploaded
-    });
+  const handleFinish = async () => {
+    if (!authCheck || !tncCheck || submitting) return;
+    if (localStorage.getItem('luco_token')) {
+      onComplete({
+        name: name || 'Priya Mehta',
+        company: company || 'Brightside Retail Pvt Ltd',
+        role: role || 'HR Manager',
+        city: city || 'Bengaluru',
+        score,
+        verified: gstUploaded
+      });
+      return;
+    }
+    if (!name.trim() || !workEmail.includes('@')) {
+      triggerToast('Please enter your name and work email in step 1');
+      setRecCurrent(1);
+      return;
+    }
+    if (password.length < 8) {
+      triggerToast('Create a password (min 8 characters) in step 1');
+      setRecCurrent(1);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await recruiterSignup({
+        name: name.trim(),
+        email: workEmail.trim(),
+        password,
+        mobile,
+        roleTitle: role,
+        company,
+        city,
+        state,
+        profile: { hiringType, agencyLicense, industry, size, website, description, gstType, gstUploaded, score }
+      });
+      onComplete({
+        name: name || 'Priya Mehta',
+        company: company || 'Brightside Retail Pvt Ltd',
+        role: role || 'HR Manager',
+        city: city || 'Bengaluru',
+        score,
+        verified: gstUploaded
+      });
+    } catch (err: any) {
+      triggerToast(err.message || 'Signup failed');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -416,6 +458,19 @@ export default function RecruiterRegistration({
                     </div>
                   )}
                 </div>
+              </div>
+
+              <div className="field" style={{ marginTop: '18px' }}>
+                <div className="field-label"><label>Create password</label></div>
+                <input
+                  type="password"
+                  id="recPasswordInput"
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <p className="hint">You'll use your work email and this password to sign in.</p>
               </div>
             </section>
           )}

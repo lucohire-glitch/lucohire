@@ -14,6 +14,7 @@ import CandidateDashboard from './components/CandidateDashboard';
 import EmployerDashboard from './components/EmployerDashboard';
 import ResumeCheckView from './components/ResumeCheckView';
 import FreelancersView from './components/FreelancersView';
+import { logout, getCurrentUser, getUserRole } from './api';
 
 const SKILLS = [
   "Logo Design", "React Developer", "Video Editing", "Content Writing", "SEO Expert",
@@ -96,6 +97,37 @@ export default function App() {
   const [isProfileHomeOpen, setIsProfileHomeOpen] = useState(false);
   const [isEmployerDashboardOpen, setIsEmployerDashboardOpen] = useState(false);
   const [candidateData, setCandidateData] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(() => getCurrentUser());
+  const [userRole, setUserRole] = useState<string>(() => getUserRole());
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [authToast, setAuthToast] = useState<string | null>(null);
+
+  const triggerAuthToast = (msg: string) => {
+    setAuthToast(msg);
+    setTimeout(() => setAuthToast(null), 3000);
+  };
+
+  const handleLoginSuccess = (data: { token: string; role: string; user: any }) => {
+    setCurrentUser(data.user);
+    setUserRole(data.role);
+    setCandidateData(data.user);
+    triggerAuthToast(`Welcome back, ${data.user?.name || 'User'}!`);
+    if (data.role === 'recruiter') {
+      setIsEmployerDashboardOpen(true);
+    } else {
+      setIsProfileHomeOpen(true);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    setCurrentUser(null);
+    setUserRole('');
+    setIsUserMenuOpen(false);
+    setIsProfileHomeOpen(false);
+    setIsEmployerDashboardOpen(false);
+    triggerAuthToast('Signed out successfully');
+  };
 
   const searchCardRef = useRef<HTMLDivElement>(null);
 
@@ -255,6 +287,7 @@ export default function App() {
             setIsAuthOpen(false);
             setIsRoleChooserOpen(true);
           }}
+          onLoginSuccess={handleLoginSuccess}
         />
         <RoleChooserModal
           isOpen={isRoleChooserOpen}
@@ -267,8 +300,12 @@ export default function App() {
           onClose={() => setIsCandidateRegOpen(false)}
           onComplete={(data: any) => {
             setCandidateData(data);
+            const u = getCurrentUser() || data;
+            setCurrentUser(u);
+            setUserRole('candidate');
             setIsCandidateRegOpen(false);
             setIsProfileHomeOpen(true);
+            triggerAuthToast('Profile created successfully!');
           }}
           onSwitchToRecruiter={() => {
             setIsCandidateRegOpen(false);
@@ -280,9 +317,13 @@ export default function App() {
           onClose={() => setIsRecruiterRegOpen(false)}
           onComplete={(data: any) => {
             setCandidateData(data);
+            const u = getCurrentUser() || data;
+            setCurrentUser(u);
+            setUserRole('recruiter');
             setIsRecruiterRegOpen(false);
             setIsEmployerDashboardOpen(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            triggerAuthToast('Employer account created successfully!');
           }}
           onSwitchToCandidate={() => {
             setIsRecruiterRegOpen(false);
@@ -291,7 +332,7 @@ export default function App() {
         />
         <CandidateDashboard
           isOpen={isProfileHomeOpen}
-          userData={candidateData || {}}
+          userData={candidateData || currentUser || {}}
           onClose={() => setIsProfileHomeOpen(false)}
           onOpenResumeCheck={() => {
             setIsProfileHomeOpen(false);
@@ -302,25 +343,17 @@ export default function App() {
             setIsProfileHomeOpen(false);
             setIsAuthOpen(true);
           }}
+          onLogout={handleLogout}
         />
         <EmployerDashboard
           isOpen={isEmployerDashboardOpen}
-          userData={candidateData || {}}
+          userData={candidateData || currentUser || {}}
           onClose={() => setIsEmployerDashboardOpen(false)}
           onOpenAuth={() => {
             setIsEmployerDashboardOpen(false);
             setIsAuthOpen(true);
           }}
-        />
-
-        <EmployerDashboard
-          isOpen={isEmployerDashboardOpen}
-          userData={candidateData || {}}
-          onClose={() => setIsEmployerDashboardOpen(false)}
-          onOpenAuth={() => {
-            setIsEmployerDashboardOpen(false);
-            setIsAuthOpen(true);
-          }}
+          onLogout={handleLogout}
         />
       </>
     );
@@ -354,6 +387,7 @@ export default function App() {
             setIsAuthOpen(false);
             setIsRoleChooserOpen(true);
           }}
+          onLoginSuccess={handleLoginSuccess}
         />
         <RoleChooserModal
           isOpen={isRoleChooserOpen}
@@ -366,8 +400,12 @@ export default function App() {
           onClose={() => setIsCandidateRegOpen(false)}
           onComplete={(data: any) => {
             setCandidateData(data);
+            const u = getCurrentUser() || data;
+            setCurrentUser(u);
+            setUserRole('candidate');
             setIsCandidateRegOpen(false);
             setIsProfileHomeOpen(true);
+            triggerAuthToast('Profile created successfully!');
           }}
           onSwitchToRecruiter={() => {
             setIsCandidateRegOpen(false);
@@ -379,9 +417,13 @@ export default function App() {
           onClose={() => setIsRecruiterRegOpen(false)}
           onComplete={(data: any) => {
             setCandidateData(data);
+            const u = getCurrentUser() || data;
+            setCurrentUser(u);
+            setUserRole('recruiter');
             setIsRecruiterRegOpen(false);
             setIsEmployerDashboardOpen(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            triggerAuthToast('Employer account created successfully!');
           }}
           onSwitchToCandidate={() => {
             setIsRecruiterRegOpen(false);
@@ -390,7 +432,7 @@ export default function App() {
         />
         <CandidateDashboard
           isOpen={isProfileHomeOpen}
-          userData={candidateData || {}}
+          userData={candidateData || currentUser || {}}
           onClose={() => setIsProfileHomeOpen(false)}
           onOpenResumeCheck={() => {
             setIsProfileHomeOpen(false);
@@ -401,15 +443,17 @@ export default function App() {
             setIsProfileHomeOpen(false);
             setIsAuthOpen(true);
           }}
+          onLogout={handleLogout}
         />
         <EmployerDashboard
           isOpen={isEmployerDashboardOpen}
-          userData={candidateData || {}}
+          userData={candidateData || currentUser || {}}
           onClose={() => setIsEmployerDashboardOpen(false)}
           onOpenAuth={() => {
             setIsEmployerDashboardOpen(false);
             setIsAuthOpen(true);
           }}
+          onLogout={handleLogout}
         />
 
       </>
@@ -459,12 +503,204 @@ export default function App() {
             <a href="#pricing" onClick={(e) => { e.preventDefault(); scrollTo('pricingSection'); }}>Free vs Paid</a>
           </nav>
 
-          <button className="icon-btn" aria-label="Account" onClick={() => setIsAuthOpen(true)}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
-            </svg>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {currentUser ? (
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: '#F5F3FF',
+                    border: '1.5px solid #DDD6FE',
+                    padding: '6px 14px 6px 8px',
+                    borderRadius: '24px',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="My Account"
+                >
+                  <div style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #1B4FE0, #5B21D6)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '12px'
+                  }}>
+                    {(currentUser.name || 'U')[0].toUpperCase()}
+                  </div>
+                  <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#181B24' }}>
+                    {currentUser.name?.split(' ')[0] || 'Account'}
+                  </span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2.5">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+
+                {isUserMenuOpen && (
+                  <>
+                    <div 
+                      style={{ position: 'fixed', inset: 0, zIndex: 998 }} 
+                      onClick={() => setIsUserMenuOpen(false)} 
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: 'calc(100% + 8px)',
+                      background: '#FFFFFF',
+                      borderRadius: '12px',
+                      boxShadow: '0 12px 30px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.06)',
+                      border: '1px solid #E5E7EB',
+                      width: '230px',
+                      zIndex: 999,
+                      padding: '8px'
+                    }}>
+                      <div style={{ padding: '8px 10px', borderBottom: '1px solid #F3F4F6', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {currentUser.name}
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {currentUser.email}
+                        </div>
+                        <span style={{
+                          display: 'inline-block',
+                          marginTop: '4px',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          background: userRole === 'recruiter' ? '#FEF3C7' : '#EDE9FE',
+                          color: userRole === 'recruiter' ? '#92400E' : '#5B21D6',
+                          padding: '2px 7px',
+                          borderRadius: '4px'
+                        }}>
+                          {userRole === 'recruiter' ? 'Recruiter' : 'Freelancer'}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          if (userRole === 'recruiter') {
+                            setCandidateData(currentUser);
+                            setIsEmployerDashboardOpen(true);
+                          } else {
+                            setCandidateData(currentUser);
+                            setIsProfileHomeOpen(true);
+                          }
+                        }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '9px 10px',
+                          border: 'none',
+                          background: 'transparent',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#374151',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#F3F4F6')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <span>📊</span> Open Dashboard
+                      </button>
+
+                      <div style={{ height: '1px', background: '#F3F4F6', margin: '4px 0' }} />
+
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '9px 10px',
+                          border: 'none',
+                          background: 'transparent',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#DC2626',
+                          cursor: 'pointer',
+                          textAlign: 'left'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#FEE2E2')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <span>🚪</span> Sign Out
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsAuthOpen(true)}
+                  style={{
+                    padding: '7px 15px',
+                    border: '1.5px solid #5B21D6',
+                    background: 'transparent',
+                    color: '#5B21D6',
+                    borderRadius: '8px',
+                    fontSize: '13.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#F5F3FF';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  Sign In
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsRoleChooserOpen(true)}
+                  style={{
+                    padding: '7px 15px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #1B4FE0 0%, #5B21D6 100%)',
+                    color: '#FFFFFF',
+                    borderRadius: '8px',
+                    fontSize: '13.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(91, 33, 214, 0.25)',
+                    transition: 'opacity 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '0.92';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                >
+                  Sign Up
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -684,25 +920,94 @@ export default function App() {
 
           {/* Drawer Footer Account Section */}
           <div className="mobile-drawer-footer">
-            <button 
-              className="mobile-account-btn"
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                setIsAuthOpen(true);
-              }}
-            >
-              <span className="account-avatar">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <circle cx="12" cy="8" r="4" />
-                  <path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
-                </svg>
-              </span>
-              <div className="account-meta">
-                <span className="account-title">Sign In / Account</span>
-                <span className="account-sub">Access your jobs & profile</span>
+            {currentUser ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: '#F5F3FF', borderRadius: '12px', border: '1px solid #DDD6FE' }}>
+                  <div style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #1B4FE0, #5B21D6)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '14px'
+                  }}>
+                    {(currentUser.name || 'U')[0].toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '14px', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {currentUser.name}
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#5B21D6', fontWeight: 600 }}>
+                      {userRole === 'recruiter' ? 'Recruiter Account' : 'Freelancer Account'}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  className="mobile-action-btn secondary"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    if (userRole === 'recruiter') {
+                      setCandidateData(currentUser);
+                      setIsEmployerDashboardOpen(true);
+                    } else {
+                      setCandidateData(currentUser);
+                      setIsProfileHomeOpen(true);
+                    }
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  Go to Dashboard
+                </button>
+
+                <button
+                  className="mobile-action-btn outline"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    handleLogout();
+                  }}
+                  style={{ width: '100%', borderColor: '#FCA5A5', color: '#DC2626' }}
+                >
+                  Sign Out
+                </button>
               </div>
-              <span className="account-arrow">→</span>
-            </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                <button 
+                  className="mobile-account-btn"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsAuthOpen(true);
+                  }}
+                >
+                  <span className="account-avatar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <circle cx="12" cy="8" r="4" />
+                      <path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
+                    </svg>
+                  </span>
+                  <div className="account-meta">
+                    <span className="account-title">Sign In</span>
+                    <span className="account-sub">Access your jobs & profile</span>
+                  </div>
+                  <span className="account-arrow">→</span>
+                </button>
+                <button
+                  className="mobile-action-btn outline"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsRoleChooserOpen(true);
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  Create Account (Sign Up)
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -813,6 +1118,7 @@ export default function App() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         onOpenRoleChooser={() => setIsRoleChooserOpen(true)}
+        onLoginSuccess={handleLoginSuccess}
       />
 
       <RoleChooserModal
@@ -827,8 +1133,12 @@ export default function App() {
         onClose={() => setIsCandidateRegOpen(false)}
         onComplete={(data: any) => {
           setCandidateData(data);
+          const u = getCurrentUser() || data;
+          setCurrentUser(u);
+          setUserRole('candidate');
           setIsCandidateRegOpen(false);
           setIsProfileHomeOpen(true);
+          triggerAuthToast('Profile created successfully!');
         }}
         onSwitchToRecruiter={() => {
           setIsCandidateRegOpen(false);
@@ -840,11 +1150,15 @@ export default function App() {
         isOpen={isRecruiterRegOpen}
         onClose={() => setIsRecruiterRegOpen(false)}
         onComplete={(data: any) => {
-            setCandidateData(data);
-            setIsRecruiterRegOpen(false);
-            setIsEmployerDashboardOpen(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
+          setCandidateData(data);
+          const u = getCurrentUser() || data;
+          setCurrentUser(u);
+          setUserRole('recruiter');
+          setIsRecruiterRegOpen(false);
+          setIsEmployerDashboardOpen(true);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          triggerAuthToast('Employer account created successfully!');
+        }}
         onSwitchToCandidate={() => {
           setIsRecruiterRegOpen(false);
           setIsCandidateRegOpen(true);
@@ -853,7 +1167,7 @@ export default function App() {
 
       <CandidateDashboard
         isOpen={isProfileHomeOpen}
-        userData={candidateData || {}}
+        userData={candidateData || currentUser || {}}
         onClose={() => setIsProfileHomeOpen(false)}
         onOpenResumeCheck={() => {
           setIsProfileHomeOpen(false);
@@ -864,16 +1178,42 @@ export default function App() {
           setIsProfileHomeOpen(false);
           setIsAuthOpen(true);
         }}
+        onLogout={handleLogout}
       />
-        <EmployerDashboard
-          isOpen={isEmployerDashboardOpen}
-          userData={candidateData || {}}
-          onClose={() => setIsEmployerDashboardOpen(false)}
-          onOpenAuth={() => {
-            setIsEmployerDashboardOpen(false);
-            setIsAuthOpen(true);
-          }}
-        />
+
+      <EmployerDashboard
+        isOpen={isEmployerDashboardOpen}
+        userData={candidateData || currentUser || {}}
+        onClose={() => setIsEmployerDashboardOpen(false)}
+        onOpenAuth={() => {
+          setIsEmployerDashboardOpen(false);
+          setIsAuthOpen(true);
+        }}
+        onLogout={handleLogout}
+      />
+
+      {/* Global Auth Status Toast Notification */}
+      {authToast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          background: '#181B24',
+          color: '#FFFFFF',
+          padding: '12px 22px',
+          borderRadius: '12px',
+          fontSize: '14px',
+          fontWeight: 600,
+          zIndex: 99999,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          <span style={{ fontSize: '16px' }}>✨</span> {authToast}
+        </div>
+      )}
 
     </div>
   );
