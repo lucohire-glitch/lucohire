@@ -30,6 +30,9 @@ async function resolveToDataUrl(url: string, maxBytes = 20 * 1024 * 1024): Promi
   return url;
 }
 
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const MOBILE_REGEX = /^[6-9]\d{9}$/;
+
 // Audio Buffer to WAV encoder helper
 function audioBufferToWav(buffer: AudioBuffer): Blob {
   const numOfChan = buffer.numberOfChannels;
@@ -1013,13 +1016,14 @@ export default function CandidateRegistration({
   };
 
   const handleSendMobileOtp = async () => {
-    if (mobile.trim().length !== 10) {
-      triggerToast('Please enter a valid 10-digit mobile number');
+    const cleanMobile = mobile.trim();
+    if (!MOBILE_REGEX.test(cleanMobile)) {
+      triggerToast('Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9');
       return;
     }
     setSendingMobileOtp(true);
     try {
-      const res = await sendOtp(mobile.trim(), 'mobile');
+      const res = await sendOtp(cleanMobile, 'mobile');
       setShowMobileOtp(true);
       setMobileOtpHint(res.otp);
       triggerToast(`OTP sent! (Test OTP: ${res.otp})`);
@@ -1050,13 +1054,14 @@ export default function CandidateRegistration({
   };
 
   const handleSendEmailOtp = async () => {
-    if (!email.includes('@') || !email.includes('.')) {
-      triggerToast('Please enter a valid email address');
+    const cleanEmail = email.trim();
+    if (!EMAIL_REGEX.test(cleanEmail)) {
+      triggerToast('Please enter a valid email address (e.g. name@gmail.com)');
       return;
     }
     setSendingEmailOtp(true);
     try {
-      const res = await sendOtp(email.trim(), 'email');
+      const res = await sendOtp(cleanEmail, 'email');
       setShowEmailOtp(true);
       setEmailOtpHint(res.otp);
       triggerToast(`OTP sent! (Test OTP: ${res.otp})`);
@@ -1088,16 +1093,16 @@ export default function CandidateRegistration({
 
   const handleStepNext = () => {
     if (currentStep === 1) {
-      if (!name.trim()) {
-        triggerToast('Please enter your full name');
+      if (!name.trim() || name.trim().length < 2) {
+        triggerToast('Please enter your full name (at least 2 characters)');
         return;
       }
-      if (!emailVerified) {
-        triggerToast('Please verify your email with OTP first');
+      if (!EMAIL_REGEX.test(email.trim()) || !emailVerified) {
+        triggerToast('Please verify a valid email address with OTP first');
         return;
       }
-      if (!mobileVerified) {
-        triggerToast('Please verify your mobile number with OTP first');
+      if (!MOBILE_REGEX.test(mobile.trim()) || !mobileVerified) {
+        triggerToast('Please verify a valid 10-digit mobile number with OTP first');
         return;
       }
       if (password.length < 8) {
@@ -1496,12 +1501,15 @@ export default function CandidateRegistration({
                           maxLength={10}
                           placeholder="10-digit mobile number"
                           value={mobile}
-                          onChange={(e) => setMobile(e.target.value)}
+                          onChange={(e) => {
+                            setMobile(e.target.value);
+                            if (mobileVerified) setMobileVerified(false);
+                          }}
                         />
                         <button
                           className="verify-btn"
                           id="mobileSendBtn"
-                          disabled={mobile.trim().length !== 10 || sendingMobileOtp}
+                          disabled={!MOBILE_REGEX.test(mobile.trim()) || sendingMobileOtp}
                           onClick={handleSendMobileOtp}
                         >
                           {sendingMobileOtp ? 'Sending...' : 'Send OTP'}
@@ -1558,12 +1566,15 @@ export default function CandidateRegistration({
                           id="emailInput"
                           placeholder="e.g. rahul@email.com"
                           value={email}
-                          onChange={(e) => setEmail(e.target.value)}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            if (emailVerified) setEmailVerified(false);
+                          }}
                         />
                         <button
                           className="verify-btn"
                           id="emailSendBtn"
-                          disabled={!(email.includes('@') && email.includes('.')) || sendingEmailOtp}
+                          disabled={!EMAIL_REGEX.test(email.trim()) || sendingEmailOtp}
                           onClick={handleSendEmailOtp}
                         >
                           {sendingEmailOtp ? 'Sending...' : 'Send OTP'}

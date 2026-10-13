@@ -3,18 +3,36 @@ import { CandidateModel } from '../models/candidateModel.js';
 import { RecruiterModel } from '../models/recruiterModel.js';
 import { signToken, publicUser } from '../utils/token.js';
 
-const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e || '');
-const normEmail = (e) => e.toLowerCase().trim();
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const MOBILE_REGEX = /^[6-9]\d{9}$/;
+
+const emailOk = (e) => EMAIL_REGEX.test((e || '').trim());
+const mobileOk = (m) => MOBILE_REGEX.test((m || '').toString().trim());
+const normEmail = (e) => (e || '').toLowerCase().trim();
 
 // In-memory OTP storage: target -> { otp, expiresAt }
 const otpStore = new Map();
 
 export const sendOtp = async (req, res) => {
   const { target, type } = req.body || {};
-  if (!target || typeof target !== 'string') {
+  if (!target || typeof target !== 'string' || !target.trim()) {
     return res.status(400).json({ error: 'Target email or phone number is required.' });
   }
+
   const cleanTarget = target.trim().toLowerCase();
+
+  // Validate format based on type
+  if (type === 'email' && !emailOk(cleanTarget)) {
+    return res.status(400).json({ error: 'Invalid email address. Please enter a valid email format (e.g. name@domain.com).' });
+  }
+
+  if (type === 'mobile') {
+    const digitsOnly = cleanTarget.replace(/\D/g, '').slice(-10);
+    if (!mobileOk(digitsOnly)) {
+      return res.status(400).json({ error: 'Invalid mobile number. Please enter a valid 10-digit number starting with 6, 7, 8, or 9.' });
+    }
+  }
+
   // 4-digit OTP
   const otp = Math.floor(1000 + Math.random() * 9000).toString();
   otpStore.set(cleanTarget, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
@@ -53,12 +71,12 @@ const validateSignup = ({ name, email, password, mobile }) => {
     return 'Full name is required (at least 2 characters).';
   }
   if (!emailOk(email)) {
-    return 'A valid email address is required.';
+    return 'Invalid email address format (e.g. name@gmail.com).';
   }
   if (mobile) {
-    const cleanMobile = mobile.toString().replace(/\D/g, '');
-    if (cleanMobile.length < 10) {
-      return 'Mobile number must be at least 10 digits.';
+    const cleanMobile = mobile.toString().replace(/\D/g, '').slice(-10);
+    if (!mobileOk(cleanMobile)) {
+      return 'Invalid mobile number. Must be a 10-digit number starting with 6, 7, 8, or 9.';
     }
   }
   if (!password || password.length < 8) {

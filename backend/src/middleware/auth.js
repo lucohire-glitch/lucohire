@@ -15,7 +15,13 @@ export const requireAuth = (req, res, next) => {
 export const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 export const errorHandler = (err, _req, res, _next) => {
-  if (err.code === '23505') return res.status(409).json({ error: 'Email already registered.' });
-  console.error(err);
-  res.status(500).json({ error: 'Server error.' });
+  if (err.code === '23505') {
+    const detail = err.detail || '';
+    if (detail.includes('mobile')) {
+      return res.status(409).json({ error: 'This mobile number is already registered. Please use another mobile number.' });
+    }
+    return res.status(409).json({ error: 'This email is already registered. Please sign in instead.' });
+  }
+  console.error('[SERVER ERROR]:', err);
+  res.status(500).json({ error: err.message || 'Server error.' });
 };

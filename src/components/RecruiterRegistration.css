@@ -392,3 +392,146 @@
     border-radius: 10px;
   }
 }
+
+/* Theme-aligned OTP & Verify Styles (Mobile-ready) */
+#recruiterRegistrationScreen .verify-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
+}
+#recruiterRegistrationScreen .verify-row input {
+  flex: 1;
+  min-width: 0;
+}
+#recruiterRegistrationScreen .verify-btn {
+  flex-shrink: 0;
+  background: #4F46E5 !important;
+  color: #fff !important;
+  border: none;
+  padding: 0 16px;
+  height: 44px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+#recruiterRegistrationScreen .verify-btn:hover:not(:disabled) {
+  background: #4338CA !important;
+}
+#recruiterRegistrationScreen .verify-btn:disabled {
+  background: #E5E7EB !important;
+  color: #9CA3AF !important;
+  cursor: not-allowed;
+}
+#recruiterRegistrationScreen .verified-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ECFDF5;
+  color: #059669;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #A7F3D0;
+  word-break: break-all;
+}
+#recruiterRegistrationScreen .otp-box {
+  display: none;
+  margin-top: 10px;
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  padding: 14px 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+#recruiterRegistrationScreen .otp-box.show {
+  display: block;
+}
+#recruiterRegistrationScreen .otp-box p.lbl {
+  font-size: 12.5px;
+  color: #4B5563;
+  margin: 0 0 10px;
+  font-weight: 500;
+}
+#recruiterRegistrationScreen .otp-inputs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: nowrap;
+}
+#recruiterRegistrationScreen .otp-inputs input {
+  width: 44px;
+  height: 48px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+  padding: 0;
+  background: #FFFFFF;
+  border: 1.5px solid #D1D5DB;
+  border-radius: 8px;
+  color: #111827;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+#recruiterRegistrationScreen .otp-inputs input:focus {
+  border-color: #4F46E5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  outline: none;
+}
+#recruiterRegistrationScreen .otp-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+#recruiterRegistrationScreen .otp-actions button {
+  background: #4F46E5 !important;
+  color: #fff !important;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+#recruiterRegistrationScreen .otp-actions button:hover:not(:disabled) {
+  background: #4338CA !important;
+}
+#recruiterRegistrationScreen .otp-actions button:disabled {
+  background: #E5E7EB !important;
+  color: #9CA3AF !important;
+  cursor: not-allowed;
+}
+#recruiterRegistrationScreen .otp-actions span {
+  font-size: 12.5px;
+  color: #4F46E5;
+  cursor: pointer;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+  #recruiterRegistrationScreen .verify-row {
+    gap: 6px;
+  }
+  #recruiterRegistrationScreen .verify-btn {
+    padding: 0 12px;
+    font-size: 12px;
+  }
+  #recruiterRegistrationScreen .otp-inputs {
+    gap: 8px;
+  }
+  #recruiterRegistrationScreen .otp-inputs input {
+    width: 40px;
+    height: 44px;
+    font-size: 16px;
+  }
+}

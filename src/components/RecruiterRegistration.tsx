@@ -8,6 +8,9 @@ import LucoLogo from './LucoLogo';
 import './RecruiterRegistration.css';
 import { recruiterSignup, sendOtp, verifyOtp } from '../api';
 
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const MOBILE_REGEX = /^[6-9]\d{9}$/;
+
 interface RecruiterRegistrationProps {
   isOpen: boolean;
   onClose: () => void;
@@ -210,13 +213,14 @@ export default function RecruiterRegistration({
   score = Math.min(100, score);
 
   const handleSendEmailOtp = async () => {
-    if (!workEmail.includes('@') || !workEmail.includes('.')) {
-      triggerToast('Please enter a valid work email');
+    const cleanEmail = workEmail.trim();
+    if (!EMAIL_REGEX.test(cleanEmail)) {
+      triggerToast('Please enter a valid work email (e.g. hr@company.com)');
       return;
     }
     setSendingEmailOtp(true);
     try {
-      const res = await sendOtp(workEmail.trim(), 'email');
+      const res = await sendOtp(cleanEmail, 'email');
       setShowEmailOtp(true);
       setEmailOtpHint(res.otp);
       triggerToast(`OTP sent! (Test OTP: ${res.otp})`);
@@ -247,13 +251,14 @@ export default function RecruiterRegistration({
   };
 
   const handleSendMobileOtp = async () => {
-    if (mobile.trim().length !== 10) {
-      triggerToast('Please enter a valid 10-digit mobile number');
+    const cleanMobile = mobile.trim();
+    if (!MOBILE_REGEX.test(cleanMobile)) {
+      triggerToast('Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9');
       return;
     }
     setSendingMobileOtp(true);
     try {
-      const res = await sendOtp(mobile.trim(), 'mobile');
+      const res = await sendOtp(cleanMobile, 'mobile');
       setShowMobileOtp(true);
       setMobileOtpHint(res.otp);
       triggerToast(`OTP sent! (Test OTP: ${res.otp})`);
@@ -285,16 +290,16 @@ export default function RecruiterRegistration({
 
   const handleStepNext = () => {
     if (recCurrent === 1) {
-      if (!name.trim()) {
-        triggerToast('Please enter your full name');
+      if (!name.trim() || name.trim().length < 2) {
+        triggerToast('Please enter your full name (at least 2 characters)');
         return;
       }
-      if (!emailVerified) {
-        triggerToast('Please verify your work email with OTP first');
+      if (!EMAIL_REGEX.test(workEmail.trim()) || !emailVerified) {
+        triggerToast('Please verify a valid work email with OTP first');
         return;
       }
-      if (!mobileVerified) {
-        triggerToast('Please verify your mobile number with OTP first');
+      if (!MOBILE_REGEX.test(mobile.trim()) || !mobileVerified) {
+        triggerToast('Please verify a valid 10-digit mobile number with OTP first');
         return;
       }
       if (password.length < 8) {
@@ -498,12 +503,15 @@ export default function RecruiterRegistration({
                           id="recWorkEmailInput"
                           placeholder="e.g. priya@company.com"
                           value={workEmail}
-                          onChange={(e) => setWorkEmail(e.target.value)}
+                          onChange={(e) => {
+                            setWorkEmail(e.target.value);
+                            if (emailVerified) setEmailVerified(false);
+                          }}
                         />
                         <button
                           className="verify-btn"
                           id="recWorkEmailSendBtn"
-                          disabled={!(workEmail.includes('@') && workEmail.includes('.')) || sendingEmailOtp}
+                          disabled={!EMAIL_REGEX.test(workEmail.trim()) || sendingEmailOtp}
                           onClick={handleSendEmailOtp}
                         >
                           {sendingEmailOtp ? 'Sending...' : 'Send OTP'}
@@ -565,12 +573,15 @@ export default function RecruiterRegistration({
                           maxLength={10}
                           placeholder="10-digit mobile number"
                           value={mobile}
-                          onChange={(e) => setMobile(e.target.value)}
+                          onChange={(e) => {
+                            setMobile(e.target.value);
+                            if (mobileVerified) setMobileVerified(false);
+                          }}
                         />
                         <button
                           className="verify-btn"
                           id="recMobileSendBtn"
-                          disabled={mobile.trim().length !== 10 || sendingMobileOtp}
+                          disabled={!MOBILE_REGEX.test(mobile.trim()) || sendingMobileOtp}
                           onClick={handleSendMobileOtp}
                         >
                           {sendingMobileOtp ? 'Sending...' : 'Send OTP'}
