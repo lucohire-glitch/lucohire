@@ -1,4 +1,4 @@
-const API_URL: string = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL: string = (import.meta as any).env?.VITE_API_URL || 'https://lucohire.onrender.com/api';
 
 async function request<T = any>(path: string, body: unknown): Promise<T> {
   let res: Response;
