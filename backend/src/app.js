@@ -9,7 +9,14 @@ app.use(cors({ origin: env.corsOrigins }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ limit: '25mb', extended: true }));
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get('/api/health', (_req, res) => {
+  try {
+    const host = new URL(env.databaseUrl).hostname;
+    res.json({ ok: true, dbHost: host });
+  } catch {
+    res.json({ ok: true });
+  }
+});
 app.use('/api/auth', authRoutes);
 
 app.use(errorHandler);
