@@ -21,6 +21,14 @@ async function request<T = any>(path: string, body: unknown): Promise<T> {
   return data;
 }
 
+export const sendOtp = async (target: string, type: 'email' | 'mobile' = 'email') => {
+  const data = await request<{ success: boolean; otp: string; message: string }>('/auth/send-otp', { target, type });
+  console.log(`%c[LucoHire OTP for ${target} (${type})]: ${data.otp}`, 'background: #22c55e; color: #ffffff; font-weight: bold; padding: 4px 8px; border-radius: 4px; font-size: 14px;');
+  return data;
+};
+
+export const verifyOtp = (target: string, otp: string) => request<{ success: boolean; message: string }>('/auth/verify-otp', { target, otp });
+
 export const candidateSignup = (payload: Record<string, any>) => request('/auth/candidate/signup', payload);
 export const recruiterSignup = (payload: Record<string, any>) => request('/auth/recruiter/signup', payload);
 export const login = (email: string, password: string) => request('/auth/login', { email, password });

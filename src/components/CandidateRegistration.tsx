@@ -6,7 +6,29 @@
 import React, { useState, useEffect, useRef } from 'react';
 import LucoLogo from './LucoLogo';
 import './CandidateRegistration.css';
-import { candidateSignup } from '../api';
+import { candidateSignup, sendOtp, verifyOtp } from '../api';
+
+// Helper to convert blob: URL to permanent Base64 Data URL so media survives tab reload and is stored in DB
+async function resolveToDataUrl(url: string, maxBytes = 20 * 1024 * 1024): Promise<string> {
+  if (!url) return '';
+  if (url.startsWith('data:') || url.startsWith('http')) return url;
+  if (url.startsWith('blob:')) {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      if (blob.size > maxBytes) return url;
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string) || url);
+        reader.onerror = () => resolve(url);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return url;
+    }
+  }
+  return url;
+}
 
 // Audio Buffer to WAV encoder helper
 function audioBufferToWav(buffer: AudioBuffer): Blob {
@@ -94,6 +116,12 @@ export default function CandidateRegistration({
   const [showEmailOtp, setShowEmailOtp] = useState(false);
   const [mobileOtp, setMobileOtp] = useState(['', '', '', '']);
   const [emailOtp, setEmailOtp] = useState(['', '', '', '']);
+  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
+  const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
+  const [sendingMobileOtp, setSendingMobileOtp] = useState(false);
+  const [verifyingMobileOtp, setVerifyingMobileOtp] = useState(false);
+  const [emailOtpHint, setEmailOtpHint] = useState('');
+  const [mobileOtpHint, setMobileOtpHint] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [travelRadius, setTravelRadius] = useState(80);
@@ -984,15 +1012,107 @@ export default function CandidateRegistration({
     }
   };
 
+  const handleSendMobileOtp = async () => {
+    if (mobile.trim().length !== 10) {
+      triggerToast('Please enter a valid 10-digit mobile number');
+      return;
+    }
+    setSendingMobileOtp(true);
+    try {
+      const res = await sendOtp(mobile.trim(), 'mobile');
+      setShowMobileOtp(true);
+      setMobileOtpHint(res.otp);
+      triggerToast(`OTP sent! (Test OTP: ${res.otp})`);
+    } catch (err: any) {
+      triggerToast(err.message || 'Failed to send mobile OTP');
+    } finally {
+      setSendingMobileOtp(false);
+    }
+  };
+
+  const handleVerifyMobileOtp = async () => {
+    const code = mobileOtp.join('').trim();
+    if (code.length < 4) {
+      triggerToast('Please enter the 4-digit OTP');
+      return;
+    }
+    setVerifyingMobileOtp(true);
+    try {
+      await verifyOtp(mobile.trim(), code);
+      setMobileVerified(true);
+      setShowMobileOtp(false);
+      triggerToast('Mobile verified! (+9% profile score)');
+    } catch (err: any) {
+      triggerToast(err.message || 'Invalid OTP. Please check console.');
+    } finally {
+      setVerifyingMobileOtp(false);
+    }
+  };
+
+  const handleSendEmailOtp = async () => {
+    if (!email.includes('@') || !email.includes('.')) {
+      triggerToast('Please enter a valid email address');
+      return;
+    }
+    setSendingEmailOtp(true);
+    try {
+      const res = await sendOtp(email.trim(), 'email');
+      setShowEmailOtp(true);
+      setEmailOtpHint(res.otp);
+      triggerToast(`OTP sent! (Test OTP: ${res.otp})`);
+    } catch (err: any) {
+      triggerToast(err.message || 'Failed to send email OTP');
+    } finally {
+      setSendingEmailOtp(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    const code = emailOtp.join('').trim();
+    if (code.length < 4) {
+      triggerToast('Please enter the 4-digit OTP');
+      return;
+    }
+    setVerifyingEmailOtp(true);
+    try {
+      await verifyOtp(email.trim(), code);
+      setEmailVerified(true);
+      setShowEmailOtp(false);
+      triggerToast('Email verified! (+5% profile score)');
+    } catch (err: any) {
+      triggerToast(err.message || 'Invalid OTP. Please check console.');
+    } finally {
+      setVerifyingEmailOtp(false);
+    }
+  };
+
+  const handleStepNext = () => {
+    if (currentStep === 1) {
+      if (!name.trim()) {
+        triggerToast('Please enter your full name');
+        return;
+      }
+      if (!emailVerified) {
+        triggerToast('Please verify your email with OTP first');
+        return;
+      }
+      if (!mobileVerified) {
+        triggerToast('Please verify your mobile number with OTP first');
+        return;
+      }
+      if (password.length < 8) {
+        triggerToast('Create a password (min 8 characters)');
+        return;
+      }
+    }
+    setCurrentStep(currentStep + 1);
+  };
+
   const handleConfirmOtp = (type: 'mobile' | 'email') => {
     if (type === 'mobile') {
-      setShowMobileOtp(false);
-      setMobileVerified(true);
-      triggerToast('+9% profile score');
+      handleVerifyMobileOtp();
     } else {
-      setShowEmailOtp(false);
-      setEmailVerified(true);
-      triggerToast('+5% profile score');
+      handleVerifyEmailOtp();
     }
   };
 
@@ -1065,37 +1185,89 @@ export default function CandidateRegistration({
       setCurrentStep(1);
       return;
     }
+    if (!alreadyAuthed && (!emailVerified || !mobileVerified)) {
+      triggerToast('Please verify both email and mobile with OTP in step 1');
+      setCurrentStep(1);
+      return;
+    }
     if (!alreadyAuthed && password.length < 8) {
       triggerToast('Create a password (min 8 characters) in step 1');
       setCurrentStep(1);
       return;
     }
-    const finalData = {
-      name: name || 'Rahul Kumar',
-      title: title || 'UI Designer & Brand Specialist',
-      city: city || 'Noida',
-      state: state || 'Uttar Pradesh',
-      score,
-      headlineSkill: headlineSkill?.name === 'other' ? (headlineSkill.customName || 'Freelancer') : (headlineSkill?.name || 'Logo Design'),
-      startingRate: headlineSkill?.price ? `₹${headlineSkill.price}` : '₹3,000',
-      whatsapp: mobile || '9876543210'
-    };
+
     setSubmitting(true);
-    if (alreadyAuthed) {
-      setSubmitting(false);
-      onComplete(finalData);
-      return;
-    }
     try {
+      // Resolve audio, video, and resume to persistent Data URLs if needed
+      const [resolvedVoiceUrl, resolvedVideoUrl, resolvedResumeUrl] = await Promise.all([
+        resolveToDataUrl(voiceAudioUrl),
+        resolveToDataUrl(videoIntroUrl),
+        resolveToDataUrl(resumePreviewUrl)
+      ]);
+
+      const finalData = {
+        name: name || 'Rahul Kumar',
+        title: title || 'UI Designer & Brand Specialist',
+        city: city || 'Noida',
+        state: state || 'Uttar Pradesh',
+        score,
+        headlineSkill: headlineSkill?.name === 'other' ? (headlineSkill.customName || 'Freelancer') : (headlineSkill?.name || 'Logo Design'),
+        startingRate: headlineSkill?.price ? `₹${headlineSkill.price}` : '₹3,000',
+        whatsapp: mobile || '9876543210'
+      };
+
+      const completeProfile = {
+        ...finalData,
+        category,
+        experience,
+        hasPhoto,
+        travelRadius,
+        skills,
+        about,
+        achievement,
+        eduWorkList,
+        linksList,
+        resumeFileName,
+        resumePreviewUrl: resolvedResumeUrl,
+        recentResumes,
+        languages,
+        availType,
+        availStart,
+        calAvailOn,
+        activeDays,
+        calFrom,
+        calTo,
+        preferredDuration,
+        waOn,
+        waFrom,
+        waTo,
+        activeMediums,
+        voiceIntro,
+        voiceAudioUrl: resolvedVoiceUrl,
+        voiceTotalDuration,
+        videoIntro,
+        videoIntroUrl: resolvedVideoUrl,
+        idVerifyOn,
+        idDocType,
+        idDocUploaded,
+        tncAccepted: true
+      };
+
+      if (alreadyAuthed) {
+        setSubmitting(false);
+        onComplete(finalData);
+        return;
+      }
+
       await candidateSignup({
         name: name.trim(),
         email: email.trim(),
         password,
-        mobile,
-        title,
-        city,
-        state,
-        profile: { ...finalData, category, experience, about, achievement, skills, languages, availType, availStart }
+        mobile: mobile.trim(),
+        title: title.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        profile: completeProfile
       });
       onComplete(finalData);
     } catch (err: any) {
@@ -1329,15 +1501,20 @@ export default function CandidateRegistration({
                         <button
                           className="verify-btn"
                           id="mobileSendBtn"
-                          disabled={mobile.trim().length !== 10}
-                          onClick={() => setShowMobileOtp(true)}
+                          disabled={mobile.trim().length !== 10 || sendingMobileOtp}
+                          onClick={handleSendMobileOtp}
                         >
-                          Send OTP
+                          {sendingMobileOtp ? 'Sending...' : 'Send OTP'}
                         </button>
                       </div>
                       {showMobileOtp && (
                         <div className="otp-box show" id="mobileOtpBox">
                           <p className="lbl">Enter the 4-digit OTP sent to your phone</p>
+                          {mobileOtpHint && (
+                            <p style={{ fontSize: '12px', color: '#6366f1', margin: '4px 0 8px 0', fontWeight: 600 }}>
+                              Test OTP: <b>{mobileOtpHint}</b> (also logged in console)
+                            </p>
+                          )}
                           <div className="otp-inputs" id="mobileOtpInputs">
                             {[0, 1, 2, 3].map((idx) => (
                               <input
@@ -1355,8 +1532,10 @@ export default function CandidateRegistration({
                             ))}
                           </div>
                           <div className="otp-actions">
-                            <button onClick={() => handleConfirmOtp('mobile')}>Confirm</button>
-                            <span onClick={() => triggerToast('OTP resent to mobile!')}>Resend OTP</span>
+                            <button disabled={verifyingMobileOtp} onClick={handleVerifyMobileOtp}>
+                              {verifyingMobileOtp ? 'Verifying...' : 'Verify OTP'}
+                            </button>
+                            <span onClick={handleSendMobileOtp}>Resend OTP</span>
                           </div>
                         </div>
                       )}
@@ -1384,15 +1563,20 @@ export default function CandidateRegistration({
                         <button
                           className="verify-btn"
                           id="emailSendBtn"
-                          disabled={!(email.includes('@') && email.includes('.'))}
-                          onClick={() => setShowEmailOtp(true)}
+                          disabled={!(email.includes('@') && email.includes('.')) || sendingEmailOtp}
+                          onClick={handleSendEmailOtp}
                         >
-                          Send OTP
+                          {sendingEmailOtp ? 'Sending...' : 'Send OTP'}
                         </button>
                       </div>
                       {showEmailOtp && (
                         <div className="otp-box show" id="emailOtpBox">
                           <p className="lbl">Enter the 4-digit OTP sent to your email</p>
+                          {emailOtpHint && (
+                            <p style={{ fontSize: '12px', color: '#6366f1', margin: '4px 0 8px 0', fontWeight: 600 }}>
+                              Test OTP: <b>{emailOtpHint}</b> (also logged in console)
+                            </p>
+                          )}
                           <div className="otp-inputs" id="emailOtpInputs">
                             {[0, 1, 2, 3].map((idx) => (
                               <input
@@ -1410,8 +1594,10 @@ export default function CandidateRegistration({
                             ))}
                           </div>
                           <div className="otp-actions">
-                            <button onClick={() => handleConfirmOtp('email')}>Confirm</button>
-                            <span onClick={() => triggerToast('OTP resent to email!')}>Resend OTP</span>
+                            <button disabled={verifyingEmailOtp} onClick={handleVerifyEmailOtp}>
+                              {verifyingEmailOtp ? 'Verifying...' : 'Verify OTP'}
+                            </button>
+                            <span onClick={handleSendEmailOtp}>Resend OTP</span>
                           </div>
                         </div>
                       )}
@@ -2627,7 +2813,7 @@ export default function CandidateRegistration({
               if (currentStep === totalSteps) {
                 handleFinish();
               } else {
-                setCurrentStep(currentStep + 1);
+                handleStepNext();
               }
             }}
           >

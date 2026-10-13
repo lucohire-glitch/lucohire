@@ -6,10 +6,68 @@ import { signToken, publicUser } from '../utils/token.js';
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e || '');
 const normEmail = (e) => e.toLowerCase().trim();
 
-const validateSignup = ({ name, email, password }) =>
-  !name || !emailOk(email) || !password || password.length < 8
-    ? 'Name, valid email and password (min 8 chars) are required.'
-    : null;
+// In-memory OTP storage: target -> { otp, expiresAt }
+const otpStore = new Map();
+
+export const sendOtp = async (req, res) => {
+  const { target, type } = req.body || {};
+  if (!target || typeof target !== 'string') {
+    return res.status(400).json({ error: 'Target email or phone number is required.' });
+  }
+  const cleanTarget = target.trim().toLowerCase();
+  // 4-digit OTP
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+  otpStore.set(cleanTarget, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
+
+  console.log(`\n========================================`);
+  console.log(`[LucoHire OTP] Target: ${cleanTarget} (${type || 'general'}) | Code: ${otp}`);
+  console.log(`========================================\n`);
+
+  res.json({
+    success: true,
+    otp, // Returned for testing in frontend console and response
+    message: `OTP sent successfully to ${target}`,
+  });
+};
+
+export const verifyOtp = async (req, res) => {
+  const { target, otp } = req.body || {};
+  if (!target || !otp) {
+    return res.status(400).json({ error: 'Target and OTP are required.' });
+  }
+  const cleanTarget = target.trim().toLowerCase();
+  const cleanOtp = otp.toString().trim();
+  const record = otpStore.get(cleanTarget);
+
+  // Accept generated OTP or master test code '1234'
+  if (cleanOtp === '1234' || (record && record.otp === cleanOtp && record.expiresAt > Date.now())) {
+    otpStore.delete(cleanTarget);
+    return res.json({ success: true, message: 'OTP verified successfully.' });
+  }
+
+  res.status(400).json({ error: 'Invalid or expired OTP. Please try again.' });
+};
+
+const validateSignup = ({ name, email, password, mobile }) => {
+  if (!name || typeof name !== 'string' || name.trim().length < 2) {
+    return 'Full name is required (at least 2 characters).';
+  }
+  if (!emailOk(email)) {
+    return 'A valid email address is required.';
+  }
+  if (mobile) {
+    const cleanMobile = mobile.toString().replace(/\D/g, '');
+    if (cleanMobile.length < 10) {
+      return 'Mobile number must be at least 10 digits.';
+    }
+  }
+  if (!password || password.length < 8) {
+    return 'Password must be at least 8 characters.';
+  }
+  return null;
+};
+
+const normMobile = (m) => (m ? m.toString().replace(/\D/g, '').slice(-10) : null);
 
 const respond = (res, status, role, row) =>
   res.status(status).json({ token: signToken(role, row), role, user: publicUser(row) });
@@ -18,24 +76,86 @@ export const candidateSignup = async (req, res) => {
   const msg = validateSignup(req.body || {});
   if (msg) return res.status(400).json({ error: msg });
   const b = req.body;
-  const row = await CandidateModel.create({
-    ...b,
-    email: normEmail(b.email),
-    passwordHash: await bcrypt.hash(b.password, 10),
-  });
-  respond(res, 201, 'candidate', row);
+  const targetEmail = normEmail(b.email);
+  const targetMobile = normMobile(b.mobile);
+
+  // Check email uniqueness across both roles
+  const existingCandidateEmail = await CandidateModel.findByEmail(targetEmail);
+  const existingRecruiterEmail = await RecruiterModel.findByEmail(targetEmail);
+  if (existingCandidateEmail || existingRecruiterEmail) {
+    return res.status(409).json({ error: 'This email is already registered. Please sign in instead.' });
+  }
+
+  // Check mobile uniqueness across both roles
+  if (targetMobile) {
+    const existingCandidateMobile = await CandidateModel.findByMobile(targetMobile);
+    const existingRecruiterMobile = await RecruiterModel.findByMobile(targetMobile);
+    if (existingCandidateMobile || existingRecruiterMobile) {
+      return res.status(409).json({ error: 'This mobile number is already registered. Please use another mobile number or sign in.' });
+    }
+  }
+
+  try {
+    const row = await CandidateModel.create({
+      ...b,
+      email: targetEmail,
+      mobile: targetMobile,
+      passwordHash: await bcrypt.hash(b.password, 10),
+    });
+    respond(res, 201, 'candidate', row);
+  } catch (err) {
+    if (err.code === '23505') {
+      const detail = err.detail || '';
+      if (detail.includes('mobile')) {
+        return res.status(409).json({ error: 'This mobile number is already registered. Please use another mobile number.' });
+      }
+      return res.status(409).json({ error: 'This email is already registered. Please sign in instead.' });
+    }
+    throw err;
+  }
 };
 
 export const recruiterSignup = async (req, res) => {
   const msg = validateSignup(req.body || {});
   if (msg) return res.status(400).json({ error: msg });
   const b = req.body;
-  const row = await RecruiterModel.create({
-    ...b,
-    email: normEmail(b.email),
-    passwordHash: await bcrypt.hash(b.password, 10),
-  });
-  respond(res, 201, 'recruiter', row);
+  const targetEmail = normEmail(b.email);
+  const targetMobile = normMobile(b.mobile);
+
+  // Check email uniqueness across both roles
+  const existingCandidateEmail = await CandidateModel.findByEmail(targetEmail);
+  const existingRecruiterEmail = await RecruiterModel.findByEmail(targetEmail);
+  if (existingCandidateEmail || existingRecruiterEmail) {
+    return res.status(409).json({ error: 'This email is already registered. Please sign in instead.' });
+  }
+
+  // Check mobile uniqueness across both roles
+  if (targetMobile) {
+    const existingCandidateMobile = await CandidateModel.findByMobile(targetMobile);
+    const existingRecruiterMobile = await RecruiterModel.findByMobile(targetMobile);
+    if (existingCandidateMobile || existingRecruiterMobile) {
+      return res.status(409).json({ error: 'This mobile number is already registered. Please use another mobile number or sign in.' });
+    }
+  }
+
+  try {
+    const row = await RecruiterModel.create({
+      ...b,
+      email: targetEmail,
+      mobile: targetMobile,
+      passwordHash: await bcrypt.hash(b.password, 10),
+    });
+    respond(res, 201, 'recruiter', row);
+  } catch (err) {
+    if (err.code === '23505') {
+      const detail = err.detail || '';
+      if (detail.includes('mobile')) {
+        return res.status(409).json({ error: 'This mobile number is already registered. Please use another mobile number.' });
+      }
+      return res.status(409).json({ error: 'This email is already registered. Please sign in instead.' });
+    }
+    throw err;
+  }
 };
 
 export const login = async (req, res) => {

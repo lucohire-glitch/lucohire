@@ -6,7 +6,7 @@
 import React, { useState, useRef } from 'react';
 import LucoLogo from './LucoLogo';
 import './RecruiterRegistration.css';
-import { recruiterSignup } from '../api';
+import { recruiterSignup, sendOtp, verifyOtp } from '../api';
 
 interface RecruiterRegistrationProps {
   isOpen: boolean;
@@ -44,6 +44,12 @@ export default function RecruiterRegistration({
   const [showMobileOtp, setShowMobileOtp] = useState(false);
   const [emailOtp, setEmailOtp] = useState(['', '', '', '']);
   const [mobileOtp, setMobileOtp] = useState(['', '', '', '']);
+  const [sendingEmailOtp, setSendingEmailOtp] = useState(false);
+  const [verifyingEmailOtp, setVerifyingEmailOtp] = useState(false);
+  const [sendingMobileOtp, setSendingMobileOtp] = useState(false);
+  const [verifyingMobileOtp, setVerifyingMobileOtp] = useState(false);
+  const [emailOtpHint, setEmailOtpHint] = useState('');
+  const [mobileOtpHint, setMobileOtpHint] = useState('');
 
   // Step 2
   const [company, setCompany] = useState('');
@@ -84,8 +90,9 @@ export default function RecruiterRegistration({
     if (file) {
       setGstFileName(file.name);
       setGstFileSize((file.size / (1024 * 1024)).toFixed(1) + ' MB');
-      const url = URL.createObjectURL(file);
-      setGstFileUrl(url);
+      const reader = new FileReader();
+      reader.onload = () => setGstFileUrl(reader.result as string);
+      reader.readAsDataURL(file);
       setGstUploaded(true);
       setGstToggleOn(true);
       triggerToast('+25% employer trust score');
@@ -99,8 +106,9 @@ export default function RecruiterRegistration({
     if (file) {
       setGstFileName(file.name);
       setGstFileSize((file.size / (1024 * 1024)).toFixed(1) + ' MB');
-      const url = URL.createObjectURL(file);
-      setGstFileUrl(url);
+      const reader = new FileReader();
+      reader.onload = () => setGstFileUrl(reader.result as string);
+      reader.readAsDataURL(file);
       setGstUploaded(true);
       setGstToggleOn(true);
       triggerToast('+25% employer trust score');
@@ -119,6 +127,7 @@ export default function RecruiterRegistration({
     e.stopPropagation();
     setGstFileName('GSTIN_29AABCB1234F1Z5_RegCert.pdf');
     setGstFileSize('1.4 MB');
+    setGstFileUrl('data:application/pdf;base64,JVBERi0xLjQKJcTl8uXrCg==');
     setGstUploaded(true);
     setGstToggleOn(true);
     triggerToast('+25% employer trust score');
@@ -128,8 +137,9 @@ export default function RecruiterRegistration({
     const file = e.target.files?.[0];
     if (file) {
       setLogoFileName(file.name);
-      const url = URL.createObjectURL(file);
-      setLogoUrl(url);
+      const reader = new FileReader();
+      reader.onload = () => setLogoUrl(reader.result as string);
+      reader.readAsDataURL(file);
       setLogoUploaded(true);
       triggerToast('+3% employer trust score');
     }
@@ -141,8 +151,9 @@ export default function RecruiterRegistration({
     const file = e.dataTransfer.files?.[0];
     if (file) {
       setLogoFileName(file.name);
-      const url = URL.createObjectURL(file);
-      setLogoUrl(url);
+      const reader = new FileReader();
+      reader.onload = () => setLogoUrl(reader.result as string);
+      reader.readAsDataURL(file);
       setLogoUploaded(true);
       triggerToast('+3% employer trust score');
     }
@@ -198,8 +209,136 @@ export default function RecruiterRegistration({
   if (description.trim()) score += 2;
   score = Math.min(100, score);
 
+  const handleSendEmailOtp = async () => {
+    if (!workEmail.includes('@') || !workEmail.includes('.')) {
+      triggerToast('Please enter a valid work email');
+      return;
+    }
+    setSendingEmailOtp(true);
+    try {
+      const res = await sendOtp(workEmail.trim(), 'email');
+      setShowEmailOtp(true);
+      setEmailOtpHint(res.otp);
+      triggerToast(`OTP sent! (Test OTP: ${res.otp})`);
+    } catch (err: any) {
+      triggerToast(err.message || 'Failed to send OTP to email');
+    } finally {
+      setSendingEmailOtp(false);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    const code = emailOtp.join('').trim();
+    if (code.length < 4) {
+      triggerToast('Please enter the 4-digit OTP');
+      return;
+    }
+    setVerifyingEmailOtp(true);
+    try {
+      await verifyOtp(workEmail.trim(), code);
+      setEmailVerified(true);
+      setShowEmailOtp(false);
+      triggerToast('Work email verified! (+15%)');
+    } catch (err: any) {
+      triggerToast(err.message || 'Invalid OTP. Please check console.');
+    } finally {
+      setVerifyingEmailOtp(false);
+    }
+  };
+
+  const handleSendMobileOtp = async () => {
+    if (mobile.trim().length !== 10) {
+      triggerToast('Please enter a valid 10-digit mobile number');
+      return;
+    }
+    setSendingMobileOtp(true);
+    try {
+      const res = await sendOtp(mobile.trim(), 'mobile');
+      setShowMobileOtp(true);
+      setMobileOtpHint(res.otp);
+      triggerToast(`OTP sent! (Test OTP: ${res.otp})`);
+    } catch (err: any) {
+      triggerToast(err.message || 'Failed to send OTP to mobile');
+    } finally {
+      setSendingMobileOtp(false);
+    }
+  };
+
+  const handleVerifyMobileOtp = async () => {
+    const code = mobileOtp.join('').trim();
+    if (code.length < 4) {
+      triggerToast('Please enter the 4-digit OTP');
+      return;
+    }
+    setVerifyingMobileOtp(true);
+    try {
+      await verifyOtp(mobile.trim(), code);
+      setMobileVerified(true);
+      setShowMobileOtp(false);
+      triggerToast('Mobile number verified! (+15%)');
+    } catch (err: any) {
+      triggerToast(err.message || 'Invalid OTP. Please check console.');
+    } finally {
+      setVerifyingMobileOtp(false);
+    }
+  };
+
+  const handleStepNext = () => {
+    if (recCurrent === 1) {
+      if (!name.trim()) {
+        triggerToast('Please enter your full name');
+        return;
+      }
+      if (!emailVerified) {
+        triggerToast('Please verify your work email with OTP first');
+        return;
+      }
+      if (!mobileVerified) {
+        triggerToast('Please verify your mobile number with OTP first');
+        return;
+      }
+      if (password.length < 8) {
+        triggerToast('Create a password (min 8 characters)');
+        return;
+      }
+    } else if (recCurrent === 2) {
+      if (!company.trim()) {
+        triggerToast('Please enter your company name');
+        return;
+      }
+    }
+    setRecCurrent(recCurrent + 1);
+  };
+
   const handleFinish = async () => {
     if (!authCheck || !tncCheck || submitting) return;
+    const finalProfile = {
+      name: name.trim(),
+      roleTitle: role.trim(),
+      company: company.trim(),
+      city: city.trim(),
+      state: state.trim(),
+      score,
+      verified: gstUploaded,
+      hiringType,
+      agencyLicense,
+      industry,
+      size,
+      website: website.trim(),
+      description: description.trim(),
+      gstToggleOn,
+      gstType,
+      gstUploaded,
+      gstFileName,
+      gstFileSize,
+      gstFileUrl,
+      logoUploaded,
+      logoFileName,
+      logoUrl,
+      authCheck: true,
+      tncAccepted: true
+    };
+
     if (localStorage.getItem('luco_token')) {
       onComplete({
         name: name || 'Priya Mehta',
@@ -216,6 +355,11 @@ export default function RecruiterRegistration({
       setRecCurrent(1);
       return;
     }
+    if (!emailVerified || !mobileVerified) {
+      triggerToast('Please verify both email and mobile with OTP in step 1');
+      setRecCurrent(1);
+      return;
+    }
     if (password.length < 8) {
       triggerToast('Create a password (min 8 characters) in step 1');
       setRecCurrent(1);
@@ -227,12 +371,12 @@ export default function RecruiterRegistration({
         name: name.trim(),
         email: workEmail.trim(),
         password,
-        mobile,
-        roleTitle: role,
-        company,
-        city,
-        state,
-        profile: { hiringType, agencyLicense, industry, size, website, description, gstType, gstUploaded, score }
+        mobile: mobile.trim(),
+        roleTitle: role.trim(),
+        company: company.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        profile: finalProfile
       });
       onComplete({
         name: name || 'Priya Mehta',
@@ -359,15 +503,20 @@ export default function RecruiterRegistration({
                         <button
                           className="verify-btn"
                           id="recWorkEmailSendBtn"
-                          disabled={!(workEmail.includes('@') && workEmail.includes('.'))}
-                          onClick={() => setShowEmailOtp(true)}
+                          disabled={!(workEmail.includes('@') && workEmail.includes('.')) || sendingEmailOtp}
+                          onClick={handleSendEmailOtp}
                         >
-                          Send OTP
+                          {sendingEmailOtp ? 'Sending...' : 'Send OTP'}
                         </button>
                       </div>
                       {showEmailOtp && (
                         <div className="otp-box show" id="recWorkEmailOtpBox">
                           <p className="lbl">Enter the 4-digit OTP sent to your work email</p>
+                          {emailOtpHint && (
+                            <p style={{ fontSize: '12px', color: '#6366f1', margin: '4px 0 8px 0', fontWeight: 600 }}>
+                              Test OTP: <b>{emailOtpHint}</b> (also logged in console)
+                            </p>
+                          )}
                           <div className="otp-inputs" id="recWorkEmailOtpInputs">
                             {[0, 1, 2, 3].map((i) => (
                               <input
@@ -385,8 +534,10 @@ export default function RecruiterRegistration({
                             ))}
                           </div>
                           <div className="otp-actions">
-                            <button onClick={() => { setShowEmailOtp(false); setEmailVerified(true); triggerToast('+15% employer trust score'); }}>Confirm</button>
-                            <span onClick={() => triggerToast('OTP resent to email!')}>Resend OTP</span>
+                            <button disabled={verifyingEmailOtp} onClick={handleVerifyEmailOtp}>
+                              {verifyingEmailOtp ? 'Verifying...' : 'Verify OTP'}
+                            </button>
+                            <span onClick={handleSendEmailOtp}>Resend OTP</span>
                           </div>
                         </div>
                       )}
@@ -419,15 +570,20 @@ export default function RecruiterRegistration({
                         <button
                           className="verify-btn"
                           id="recMobileSendBtn"
-                          disabled={mobile.trim().length !== 10}
-                          onClick={() => setShowMobileOtp(true)}
+                          disabled={mobile.trim().length !== 10 || sendingMobileOtp}
+                          onClick={handleSendMobileOtp}
                         >
-                          Send OTP
+                          {sendingMobileOtp ? 'Sending...' : 'Send OTP'}
                         </button>
                       </div>
                       {showMobileOtp && (
                         <div className="otp-box show" id="recMobileOtpBox">
                           <p className="lbl">Enter the 4-digit OTP sent to your phone</p>
+                          {mobileOtpHint && (
+                            <p style={{ fontSize: '12px', color: '#6366f1', margin: '4px 0 8px 0', fontWeight: 600 }}>
+                              Test OTP: <b>{mobileOtpHint}</b> (also logged in console)
+                            </p>
+                          )}
                           <div className="otp-inputs" id="recMobileOtpInputs">
                             {[0, 1, 2, 3].map((i) => (
                               <input
@@ -445,8 +601,10 @@ export default function RecruiterRegistration({
                             ))}
                           </div>
                           <div className="otp-actions">
-                            <button onClick={() => { setShowMobileOtp(false); setMobileVerified(true); triggerToast('+15% employer trust score'); }}>Confirm</button>
-                            <span onClick={() => triggerToast('OTP resent to mobile!')}>Resend OTP</span>
+                            <button disabled={verifyingMobileOtp} onClick={handleVerifyMobileOtp}>
+                              {verifyingMobileOtp ? 'Verifying...' : 'Verify OTP'}
+                            </button>
+                            <span onClick={handleSendMobileOtp}>Resend OTP</span>
                           </div>
                         </div>
                       )}
@@ -857,7 +1015,7 @@ export default function RecruiterRegistration({
               if (recCurrent === recTotal) {
                 handleFinish();
               } else {
-                setRecCurrent(recCurrent + 1);
+                handleStepNext();
               }
             }}
           >

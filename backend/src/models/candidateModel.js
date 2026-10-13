@@ -13,6 +13,11 @@ export const CandidateModel = {
     const { rows } = await pool.query('SELECT * FROM candidates WHERE email=$1', [email]);
     return rows[0];
   },
+  async findByMobile(mobile) {
+    if (!mobile) return null;
+    const { rows } = await pool.query('SELECT * FROM candidates WHERE mobile=$1', [mobile]);
+    return rows[0];
+  },
   async findById(id) {
     const { rows } = await pool.query('SELECT * FROM candidates WHERE id=$1', [id]);
     return rows[0];
