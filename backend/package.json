@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
+    "build": "echo 'No build step required'",
     "start": "node src/server.js"
   },
   "dependencies": {
@@ -13,7 +14,6 @@
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.13.1",
-    "react-example": "file:.."
+    "pg": "^8.13.1"
   }
 }
