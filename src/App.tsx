@@ -14,6 +14,7 @@ import CandidateDashboard from './components/CandidateDashboard';
 import EmployerDashboard from './components/EmployerDashboard';
 import ResumeCheckView from './components/ResumeCheckView';
 import FreelancersView from './components/FreelancersView';
+import AdminPortal from './components/AdminPortal';
 import { logout, getCurrentUser, getUserRole } from './api';
 
 const SKILLS = [
@@ -90,6 +91,14 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isFreelancersViewOpen, setIsFreelancersViewOpen] = useState(false);
   const [isResumeCheckOpen, setIsResumeCheckOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname.toLowerCase();
+      const h = window.location.hash.toLowerCase();
+      return p === '/admin' || p.startsWith('/admin/') || h === '#admin';
+    }
+    return false;
+  });
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isRoleChooserOpen, setIsRoleChooserOpen] = useState(false);
   const [isCandidateRegOpen, setIsCandidateRegOpen] = useState(false);
@@ -171,10 +180,14 @@ export default function App() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // Hash listener for direct auth navigation
+  // Hash & Route listener for direct navigation
   useEffect(() => {
-    const handleHash = () => {
+    const handleNavigation = () => {
       const h = window.location.hash.toLowerCase();
+      const p = window.location.pathname.toLowerCase();
+      if (p === '/admin' || p.startsWith('/admin/') || h === '#admin') {
+        setIsAdminOpen(true);
+      }
       if (h === '#signin' || h === '#auth' || h === '#login') {
         setIsAuthOpen(true);
       }
@@ -182,10 +195,24 @@ export default function App() {
         setIsFreelancersViewOpen(true);
       }
     };
-    handleHash();
-    window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
+    handleNavigation();
+    window.addEventListener('hashchange', handleNavigation);
+    window.addEventListener('popstate', handleNavigation);
+    return () => {
+      window.removeEventListener('hashchange', handleNavigation);
+      window.removeEventListener('popstate', handleNavigation);
+    };
   }, []);
+
+  const handleBackFromAdmin = () => {
+    setIsAdminOpen(false);
+    if (window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin')) {
+      window.history.pushState(null, '', '/');
+    }
+    if (window.location.hash === '#admin') {
+      window.history.pushState(null, '', ' ');
+    }
+  };
 
   const performScroll = (id: string) => {
     let targetId = id;
@@ -247,6 +274,11 @@ export default function App() {
   };
 
   const currentPricing = PRICING[pricingTab];
+
+  // If Admin Portal is open (/admin or #admin)
+  if (isAdminOpen) {
+    return <AdminPortal onBackToSite={handleBackFromAdmin} />;
+  }
 
   // If user clicked "Why am I not getting hired?", open the exact Resume Check HTML view
   if (isResumeCheckOpen) {

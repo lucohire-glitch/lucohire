@@ -12,6 +12,15 @@ export const requireAuth = (req, res, next) => {
   }
 };
 
+export const requireAdmin = (req, res, next) => {
+  requireAuth(req, res, () => {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. Administrator privileges required.' });
+    }
+    next();
+  });
+};
+
 export const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 export const errorHandler = (err, _req, res, _next) => {

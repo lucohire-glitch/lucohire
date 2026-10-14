@@ -1,4 +1,11 @@
-const API_URL: string = (import.meta as any).env?.VITE_API_URL || 'https://lucohire.onrender.com/api';
+const getApiUrl = (): string => {
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:5000/api';
+  }
+  return (import.meta as any).env?.VITE_API_URL || 'https://lucohire.onrender.com/api';
+};
+
+export const API_URL: string = getApiUrl();
 
 async function request<T = any>(path: string, body: unknown): Promise<T> {
   let res: Response;
@@ -50,3 +57,99 @@ export const getCurrentUser = () => {
 
 export const getUserRole = () => localStorage.getItem('luco_role') || '';
 export const isAuthenticated = () => !!localStorage.getItem('luco_token');
+
+// ==========================================
+// ADMIN API HELPERS
+// ==========================================
+
+export const getAdminToken = () => localStorage.getItem('luco_admin_token') || '';
+export const isAdminAuthenticated = () => !!getAdminToken();
+
+export const getAdminUser = () => {
+  try {
+    const raw = localStorage.getItem('luco_admin_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const adminLogout = () => {
+  localStorage.removeItem('luco_admin_token');
+  localStorage.removeItem('luco_admin_user');
+};
+
+export async function adminApiRequest<T = any>(
+  path: string,
+  options: { method?: 'GET' | 'POST' | 'DELETE' | 'PUT'; body?: unknown } = {}
+): Promise<T> {
+  const { method = 'GET', body } = options;
+  const token = getAdminToken();
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error('Cannot reach server. Please check your backend connection.');
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || 'Admin request failed.');
+  }
+
+  return data;
+}
+
+export const adminGetStatus = () =>
+  adminApiRequest<{ hasAdmin: boolean; adminCount: number }>('/admin/status');
+
+export const adminRegister = async (payload: { name: string; email: string; password: string }) => {
+  const data = await adminApiRequest<{ token: string; role: string; user: any; message: string }>(
+    '/admin/register',
+    { method: 'POST', body: payload }
+  );
+  if (data.token) {
+    localStorage.setItem('luco_admin_token', data.token);
+    localStorage.setItem('luco_admin_user', JSON.stringify(data.user));
+  }
+  return data;
+};
+
+export const adminLogin = async (email: string, password: string) => {
+  const data = await adminApiRequest<{ token: string; role: string; user: any; message: string }>(
+    '/admin/login',
+    { method: 'POST', body: { email, password } }
+  );
+  if (data.token) {
+    localStorage.setItem('luco_admin_token', data.token);
+    localStorage.setItem('luco_admin_user', JSON.stringify(data.user));
+  }
+  return data;
+};
+
+export const adminGetStats = () =>
+  adminApiRequest<{ totalCandidates: number; totalRecruiters: number; totalUsers: number; totalAdmins: number }>(
+    '/admin/stats'
+  );
+
+export const adminGetUsers = () =>
+  adminApiRequest<{ count: number; users: any[] }>('/admin/users');
+
+export const adminDeleteUser = (role: 'candidate' | 'recruiter', id: number | string) =>
+  adminApiRequest<{ success: boolean; message: string; deletedId: number; role: string }>(
+    `/admin/users/${role}/${id}`,
+    { method: 'DELETE' }
+  );

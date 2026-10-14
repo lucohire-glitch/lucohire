@@ -33,6 +33,14 @@ export async function initSchema() {
       profile JSONB DEFAULT '{}'::jsonb,
       created_at TIMESTAMPTZ DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS admins (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT DEFAULT 'admin',
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_candidates_mobile ON candidates(mobile) WHERE mobile IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_recruiters_mobile ON recruiters(mobile) WHERE mobile IS NOT NULL;
   `);
