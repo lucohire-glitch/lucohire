@@ -193,3 +193,44 @@ export const me = async (req, res) => {
   if (!row) return res.status(404).json({ error: 'User not found.' });
   res.json({ role: req.user.role, user: publicUser(row) });
 };
+
+export const updateCandidatePathAndPlan = async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId || req.user?.role !== 'candidate') {
+    return res.status(403).json({ error: 'Candidate authorization required.' });
+  }
+
+  const { selected_path, resume_data, purchased_plan } = req.body || {};
+  
+  const updates = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (selected_path !== undefined) {
+    updates.selected_path = selected_path;
+  }
+  if (resume_data !== undefined) {
+    updates.resume_data = resume_data;
+  }
+  if (purchased_plan) {
+    // 30 days validity for purchased plan
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    updates.purchased_plan = {
+      ...purchased_plan,
+      status: 'active',
+      purchased_at: new Date().toISOString(),
+      expires_at: expiresAt,
+    };
+    updates.plan_status = 'active';
+    updates.plan_expires_at = expiresAt;
+  }
+
+  const updatedCandidate = await CandidateModel.updateProfile(userId, updates);
+
+  res.json({
+    success: true,
+    message: purchased_plan ? 'Plan activated successfully for 30 days!' : 'Candidate profile updated successfully.',
+    user: publicUser(updatedCandidate),
+  });
+};
+

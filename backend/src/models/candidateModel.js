@@ -22,4 +22,16 @@ export const CandidateModel = {
     const { rows } = await pool.query('SELECT * FROM candidates WHERE id=$1', [id]);
     return rows[0];
   },
+  async updateProfile(id, profileUpdates) {
+    const existing = await this.findById(id);
+    if (!existing) return null;
+    const currentProfile = existing.profile || {};
+    const mergedProfile = { ...currentProfile, ...profileUpdates };
+    const { rows } = await pool.query(
+      `UPDATE candidates SET profile = $1 WHERE id = $2 RETURNING *`,
+      [mergedProfile, id]
+    );
+    return rows[0];
+  },
 };
+

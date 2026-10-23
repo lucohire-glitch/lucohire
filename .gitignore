@@ -8,4 +8,6 @@ coverage/
 !.env.example
 
 .vercel
-.env*
+
+# Deployment, test and inspection scripts
+*.cjs

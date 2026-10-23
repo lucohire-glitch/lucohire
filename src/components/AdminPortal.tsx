@@ -6,6 +6,21 @@ import {
   adminGetStats,
   adminGetUsers,
   adminDeleteUser,
+  adminGetPlans,
+  adminCreatePlan,
+  adminUpdatePlan,
+  adminDeletePlan,
+  PlanItem,
+  adminGetCareerPaths,
+  adminCreateCareerPath,
+  adminUpdateCareerPath,
+  adminDeleteCareerPath,
+  CareerPathItem,
+  adminGetResumeSkills,
+  adminCreateResumeSkill,
+  adminUpdateResumeSkill,
+  adminDeleteResumeSkill,
+  ResumeSkillItem,
   adminLogout,
   getAdminUser,
   isAdminAuthenticated,
@@ -47,6 +62,10 @@ import {
   BarChart3,
   Sparkles,
   UserPlus,
+  Tag,
+  Plus,
+  Edit2,
+  Check,
 } from 'lucide-react';
 
 interface AdminPortalProps {
@@ -71,7 +90,7 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Dashboard & Users list states
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'candidates' | 'recruiters'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'candidates' | 'recruiters' | 'plans' | 'paths'>('dashboard');
   const [users, setUsers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({
     totalCandidates: 0,
@@ -92,6 +111,450 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
   // Delete modal states
   const [userToDelete, setUserToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Plan Management states (Freelancer and Recruiter Plans CRUD)
+  const [plans, setPlans] = useState<PlanItem[]>([]);
+  const [isLoadingPlans, setIsLoadingPlans] = useState<boolean>(false);
+  const [planCategoryFilter, setPlanCategoryFilter] = useState<'all' | 'freelancer' | 'recruiter'>('all');
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState<boolean>(false);
+  const [editingPlan, setEditingPlan] = useState<PlanItem | null>(null);
+  const [isSavingPlan, setIsSavingPlan] = useState<boolean>(false);
+  const [planToDelete, setPlanToDelete] = useState<PlanItem | null>(null);
+  const [isDeletingPlan, setIsDeletingPlan] = useState<boolean>(false);
+
+  const initialPlanForm = {
+    name: '',
+    category: 'freelancer' as 'freelancer' | 'recruiter',
+    price_amount: '',
+    price_unit: '/month',
+    badge: '',
+    description: '',
+    why_text: '',
+    featuresText: '',
+    cta_text: '',
+    is_popular: false,
+    is_active: true,
+    sort_order: 1,
+  };
+  const [planForm, setPlanForm] = useState(initialPlanForm);
+
+  const loadPlans = async () => {
+    setIsLoadingPlans(true);
+    try {
+      const res = await adminGetPlans();
+      if (res?.plans) {
+        setPlans(res.plans);
+      }
+    } catch (err: any) {
+      console.error('Failed to load plans:', err);
+    } finally {
+      setIsLoadingPlans(false);
+    }
+  };
+
+  const handleOpenAddPlan = (defaultCat: 'freelancer' | 'recruiter' = 'freelancer') => {
+    setEditingPlan(null);
+    setPlanForm({
+      name: '',
+      category: defaultCat,
+      price_amount: defaultCat === 'freelancer' ? '₹49' : '₹1,499',
+      price_unit: '/month',
+      badge: '',
+      description: '',
+      why_text: '',
+      featuresText: '',
+      cta_text: '',
+      is_popular: false,
+      is_active: true,
+      sort_order: (plans.filter(p => p.category === defaultCat).length + 1),
+    });
+    setIsPlanModalOpen(true);
+  };
+
+  const handleOpenEditPlan = (plan: PlanItem) => {
+    setEditingPlan(plan);
+    const feats = Array.isArray(plan.features) ? plan.features.join('\n') : '';
+    setPlanForm({
+      name: plan.name || '',
+      category: (plan.category as any) || 'freelancer',
+      price_amount: plan.price_amount || '',
+      price_unit: plan.price_unit || '/month',
+      badge: plan.badge || '',
+      description: plan.description || '',
+      why_text: plan.why_text || '',
+      featuresText: feats,
+      cta_text: plan.cta_text || '',
+      is_popular: Boolean(plan.is_popular),
+      is_active: plan.is_active !== undefined ? Boolean(plan.is_active) : true,
+      sort_order: Number(plan.sort_order) || 1,
+    });
+    setIsPlanModalOpen(true);
+  };
+
+  const handleSavePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!planForm.name.trim()) {
+      showToast('Please enter a plan name.');
+      return;
+    }
+    if (!planForm.price_amount.trim()) {
+      showToast('Please enter price amount (e.g. ₹49 or ₹1,499).');
+      return;
+    }
+
+    setIsSavingPlan(true);
+    try {
+      const featuresArray = planForm.featuresText
+        .split('\n')
+        .map((f) => f.trim())
+        .filter(Boolean);
+
+      const payload = {
+        name: planForm.name.trim(),
+        category: planForm.category,
+        price_amount: planForm.price_amount.trim(),
+        price_unit: planForm.price_unit.trim() || '/month',
+        badge: planForm.badge.trim(),
+        description: planForm.description.trim(),
+        why_text: planForm.why_text.trim(),
+        features: featuresArray,
+        cta_text: planForm.cta_text.trim(),
+        is_popular: planForm.is_popular,
+        is_active: planForm.is_active,
+        sort_order: Number(planForm.sort_order) || 1,
+      };
+
+      if (editingPlan) {
+        const res = await adminUpdatePlan(editingPlan.id, payload);
+        showToast(res.message || 'Plan updated successfully!');
+      } else {
+        const res = await adminCreatePlan(payload);
+        showToast(res.message || 'Plan created successfully!');
+      }
+
+      setIsPlanModalOpen(false);
+      setEditingPlan(null);
+      await loadPlans();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to save plan.');
+    } finally {
+      setIsSavingPlan(false);
+    }
+  };
+
+  const handleConfirmDeletePlan = async () => {
+    if (!planToDelete) return;
+    setIsDeletingPlan(true);
+    try {
+      await adminDeletePlan(planToDelete.id);
+      showToast(`Plan "${planToDelete.name}" deleted successfully.`);
+      setPlanToDelete(null);
+      await loadPlans();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete plan.');
+    } finally {
+      setIsDeletingPlan(false);
+    }
+  };
+
+  const handleTogglePlanActive = async (plan: PlanItem) => {
+    try {
+      await adminUpdatePlan(plan.id, { is_active: !plan.is_active });
+      showToast(`Plan "${plan.name}" is now ${!plan.is_active ? 'Active' : 'Hidden'}.`);
+      await loadPlans();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update plan status.');
+    }
+  };
+
+  // Career Paths Management states (Resume Check View Path options CRUD)
+  const [careerPaths, setCareerPaths] = useState<CareerPathItem[]>([]);
+  const [isLoadingCareerPaths, setIsLoadingCareerPaths] = useState<boolean>(false);
+  const [isCareerPathModalOpen, setIsCareerPathModalOpen] = useState<boolean>(false);
+  const [editingCareerPath, setEditingCareerPath] = useState<CareerPathItem | null>(null);
+  const [isSavingCareerPath, setIsSavingCareerPath] = useState<boolean>(false);
+  const [careerPathToDelete, setCareerPathToDelete] = useState<CareerPathItem | null>(null);
+  const [isDeletingCareerPath, setIsDeletingCareerPath] = useState<boolean>(false);
+
+  const initialCareerPathForm = {
+    custom_id: '',
+    title: '',
+    sub: '',
+    badge: 'Fast Track',
+    recommended: false,
+    syllabusText: '',
+    kya: '',
+    one_liner: '',
+    lessons: 3,
+    jobs: 12000,
+    is_active: true,
+    sort_order: 1,
+  };
+  const [careerPathForm, setCareerPathForm] = useState(initialCareerPathForm);
+
+  const loadCareerPaths = async () => {
+    setIsLoadingCareerPaths(true);
+    try {
+      const res = await adminGetCareerPaths();
+      if (res?.paths) {
+        setCareerPaths(res.paths);
+      }
+    } catch (err: any) {
+      console.error('Failed to load career paths:', err);
+    } finally {
+      setIsLoadingCareerPaths(false);
+    }
+  };
+
+  const handleOpenAddCareerPath = () => {
+    setEditingCareerPath(null);
+    setCareerPathForm({
+      custom_id: `p${careerPaths.length + 1}`,
+      title: '',
+      sub: '',
+      badge: 'Fast Track',
+      recommended: false,
+      syllabusText: '',
+      kya: '',
+      one_liner: '',
+      lessons: 3,
+      jobs: 12000,
+      is_active: true,
+      sort_order: careerPaths.length + 1,
+    });
+    setIsCareerPathModalOpen(true);
+  };
+
+  const handleOpenEditCareerPath = (path: CareerPathItem) => {
+    setEditingCareerPath(path);
+    const syllabusLines = Array.isArray(path.syllabus)
+      ? path.syllabus.join('\n')
+      : typeof path.syllabus === 'string'
+      ? (() => { try { return JSON.parse(path.syllabus).join('\n'); } catch { return path.syllabus; } })()
+      : '';
+    setCareerPathForm({
+      custom_id: path.custom_id || path.path_key || String(path.id),
+      title: path.title || '',
+      sub: path.sub || '',
+      badge: path.badge || '',
+      recommended: Boolean(path.recommended),
+      syllabusText: syllabusLines,
+      kya: path.kya || '',
+      one_liner: path.one_liner || '',
+      lessons: Number(path.lessons) || 0,
+      jobs: Number(path.jobs) || 0,
+      is_active: path.is_active !== undefined ? Boolean(path.is_active) : true,
+      sort_order: Number(path.sort_order) || 1,
+    });
+    setIsCareerPathModalOpen(true);
+  };
+
+  const handleSaveCareerPath = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!careerPathForm.title.trim()) {
+      showToast('Please enter a career path title.');
+      return;
+    }
+
+    setIsSavingCareerPath(true);
+    try {
+      const syllabusArray = careerPathForm.syllabusText
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const payload = {
+        custom_id: careerPathForm.custom_id.trim() || undefined,
+        title: careerPathForm.title.trim(),
+        sub: careerPathForm.sub.trim(),
+        badge: careerPathForm.badge.trim(),
+        recommended: careerPathForm.recommended,
+        syllabus: syllabusArray,
+        kya: careerPathForm.kya.trim(),
+        one_liner: careerPathForm.one_liner.trim(),
+        lessons: Number(careerPathForm.lessons) || 0,
+        jobs: Number(careerPathForm.jobs) || 0,
+        is_active: careerPathForm.is_active,
+        sort_order: Number(careerPathForm.sort_order) || 1,
+      };
+
+      if (editingCareerPath) {
+        const res = await adminUpdateCareerPath(editingCareerPath.id, payload);
+        showToast(res.message || 'Career path updated successfully!');
+      } else {
+        const res = await adminCreateCareerPath(payload);
+        showToast(res.message || 'Career path created successfully!');
+      }
+
+      setIsCareerPathModalOpen(false);
+      setEditingCareerPath(null);
+      await loadCareerPaths();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to save career path.');
+    } finally {
+      setIsSavingCareerPath(false);
+    }
+  };
+
+  const handleConfirmDeleteCareerPath = async () => {
+    if (!careerPathToDelete) return;
+    setIsDeletingCareerPath(true);
+    try {
+      await adminDeleteCareerPath(careerPathToDelete.id);
+      showToast(`Career path "${careerPathToDelete.title}" deleted.`);
+      setCareerPathToDelete(null);
+      await loadCareerPaths();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete career path.');
+    } finally {
+      setIsDeletingCareerPath(false);
+    }
+  };
+
+  const handleToggleCareerPathActive = async (path: CareerPathItem) => {
+    try {
+      await adminUpdateCareerPath(path.id, { is_active: !path.is_active });
+      showToast(`Career path "${path.title}" is now ${!path.is_active ? 'Active' : 'Hidden'}.`);
+      await loadCareerPaths();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update path status.');
+    }
+  };
+
+  // Sub-tabs under Career & Skills Intelligence: 'paths' | 'rising' | 'keywords'
+  const [resumeSubTab, setResumeSubTab] = useState<'paths' | 'rising' | 'keywords'>('paths');
+
+  // Resume Skills & JD Keywords Management states
+  const [resumeSkills, setResumeSkills] = useState<ResumeSkillItem[]>([]);
+  const [isLoadingResumeSkills, setIsLoadingResumeSkills] = useState<boolean>(false);
+  const [isResumeSkillModalOpen, setIsResumeSkillModalOpen] = useState<boolean>(false);
+  const [editingResumeSkill, setEditingResumeSkill] = useState<ResumeSkillItem | null>(null);
+  const [isSavingResumeSkill, setIsSavingResumeSkill] = useState<boolean>(false);
+  const [resumeSkillToDelete, setResumeSkillToDelete] = useState<ResumeSkillItem | null>(null);
+  const [isDeletingResumeSkill, setIsDeletingResumeSkill] = useState<boolean>(false);
+
+  const initialResumeSkillForm = {
+    category: 'rising' as 'rising' | 'keyword',
+    skill_name: '',
+    trend: '+40%',
+    jobs: '6,000 jobs',
+    salary: '15-20 LPA',
+    learn_time: '1 day',
+    note: '',
+    is_active: true,
+    sort_order: 1,
+  };
+  const [resumeSkillForm, setResumeSkillForm] = useState(initialResumeSkillForm);
+
+  const loadResumeSkills = async () => {
+    setIsLoadingResumeSkills(true);
+    try {
+      const res = await adminGetResumeSkills();
+      if (res?.skills) {
+        setResumeSkills(res.skills);
+      }
+    } catch (err: any) {
+      console.error('Failed to load resume skills:', err);
+    } finally {
+      setIsLoadingResumeSkills(false);
+    }
+  };
+
+  const handleOpenAddResumeSkill = (category: 'rising' | 'keyword' = 'rising') => {
+    setEditingResumeSkill(null);
+    setResumeSkillForm({
+      category,
+      skill_name: '',
+      trend: category === 'rising' ? '+40%' : '+50%',
+      jobs: category === 'rising' ? '5,000 jobs' : '',
+      salary: category === 'rising' ? '14-20 LPA' : '',
+      learn_time: '1 day',
+      note: '',
+      is_active: true,
+      sort_order: (resumeSkills.filter((s) => s.category === category).length + 1),
+    });
+    setIsResumeSkillModalOpen(true);
+  };
+
+  const handleOpenEditResumeSkill = (skill: ResumeSkillItem) => {
+    setEditingResumeSkill(skill);
+    setResumeSkillForm({
+      category: skill.category as 'rising' | 'keyword',
+      skill_name: skill.skill_name || '',
+      trend: skill.trend || '',
+      jobs: skill.jobs || '',
+      salary: skill.salary || '',
+      learn_time: skill.learn_time || '1 day',
+      note: skill.note || '',
+      is_active: skill.is_active !== undefined ? Boolean(skill.is_active) : true,
+      sort_order: Number(skill.sort_order) || 1,
+    });
+    setIsResumeSkillModalOpen(true);
+  };
+
+  const handleSaveResumeSkill = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resumeSkillForm.skill_name.trim()) {
+      showToast('Please enter a skill or keyword name.');
+      return;
+    }
+
+    setIsSavingResumeSkill(true);
+    try {
+      const payload = {
+        category: resumeSkillForm.category,
+        skill_name: resumeSkillForm.skill_name.trim(),
+        trend: resumeSkillForm.trend.trim(),
+        jobs: resumeSkillForm.jobs.trim(),
+        salary: resumeSkillForm.salary.trim(),
+        learn_time: resumeSkillForm.learn_time.trim(),
+        note: resumeSkillForm.note.trim(),
+        is_active: resumeSkillForm.is_active,
+        sort_order: Number(resumeSkillForm.sort_order) || 1,
+      };
+
+      if (editingResumeSkill) {
+        const res = await adminUpdateResumeSkill(editingResumeSkill.id, payload);
+        showToast(res.message || 'Updated successfully!');
+      } else {
+        const res = await adminCreateResumeSkill(payload);
+        showToast(res.message || 'Added successfully!');
+      }
+
+      setIsResumeSkillModalOpen(false);
+      setEditingResumeSkill(null);
+      await loadResumeSkills();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to save skill.');
+    } finally {
+      setIsSavingResumeSkill(false);
+    }
+  };
+
+  const handleConfirmDeleteResumeSkill = async () => {
+    if (!resumeSkillToDelete) return;
+    setIsDeletingResumeSkill(true);
+    try {
+      await adminDeleteResumeSkill(resumeSkillToDelete.id);
+      showToast(`"${resumeSkillToDelete.skill_name}" deleted.`);
+      setResumeSkillToDelete(null);
+      await loadResumeSkills();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete skill.');
+    } finally {
+      setIsDeletingResumeSkill(false);
+    }
+  };
+
+  const handleToggleResumeSkillActive = async (skill: ResumeSkillItem) => {
+    try {
+      await adminUpdateResumeSkill(skill.id, { is_active: !skill.is_active });
+      showToast(`"${skill.skill_name}" is now ${!skill.is_active ? 'Active' : 'Hidden'}.`);
+      await loadResumeSkills();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update skill status.');
+    }
+  };
 
   // Toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -121,18 +584,30 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
     checkSetup();
   }, []);
 
-  // Fetch users and stats when authenticated
+  // Fetch users, stats, and plans when authenticated
   const loadDashboardData = async () => {
     if (!isAuthenticated) return;
     setIsLoadingData(true);
     try {
-      const [usersRes, statsRes] = await Promise.all([
+      const [usersRes, statsRes, plansRes, pathsRes, skillsRes] = await Promise.all([
         adminGetUsers(),
         adminGetStats().catch(() => null),
+        adminGetPlans().catch(() => null),
+        adminGetCareerPaths().catch(() => null),
+        adminGetResumeSkills().catch(() => null),
       ]);
 
       if (usersRes?.users) {
         setUsers(usersRes.users);
+      }
+      if (plansRes?.plans) {
+        setPlans(plansRes.plans);
+      }
+      if (pathsRes?.paths) {
+        setCareerPaths(pathsRes.paths);
+      }
+      if (skillsRes?.skills) {
+        setResumeSkills(skillsRes.skills);
       }
       if (statsRes) {
         setStats(statsRes);
@@ -662,6 +1137,42 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
             </div>
             <span className="admin-nav-count">{recruiterCount}</span>
           </button>
+
+          <div className="admin-menu-section-label" style={{ marginTop: 14 }}>Monetization</div>
+
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'plans' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('plans');
+              setIsMobileSidebarOpen(false);
+            }}
+          >
+            <div className="admin-nav-left">
+              <span className="admin-nav-icon-badge" style={{ background: 'var(--lavender-50)', color: 'var(--violet-700)' }}>
+                <Tag size={15} />
+              </span>
+              <span>Plans &amp; Pricing</span>
+            </div>
+            <span className="admin-nav-count">{plans.length}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'paths' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('paths');
+              setIsMobileSidebarOpen(false);
+            }}
+          >
+            <div className="admin-nav-left">
+              <span className="admin-nav-icon-badge" style={{ background: 'var(--lavender-50)', color: 'var(--violet-700)' }}>
+                <Sparkles size={15} />
+              </span>
+              <span>Career Paths</span>
+            </div>
+            <span className="admin-nav-count">{careerPaths.length}</span>
+          </button>
         </nav>
 
         {/* Sidebar Platform Live Status Mini-Card */}
@@ -767,6 +1278,10 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
                 ? 'Candidates'
                 : activeTab === 'recruiters'
                 ? 'Recruiters'
+                : activeTab === 'plans'
+                ? 'Plans & Pricing Management'
+                : activeTab === 'paths'
+                ? 'Career Paths Management'
                 : 'All Registered Users'}
             </h1>
           </div>
@@ -1302,6 +1817,615 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
                 </div>
               </div>
             </div>
+          ) : activeTab === 'plans' ? (
+            /* ========================================================
+               VIEW: PLANS & PRICING MANAGEMENT (ADMIN CRUD)
+               ======================================================== */
+            <div className="admin-plans-container">
+              {/* Top Action Card */}
+              <div className="admin-plans-top-card">
+                <div className="admin-plans-header-left">
+                  <div className="admin-panel-badge" style={{ color: 'var(--violet-700)', background: 'var(--lavender-50)' }}>
+                    <Tag size={12} />
+                    Monetization &amp; Pricing
+                  </div>
+                  <h2>Plans &amp; Pricing Management</h2>
+                  <p>Configure pricing, billing time periods (/forever, /month, /year), badges, and features for Freelancer and Recruiter / Client plans.</p>
+                </div>
+
+                <div className="admin-plans-actions-row">
+                  {/* Category Filter Pills */}
+                  <div className="admin-plan-cat-pills">
+                    <button
+                      type="button"
+                      className={`admin-plan-cat-pill ${planCategoryFilter === 'all' ? 'active' : ''}`}
+                      onClick={() => setPlanCategoryFilter('all')}
+                    >
+                      All Plans ({plans.length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-plan-cat-pill ${planCategoryFilter === 'freelancer' ? 'active' : ''}`}
+                      onClick={() => setPlanCategoryFilter('freelancer')}
+                    >
+                      Freelancer ({plans.filter(p => p.category === 'freelancer').length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-plan-cat-pill ${planCategoryFilter === 'recruiter' ? 'active' : ''}`}
+                      onClick={() => setPlanCategoryFilter('recruiter')}
+                    >
+                      Recruiter / Client ({plans.filter(p => p.category === 'recruiter').length})
+                    </button>
+                  </div>
+
+                  {/* Add Plan Button */}
+                  <button
+                    type="button"
+                    className="admin-add-plan-btn"
+                    onClick={() => handleOpenAddPlan(planCategoryFilter === 'recruiter' ? 'recruiter' : 'freelancer')}
+                  >
+                    <Plus size={16} />
+                    <span>Add New Plan</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Plans Cards Grid */}
+              {isLoadingPlans ? (
+                <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-soft)' }}>
+                  <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 10px' }} />
+                  <div>Loading pricing plans...</div>
+                </div>
+              ) : (
+                <div className="admin-plans-grid">
+                  {plans
+                    .filter(p => planCategoryFilter === 'all' || p.category === planCategoryFilter)
+                    .map((p) => {
+                      const feats = Array.isArray(p.features) ? p.features : [];
+                      return (
+                        <div key={p.id} className={`admin-plan-card ${p.is_popular ? 'popular' : ''}`}>
+                          {p.badge && <span className="admin-plan-badge-tag">{p.badge}</span>}
+
+                          <div className="admin-plan-header-row">
+                            <span className={`admin-plan-cat-tag ${p.category === 'freelancer' ? 'freelancer' : 'recruiter'}`}>
+                              {p.category === 'freelancer' ? 'Freelancer' : 'Recruiter / Client'}
+                            </span>
+
+                            <button
+                              type="button"
+                              className={`admin-plan-status-pill ${p.is_active ? 'active' : 'hidden'}`}
+                              onClick={() => handleTogglePlanActive(p)}
+                              title="Click to toggle Active / Hidden"
+                            >
+                              <span className="admin-live-dot" style={{ background: p.is_active ? '#16A34A' : '#9CA3AF' }} />
+                              {p.is_active ? 'Active on Site' : 'Hidden'}
+                            </button>
+                          </div>
+
+                          <h3 className="admin-plan-title">{p.name}</h3>
+
+                          <div className="admin-plan-price-row">
+                            <span className="admin-plan-price-amt">{p.price_amount}</span>
+                            <span className="admin-plan-price-time">{p.price_unit}</span>
+                          </div>
+
+                          {p.description && (
+                            <div className="admin-plan-desc">{p.description}</div>
+                          )}
+
+                          <div className="admin-plan-features-box">
+                            <ul className="admin-plan-features-list">
+                              {feats.slice(0, 5).map((f, i) => (
+                                <li key={i} className="admin-plan-feature-item">
+                                  <span className="admin-plan-feature-icon">✓</span>
+                                  <span>{f}</span>
+                                </li>
+                              ))}
+                              {feats.length > 5 && (
+                                <li style={{ fontSize: 11.5, color: 'var(--ink-soft)', fontStyle: 'italic' }}>
+                                  +{feats.length - 5} more features
+                                </li>
+                              )}
+                            </ul>
+                          </div>
+
+                          {p.why_text && (
+                            <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 14, fontStyle: 'italic' }}>
+                              "{p.why_text.replace(/<[^>]+>/g, '')}"
+                            </div>
+                          )}
+
+                          <div className="admin-plan-card-footer">
+                            <span style={{ fontSize: 11, color: 'var(--ink-soft)', fontWeight: 600 }}>
+                              CTA: {p.cta_text || 'Select'}
+                            </span>
+
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button
+                                type="button"
+                                className="admin-plan-action-btn"
+                                onClick={() => handleOpenEditPlan(p)}
+                                title="Edit Plan Details, Price &amp; Time"
+                              >
+                                <Edit2 size={13} />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="admin-plan-action-btn delete"
+                                onClick={() => setPlanToDelete(p)}
+                                title="Delete Plan"
+                              >
+                                <Trash2 size={13} />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'paths' ? (
+            /* ========================================================
+               VIEW: CAREER PATHS & RESUME SKILLS INTELLIGENCE (ADMIN CRUD)
+               ======================================================== */
+            <div className="admin-plans-container">
+              {/* Top Action Card */}
+              <div className="admin-plans-top-card">
+                <div className="admin-plans-header-left">
+                  <div className="admin-panel-badge" style={{ color: 'var(--violet-700)', background: 'var(--lavender-50)', borderColor: 'var(--violet-200)' }}>
+                    <Sparkles size={12} />
+                    Resume Journey &amp; Skills Intelligence
+                  </div>
+                  <h2>Career Paths &amp; Skills Intelligence</h2>
+                  <p>Manage candidate career goals, trending skills on the rise, and JD match missing keywords rendered on the Resume Check page.</p>
+                </div>
+
+                <div className="admin-plans-actions-row">
+                  {/* Sub-tab Switcher: Paths / Skills on the Rise / JD Missing Keywords */}
+                  <div className="admin-plan-cat-pills">
+                    <button
+                      type="button"
+                      className={`admin-plan-cat-pill ${resumeSubTab === 'paths' ? 'active' : ''}`}
+                      onClick={() => setResumeSubTab('paths')}
+                    >
+                      Career Paths ({careerPaths.length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-plan-cat-pill ${resumeSubTab === 'rising' ? 'active' : ''}`}
+                      onClick={() => setResumeSubTab('rising')}
+                    >
+                      Skills on the Rise ({resumeSkills.filter((s) => s.category === 'rising').length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-plan-cat-pill ${resumeSubTab === 'keywords' ? 'active' : ''}`}
+                      onClick={() => setResumeSubTab('keywords')}
+                    >
+                      JD Missing Keywords ({resumeSkills.filter((s) => s.category === 'keyword').length})
+                    </button>
+                  </div>
+
+                  {resumeSubTab === 'paths' ? (
+                    <button
+                      type="button"
+                      className="admin-add-plan-btn"
+                      onClick={handleOpenAddCareerPath}
+                    >
+                      <Plus size={16} />
+                      <span>Add New Path</span>
+                    </button>
+                  ) : resumeSubTab === 'rising' ? (
+                    <button
+                      type="button"
+                      className="admin-add-plan-btn"
+                      onClick={() => handleOpenAddResumeSkill('rising')}
+                    >
+                      <Plus size={16} />
+                      <span>Add Rising Skill</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="admin-add-plan-btn"
+                      onClick={() => handleOpenAddResumeSkill('keyword')}
+                    >
+                      <Plus size={16} />
+                      <span>Add Missing Keyword</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {resumeSubTab === 'paths' ? (
+                isLoadingCareerPaths ? (
+                  <div className="admin-empty-state">
+                    <RefreshCw size={28} className="animate-spin" color="var(--violet-700)" />
+                    <p style={{ marginTop: 12 }}>Loading career paths...</p>
+                  </div>
+                ) : careerPaths.length === 0 ? (
+                  <div className="admin-empty-state">
+                    <div className="admin-empty-icon" style={{ background: 'var(--lavender-50)', color: 'var(--violet-700)' }}>
+                      <Sparkles size={26} />
+                    </div>
+                    <h3>No Career Paths Found</h3>
+                    <p>Click "Add New Path" to create candidate career options.</p>
+                  </div>
+                ) : (
+                  <div className="admin-plans-grid">
+                    {careerPaths
+                      .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0))
+                      .map((path) => {
+                        const syllabusList = Array.isArray(path.syllabus)
+                          ? path.syllabus
+                          : typeof path.syllabus === 'string'
+                          ? (() => { try { return JSON.parse(path.syllabus); } catch { return []; } })()
+                          : [];
+
+                        return (
+                          <div
+                            key={path.id}
+                            className={`admin-plan-card ${path.recommended ? 'popular' : ''}`}
+                            style={{
+                              opacity: path.is_active ? 1 : 0.65,
+                            }}
+                          >
+                            {path.badge && (
+                              <div
+                                className="admin-plan-badge-tag"
+                                style={{ background: path.recommended ? 'var(--violet-700)' : 'var(--ink)' }}
+                              >
+                                {path.badge}
+                              </div>
+                            )}
+
+                            <div className="admin-plan-header-row">
+                              <span
+                                className="admin-plan-cat-tag"
+                                style={{ background: 'var(--lavender-50)', color: 'var(--violet-700)', border: '1px solid var(--violet-200)' }}
+                              >
+                                ID: {path.custom_id || path.path_key || String(path.id)}
+                              </span>
+
+                              <button
+                                type="button"
+                                className={`admin-plan-status-pill ${path.is_active ? 'active' : 'hidden'}`}
+                                onClick={() => handleToggleCareerPathActive(path)}
+                                title="Click to toggle Active / Hidden"
+                              >
+                                <span
+                                  style={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: '50%',
+                                    background: path.is_active ? '#16A34A' : '#9CA3AF',
+                                  }}
+                                />
+                                {path.is_active ? 'Active' : 'Hidden'}
+                              </button>
+                            </div>
+
+                            <h3 className="admin-plan-title" style={{ fontSize: 18, marginBottom: 4 }}>
+                              {path.title}
+                            </h3>
+                            {path.sub && (
+                              <p style={{ fontSize: 12.5, color: 'var(--ink-soft)', margin: '0 0 10px 0' }}>
+                                {path.sub}
+                              </p>
+                            )}
+
+                            {path.one_liner && (
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  color: 'var(--violet-700)',
+                                  background: 'var(--lavender-50)',
+                                  padding: '6px 10px',
+                                  borderRadius: 8,
+                                  marginBottom: 14,
+                                  border: '1px solid var(--violet-200)',
+                                }}
+                              >
+                                {path.one_liner}
+                              </div>
+                            )}
+
+                            <div className="admin-plan-features-box" style={{ marginBottom: 14 }}>
+                              <div className="admin-plan-features-label">
+                                Syllabus Skills ({syllabusList.length}):
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                                {syllabusList.map((skill: string, idx: number) => (
+                                  <span
+                                    key={idx}
+                                    style={{
+                                      fontSize: 11.5,
+                                      fontWeight: 600,
+                                      padding: '3px 8px',
+                                      borderRadius: 6,
+                                      background: '#F1F5F9',
+                                      color: '#334155',
+                                      border: '1px solid #E2E8F0',
+                                    }}
+                                  >
+                                    ✓ {skill}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            {path.kya && (
+                              <div style={{ fontSize: 11.5, color: 'var(--ink-soft)', marginBottom: 14 }}>
+                                <b>Outcomes:</b> {path.kya}
+                              </div>
+                            )}
+
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                fontSize: 12,
+                                color: 'var(--ink-soft)',
+                                fontWeight: 600,
+                                marginBottom: 16,
+                                paddingTop: 10,
+                                borderTop: '1px dashed var(--line)',
+                              }}
+                            >
+                              <span>📚 {path.lessons || 0} Lessons</span>
+                              <span>💼 +{(Number(path.jobs) || 0).toLocaleString('en-IN')} Jobs</span>
+                            </div>
+
+                            <div className="admin-plan-card-footer" style={{ marginTop: 'auto' }}>
+                              <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
+                                Order: #{path.sort_order || 1}
+                              </span>
+
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button
+                                  type="button"
+                                  className="admin-plan-action-btn"
+                                  onClick={() => handleOpenEditCareerPath(path)}
+                                  title="Edit Career Path"
+                                >
+                                  <Edit2 size={13} />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="admin-plan-action-btn delete"
+                                  onClick={() => setCareerPathToDelete(path)}
+                                  title="Delete Career Path"
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )
+              ) : resumeSubTab === 'rising' ? (
+                /* VIEW: SKILLS ON THE RISE */
+                isLoadingResumeSkills ? (
+                  <div className="admin-empty-state">
+                    <RefreshCw size={28} className="animate-spin" color="var(--violet-700)" />
+                    <p style={{ marginTop: 12 }}>Loading trending skills...</p>
+                  </div>
+                ) : resumeSkills.filter((s) => s.category === 'rising').length === 0 ? (
+                  <div className="admin-empty-state">
+                    <div className="admin-empty-icon" style={{ background: 'var(--lavender-50)', color: 'var(--violet-700)' }}>
+                      <TrendingUp size={26} />
+                    </div>
+                    <h3>No Trending Skills Found</h3>
+                    <p>Click "Add Rising Skill" to introduce a new industry skill.</p>
+                  </div>
+                ) : (
+                  <div className="admin-plans-grid">
+                    {resumeSkills
+                      .filter((s) => s.category === 'rising')
+                      .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0))
+                      .map((item) => (
+                        <div
+                          key={item.id}
+                          className="admin-plan-card"
+                          style={{ opacity: item.is_active ? 1 : 0.65 }}
+                        >
+                          <div className="admin-plan-header-row">
+                            <span
+                              className="admin-plan-cat-tag"
+                              style={{ background: 'var(--lavender-50)', color: 'var(--violet-700)', border: '1px solid var(--violet-200)' }}
+                            >
+                              📈 Trend: {item.trend || '+0%'}
+                            </span>
+
+                            <button
+                              type="button"
+                              className={`admin-plan-status-pill ${item.is_active ? 'active' : 'hidden'}`}
+                              onClick={() => handleToggleResumeSkillActive(item)}
+                              title="Click to toggle Active / Hidden"
+                            >
+                              <span
+                                style={{
+                                  width: 6,
+                                  height: 6,
+                                  borderRadius: '50%',
+                                  background: item.is_active ? '#16A34A' : '#9CA3AF',
+                                }}
+                              />
+                              {item.is_active ? 'Active' : 'Hidden'}
+                            </button>
+                          </div>
+
+                          <h3 className="admin-plan-title" style={{ fontSize: 18, marginBottom: 8 }}>
+                            {item.skill_name}
+                          </h3>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                            <div style={{ fontSize: 12.5, color: 'var(--ink)' }}>
+                              💼 <b>Jobs:</b> {item.jobs || 'N/A'}
+                            </div>
+                            <div style={{ fontSize: 12.5, color: 'var(--ink)' }}>
+                              💰 <b>Salary:</b> {item.salary || 'N/A'}
+                            </div>
+                            <div style={{ fontSize: 12.5, color: 'var(--ink)' }}>
+                              ⏱ <b>Learn Time:</b> {item.learn_time || '1 day'}
+                            </div>
+                          </div>
+
+                          {item.note && (
+                            <div style={{ fontSize: 12, color: 'var(--ink-soft)', fontStyle: 'italic', marginBottom: 14 }}>
+                              "{item.note}"
+                            </div>
+                          )}
+
+                          <div className="admin-plan-card-footer" style={{ marginTop: 'auto' }}>
+                            <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
+                              Order: #{item.sort_order || 1}
+                            </span>
+
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button
+                                type="button"
+                                className="admin-plan-action-btn"
+                                onClick={() => handleOpenEditResumeSkill(item)}
+                                title="Edit Skill"
+                              >
+                                <Edit2 size={13} />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="admin-plan-action-btn delete"
+                                onClick={() => setResumeSkillToDelete(item)}
+                                title="Delete Skill"
+                              >
+                                <Trash2 size={13} />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )
+              ) : (
+                /* VIEW: JD MATCH MISSING KEYWORDS */
+                isLoadingResumeSkills ? (
+                  <div className="admin-empty-state">
+                    <RefreshCw size={28} className="animate-spin" color="var(--violet-700)" />
+                    <p style={{ marginTop: 12 }}>Loading keywords...</p>
+                  </div>
+                ) : resumeSkills.filter((s) => s.category === 'keyword').length === 0 ? (
+                  <div className="admin-empty-state">
+                    <div className="admin-empty-icon" style={{ background: 'var(--lavender-50)', color: 'var(--violet-700)' }}>
+                      <Tag size={26} />
+                    </div>
+                    <h3>No Missing Keywords Found</h3>
+                    <p>Click "Add Missing Keyword" to introduce resume target keywords.</p>
+                  </div>
+                ) : (
+                  <div className="admin-plans-grid">
+                    {resumeSkills
+                      .filter((s) => s.category === 'keyword')
+                      .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0))
+                      .map((item) => (
+                        <div
+                          key={item.id}
+                          className="admin-plan-card"
+                          style={{ opacity: item.is_active ? 1 : 0.65 }}
+                        >
+                          <div className="admin-plan-header-row">
+                            <span
+                              className="admin-plan-cat-tag"
+                              style={{ background: 'var(--lavender-50)', color: 'var(--violet-700)', border: '1px solid var(--violet-200)' }}
+                            >
+                              🏷 Keyword
+                            </span>
+
+                            <button
+                              type="button"
+                              className={`admin-plan-status-pill ${item.is_active ? 'active' : 'hidden'}`}
+                              onClick={() => handleToggleResumeSkillActive(item)}
+                              title="Click to toggle Active / Hidden"
+                            >
+                              <span
+                                style={{
+                                  width: 6,
+                                  height: 6,
+                                  borderRadius: '50%',
+                                  background: item.is_active ? '#16A34A' : '#9CA3AF',
+                                }}
+                              />
+                              {item.is_active ? 'Active' : 'Hidden'}
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 12px' }}>
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '6px 14px',
+                                borderRadius: 99,
+                                background: 'var(--red-tint, #FBEAE8)',
+                                color: 'var(--red, #C0392B)',
+                                border: '1px solid rgba(192, 57, 43, 0.2)',
+                                fontWeight: 700,
+                                fontSize: 13,
+                              }}
+                            >
+                              + {item.skill_name}
+                            </span>
+                          </div>
+
+                          {item.note && (
+                            <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 14 }}>
+                              <b>Context:</b> {item.note}
+                            </div>
+                          )}
+
+                          <div className="admin-plan-card-footer" style={{ marginTop: 'auto' }}>
+                            <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
+                              Order: #{item.sort_order || 1}
+                            </span>
+
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button
+                                type="button"
+                                className="admin-plan-action-btn"
+                                onClick={() => handleOpenEditResumeSkill(item)}
+                                title="Edit Keyword"
+                              >
+                                <Edit2 size={13} />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="admin-plan-action-btn delete"
+                                onClick={() => setResumeSkillToDelete(item)}
+                                title="Delete Keyword"
+                              >
+                                <Trash2 size={13} />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )
+              )}
+            </div>
           ) : (
             /* ========================================================
                VIEW 2: USER MANAGEMENT TABLE WITH FULL PAGINATION
@@ -1535,6 +2659,742 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
           )}
         </div>
       </main>
+
+      {/* Plan Add / Edit Modal */}
+      {isPlanModalOpen && (
+        <div className="admin-modal-backdrop" onClick={() => !isSavingPlan && setIsPlanModalOpen(false)}>
+          <div className="admin-modal-card admin-plan-form-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-plan-modal-header">
+              <div>
+                <h3>{editingPlan ? `Edit Plan: ${editingPlan.name}` : 'Add New Pricing Plan'}</h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--ink-soft)' }}>
+                  Set pricing amount, time period (/forever, /month, /year), badges, and feature highlights.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="admin-plan-modal-close"
+                onClick={() => setIsPlanModalOpen(false)}
+                disabled={isSavingPlan}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePlan} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="admin-form-row-2col">
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Target Plan Category *</label>
+                  <select
+                    className="admin-field-input"
+                    value={planForm.category}
+                    onChange={(e) => setPlanForm({ ...planForm, category: e.target.value as any })}
+                    style={{ background: '#FFFFFF', cursor: 'pointer' }}
+                    required
+                  >
+                    <option value="freelancer">Freelancer Plan</option>
+                    <option value="recruiter">Recruiter / Client Plan</option>
+                  </select>
+                </div>
+
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Plan Display Name *</label>
+                  <input
+                    type="text"
+                    className="admin-field-input"
+                    placeholder="e.g. Free Starter, Pro, Premium"
+                    value={planForm.name}
+                    onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="admin-form-row-2col">
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Price Amount (with symbol) *</label>
+                  <input
+                    type="text"
+                    className="admin-field-input"
+                    placeholder="e.g. ₹0, ₹49, ₹1,499"
+                    value={planForm.price_amount}
+                    onChange={(e) => setPlanForm({ ...planForm, price_amount: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Price Time / Billing Cycle *</label>
+                  <input
+                    type="text"
+                    className="admin-field-input"
+                    placeholder="e.g. /forever, /month, /year"
+                    value={planForm.price_unit}
+                    onChange={(e) => setPlanForm({ ...planForm, price_unit: e.target.value })}
+                    required
+                  />
+                  <div className="admin-time-unit-pills">
+                    {['/forever', '/month', '/year', '/quarter', 'one-time'].map((unit) => (
+                      <span
+                        key={unit}
+                        className="admin-time-unit-pill"
+                        onClick={() => setPlanForm({ ...planForm, price_unit: unit })}
+                        title={`Set time to ${unit}`}
+                      >
+                        {unit}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="admin-form-row-2col">
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Badge Tag (Optional)</label>
+                  <input
+                    type="text"
+                    className="admin-field-input"
+                    placeholder="e.g. WORTH IT, POPULAR, RECOMMENDED"
+                    value={planForm.badge}
+                    onChange={(e) => setPlanForm({ ...planForm, badge: e.target.value })}
+                  />
+                </div>
+
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Button CTA Text</label>
+                  <input
+                    type="text"
+                    className="admin-field-input"
+                    placeholder="e.g. Upgrade — ₹1,499/month"
+                    value={planForm.cta_text}
+                    onChange={(e) => setPlanForm({ ...planForm, cta_text: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="admin-field-group">
+                <label className="admin-field-label">Short Description</label>
+                <input
+                  type="text"
+                  className="admin-field-input"
+                  placeholder="e.g. Unlimited messages &amp; AI-shortlisted candidates"
+                  value={planForm.description}
+                  onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
+                />
+              </div>
+
+              <div className="admin-field-group">
+                <label className="admin-field-label">Why / Highlights Text</label>
+                <input
+                  type="text"
+                  className="admin-field-input"
+                  placeholder="e.g. Free lets you browse everyone. Premium tells you exactly who to message first."
+                  value={planForm.why_text}
+                  onChange={(e) => setPlanForm({ ...planForm, why_text: e.target.value })}
+                />
+              </div>
+
+              <div className="admin-field-group">
+                <label className="admin-field-label">Features List (1 per line)</label>
+                <textarea
+                  className="admin-form-textarea"
+                  rows={4}
+                  placeholder={"Unlimited applications\nPriority on new matching requirements\nVerified ID badge"}
+                  value={planForm.featuresText}
+                  onChange={(e) => setPlanForm({ ...planForm, featuresText: e.target.value })}
+                />
+              </div>
+
+              <div className="admin-form-row-2col" style={{ alignItems: 'center' }}>
+                <label className="admin-plan-toggle-row">
+                  <input
+                    type="checkbox"
+                    className="admin-plan-toggle-checkbox"
+                    checked={planForm.is_popular}
+                    onChange={(e) => setPlanForm({ ...planForm, is_popular: e.target.checked })}
+                  />
+                  <span>Highlight as Featured / Popular</span>
+                </label>
+
+                <label className="admin-plan-toggle-row">
+                  <input
+                    type="checkbox"
+                    className="admin-plan-toggle-checkbox"
+                    checked={planForm.is_active}
+                    onChange={(e) => setPlanForm({ ...planForm, is_active: e.target.checked })}
+                  />
+                  <span>Active &amp; Published on Website</span>
+                </label>
+              </div>
+
+              <div className="admin-modal-actions" style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  className="admin-btn-cancel"
+                  onClick={() => setIsPlanModalOpen(false)}
+                  disabled={isSavingPlan}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="admin-add-plan-btn"
+                  style={{ flex: 1, justifyContent: 'center' }}
+                  disabled={isSavingPlan}
+                >
+                  {isSavingPlan ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" />
+                      Saving Plan...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={15} />
+                      {editingPlan ? 'Update Plan' : 'Create Plan'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Career Path Add/Edit Modal */}
+      {isCareerPathModalOpen && (
+        <div className="admin-modal-backdrop" onClick={() => !isSavingCareerPath && setIsCareerPathModalOpen(false)}>
+          <div
+            className="admin-modal-card admin-plan-form-modal"
+            style={{ maxWidth: 620 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="admin-plan-modal-header">
+              <div>
+                <h3>{editingCareerPath ? 'Edit Career Path' : 'Add New Career Path'}</h3>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ink-soft)' }}>
+                  Configure title, badge, syllabus skills, and outcomes for the Resume page.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="admin-plan-modal-close"
+                onClick={() => setIsCareerPathModalOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCareerPath} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="admin-form-row-2col">
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Path Title *</label>
+                  <input
+                    type="text"
+                    required
+                    className="admin-modal-input"
+                    placeholder="e.g. Abhi 3-6 LPA job chahiye"
+                    value={careerPathForm.title}
+                    onChange={(e) => setCareerPathForm({ ...careerPathForm, title: e.target.value })}
+                  />
+                </div>
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Badge Tag</label>
+                  <input
+                    type="text"
+                    className="admin-modal-input"
+                    placeholder="e.g. Fast Track, Most Popular"
+                    value={careerPathForm.badge}
+                    onChange={(e) => setCareerPathForm({ ...careerPathForm, badge: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="admin-form-row-2col">
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Subtitle / Target Timeline</label>
+                  <input
+                    type="text"
+                    className="admin-modal-input"
+                    placeholder="e.g. 0-30 din me calls badhani hai"
+                    value={careerPathForm.sub}
+                    onChange={(e) => setCareerPathForm({ ...careerPathForm, sub: e.target.value })}
+                  />
+                </div>
+
+                <div className="admin-field-group">
+                  <label className="admin-field-label">One-Liner Hook</label>
+                  <input
+                    type="text"
+                    className="admin-modal-input"
+                    placeholder="e.g. TypeScript + Next.js + Tailwind → 3x calls"
+                    value={careerPathForm.one_liner}
+                    onChange={(e) => setCareerPathForm({ ...careerPathForm, one_liner: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="admin-field-group">
+                <label className="admin-field-label">Syllabus Skills (1 per line)</label>
+                <textarea
+                  className="admin-form-textarea"
+                  rows={4}
+                  placeholder={"TypeScript (6 hrs)\nNext.js (1 day)\nTailwind (4 hrs)"}
+                  value={careerPathForm.syllabusText}
+                  onChange={(e) => setCareerPathForm({ ...careerPathForm, syllabusText: e.target.value })}
+                />
+                <span className="admin-field-hint">Candidates can toggle these skills when building their personalized roadmap.</span>
+              </div>
+
+              <div className="admin-field-group">
+                <label className="admin-field-label">Expected Outcomes / kya milega</label>
+                <input
+                  type="text"
+                  className="admin-modal-input"
+                  placeholder="e.g. +12,700 jobs unlock · Resume score 64→82 · Expected calls 3x"
+                  value={careerPathForm.kya}
+                  onChange={(e) => setCareerPathForm({ ...careerPathForm, kya: e.target.value })}
+                />
+              </div>
+
+              <div className="admin-form-row-3col">
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Lessons Count</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="admin-modal-input"
+                    value={careerPathForm.lessons}
+                    onChange={(e) => setCareerPathForm({ ...careerPathForm, lessons: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Jobs Unlock Count</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="admin-modal-input"
+                    value={careerPathForm.jobs}
+                    onChange={(e) => setCareerPathForm({ ...careerPathForm, jobs: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Sort Order</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="admin-modal-input"
+                    value={careerPathForm.sort_order}
+                    onChange={(e) => setCareerPathForm({ ...careerPathForm, sort_order: parseInt(e.target.value) || 1 })}
+                  />
+                </div>
+              </div>
+
+              <div className="admin-form-row-2col" style={{ alignItems: 'center' }}>
+                <label className="admin-plan-toggle-row">
+                  <input
+                    type="checkbox"
+                    className="admin-plan-toggle-checkbox"
+                    checked={careerPathForm.recommended}
+                    onChange={(e) => setCareerPathForm({ ...careerPathForm, recommended: e.target.checked })}
+                  />
+                  <span>Recommend as "Matches resume"</span>
+                </label>
+
+                <label className="admin-plan-toggle-row">
+                  <input
+                    type="checkbox"
+                    className="admin-plan-toggle-checkbox"
+                    checked={careerPathForm.is_active}
+                    onChange={(e) => setCareerPathForm({ ...careerPathForm, is_active: e.target.checked })}
+                  />
+                  <span>Active &amp; Published</span>
+                </label>
+              </div>
+
+              <div className="admin-modal-actions" style={{ marginTop: 14 }}>
+                <button
+                  type="button"
+                  className="admin-btn-cancel"
+                  onClick={() => setIsCareerPathModalOpen(false)}
+                  disabled={isSavingCareerPath}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="admin-add-plan-btn"
+                  style={{ flex: 1, justifyContent: 'center' }}
+                  disabled={isSavingCareerPath}
+                >
+                  {isSavingCareerPath ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" />
+                      Saving Path...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={15} />
+                      {editingCareerPath ? 'Update Career Path' : 'Create Career Path'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Career Path Delete Confirmation Modal */}
+      {careerPathToDelete && (
+        <div className="admin-modal-backdrop" onClick={() => !isDeletingCareerPath && setCareerPathToDelete(null)}>
+          <div className="admin-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-warning-icon">
+              <AlertTriangle size={24} />
+            </div>
+            <h3>Delete Career Path?</h3>
+            <p>
+              Are you sure you want to delete <b>"{careerPathToDelete.title}"</b>? It will be removed from the Resume "Choose your path" selection.
+            </p>
+
+            <div className="admin-modal-user-preview">
+              <div><b>Title:</b> {careerPathToDelete.title}</div>
+              <div><b>Badge:</b> {careerPathToDelete.badge || '—'}</div>
+              <div><b>Lessons:</b> {careerPathToDelete.lessons} Lessons</div>
+            </div>
+
+            <div className="admin-modal-actions">
+              <button
+                type="button"
+                className="admin-btn-cancel"
+                onClick={() => setCareerPathToDelete(null)}
+                disabled={isDeletingCareerPath}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-btn-delete-confirm"
+                onClick={handleConfirmDeleteCareerPath}
+                disabled={isDeletingCareerPath}
+              >
+                {isDeletingCareerPath ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={14} />
+                    Yes, Delete Path
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Plan Delete Confirmation Modal */}
+      {planToDelete && (
+        <div className="admin-modal-backdrop" onClick={() => !isDeletingPlan && setPlanToDelete(null)}>
+          <div className="admin-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-warning-icon">
+              <AlertTriangle size={24} />
+            </div>
+            <h3>Delete Pricing Plan?</h3>
+            <p>
+              Are you sure you want to permanently delete <b>"{planToDelete.name}"</b>? It will no longer appear on the website pricing section.
+            </p>
+
+            <div className="admin-modal-user-preview">
+              <div><b>Plan:</b> {planToDelete.name}</div>
+              <div><b>Category:</b> {planToDelete.category === 'freelancer' ? 'Freelancer' : 'Recruiter / Client'}</div>
+              <div><b>Price &amp; Time:</b> {planToDelete.price_amount} {planToDelete.price_unit}</div>
+            </div>
+
+            <div className="admin-modal-actions">
+              <button
+                type="button"
+                className="admin-btn-cancel"
+                onClick={() => setPlanToDelete(null)}
+                disabled={isDeletingPlan}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-btn-delete-confirm"
+                onClick={handleConfirmDeletePlan}
+                disabled={isDeletingPlan}
+              >
+                {isDeletingPlan ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={14} />
+                    Yes, Delete Plan
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resume Skill & JD Missing Keyword Add/Edit Modal */}
+      {isResumeSkillModalOpen && (
+        <div
+          className="admin-modal-backdrop"
+          onClick={() => !isSavingResumeSkill && setIsResumeSkillModalOpen(false)}
+        >
+          <div
+            className="admin-modal-card admin-plan-form-modal"
+            style={{ maxWidth: 580 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="admin-plan-modal-header">
+              <div>
+                <h3>
+                  {editingResumeSkill
+                    ? `Edit ${resumeSkillForm.category === 'rising' ? 'Rising Skill' : 'Missing Keyword'}`
+                    : `Add ${resumeSkillForm.category === 'rising' ? 'Rising Skill' : 'Missing Keyword'}`}
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--ink-soft)' }}>
+                  This will reflect dynamically in the Resume Check View under {resumeSkillForm.category === 'rising' ? '"Skills on the rise"' : '"JD match deep-dive"'}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="admin-modal-close-btn"
+                onClick={() => setIsResumeSkillModalOpen(false)}
+                disabled={isSavingResumeSkill}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveResumeSkill} className="admin-plan-modal-body">
+              <div className="admin-form-row-2col">
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Category *</label>
+                  <select
+                    className="admin-modal-input"
+                    value={resumeSkillForm.category}
+                    onChange={(e) => setResumeSkillForm({ ...resumeSkillForm, category: e.target.value as 'rising' | 'keyword' })}
+                  >
+                    <option value="rising">Skills on the Rise (Trending)</option>
+                    <option value="keyword">JD Missing Keyword (Deep-dive)</option>
+                  </select>
+                </div>
+                <div className="admin-field-group">
+                  <label className="admin-field-label">Skill / Keyword Name *</label>
+                  <input
+                    type="text"
+                    required
+                    className="admin-modal-input"
+                    placeholder="e.g. Next.js 14, Figma Variables, etc."
+                    value={resumeSkillForm.skill_name}
+                    onChange={(e) => setResumeSkillForm({ ...resumeSkillForm, skill_name: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {resumeSkillForm.category === 'rising' ? (
+                <>
+                  <div className="admin-form-row-3col">
+                    <div className="admin-field-group">
+                      <label className="admin-field-label">Growth Trend</label>
+                      <input
+                        type="text"
+                        className="admin-modal-input"
+                        placeholder="e.g. +40%"
+                        value={resumeSkillForm.trend}
+                        onChange={(e) => setResumeSkillForm({ ...resumeSkillForm, trend: e.target.value })}
+                      />
+                    </div>
+                    <div className="admin-field-group">
+                      <label className="admin-field-label">Jobs Unlocked</label>
+                      <input
+                        type="text"
+                        className="admin-modal-input"
+                        placeholder="e.g. 6,000 jobs"
+                        value={resumeSkillForm.jobs}
+                        onChange={(e) => setResumeSkillForm({ ...resumeSkillForm, jobs: e.target.value })}
+                      />
+                    </div>
+                    <div className="admin-field-group">
+                      <label className="admin-field-label">Salary Bracket</label>
+                      <input
+                        type="text"
+                        className="admin-modal-input"
+                        placeholder="e.g. 15-20 LPA"
+                        value={resumeSkillForm.salary}
+                        onChange={(e) => setResumeSkillForm({ ...resumeSkillForm, salary: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="admin-form-row-2col">
+                    <div className="admin-field-group">
+                      <label className="admin-field-label">Learn Time</label>
+                      <input
+                        type="text"
+                        className="admin-modal-input"
+                        placeholder="e.g. 1 day, 3 days"
+                        value={resumeSkillForm.learn_time}
+                        onChange={(e) => setResumeSkillForm({ ...resumeSkillForm, learn_time: e.target.value })}
+                      />
+                    </div>
+                    <div className="admin-field-group">
+                      <label className="admin-field-label">Sort Order</label>
+                      <input
+                        type="number"
+                        min="1"
+                        className="admin-modal-input"
+                        value={resumeSkillForm.sort_order}
+                        onChange={(e) => setResumeSkillForm({ ...resumeSkillForm, sort_order: parseInt(e.target.value) || 1 })}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="admin-form-row-2col">
+                  <div className="admin-field-group">
+                    <label className="admin-field-label">Importance / Impact Badge</label>
+                    <input
+                      type="text"
+                      className="admin-modal-input"
+                      placeholder="e.g. +50% ATS or High Impact"
+                      value={resumeSkillForm.trend}
+                      onChange={(e) => setResumeSkillForm({ ...resumeSkillForm, trend: e.target.value })}
+                    />
+                  </div>
+                  <div className="admin-field-group">
+                    <label className="admin-field-label">Sort Order</label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="admin-modal-input"
+                      value={resumeSkillForm.sort_order}
+                      onChange={(e) => setResumeSkillForm({ ...resumeSkillForm, sort_order: parseInt(e.target.value) || 1 })}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="admin-field-group">
+                <label className="admin-field-label">Short Note / Description</label>
+                <input
+                  type="text"
+                  className="admin-modal-input"
+                  placeholder="e.g. Recommended for modern front-end roles"
+                  value={resumeSkillForm.note}
+                  onChange={(e) => setResumeSkillForm({ ...resumeSkillForm, note: e.target.value })}
+                />
+              </div>
+
+              <div className="admin-form-row-2col" style={{ alignItems: 'center' }}>
+                <label className="admin-plan-toggle-row">
+                  <input
+                    type="checkbox"
+                    className="admin-plan-toggle-checkbox"
+                    checked={resumeSkillForm.is_active}
+                    onChange={(e) => setResumeSkillForm({ ...resumeSkillForm, is_active: e.target.checked })}
+                  />
+                  <span>Active &amp; Visible on Resume Check Page</span>
+                </label>
+              </div>
+
+              <div className="admin-modal-actions" style={{ marginTop: 14 }}>
+                <button
+                  type="button"
+                  className="admin-btn-cancel"
+                  onClick={() => setIsResumeSkillModalOpen(false)}
+                  disabled={isSavingResumeSkill}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="admin-add-plan-btn"
+                  style={{ flex: 1, justifyContent: 'center' }}
+                  disabled={isSavingResumeSkill}
+                >
+                  {isSavingResumeSkill ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={15} />
+                      {editingResumeSkill ? 'Update Item' : 'Add to Resume Check'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Resume Skill Delete Confirmation Modal */}
+      {resumeSkillToDelete && (
+        <div
+          className="admin-modal-backdrop"
+          onClick={() => !isDeletingResumeSkill && setResumeSkillToDelete(null)}
+        >
+          <div className="admin-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-warning-icon">
+              <AlertTriangle size={24} />
+            </div>
+            <h3>
+              Delete {resumeSkillToDelete.category === 'rising' ? 'Rising Skill' : 'Missing Keyword'}?
+            </h3>
+            <p>
+              Are you sure you want to delete <b>"{resumeSkillToDelete.skill_name}"</b>? It will no longer show in the Resume Check View.
+            </p>
+
+            <div className="admin-modal-user-preview">
+              <div><b>Name:</b> {resumeSkillToDelete.skill_name}</div>
+              <div><b>Category:</b> {resumeSkillToDelete.category === 'rising' ? 'Skills on the Rise' : 'JD Missing Keyword'}</div>
+              <div><b>Trend / Badge:</b> {resumeSkillToDelete.trend || '—'}</div>
+            </div>
+
+            <div className="admin-modal-actions">
+              <button
+                type="button"
+                className="admin-btn-cancel"
+                onClick={() => setResumeSkillToDelete(null)}
+                disabled={isDeletingResumeSkill}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-btn-delete-confirm"
+                onClick={handleConfirmDeleteResumeSkill}
+                disabled={isDeletingResumeSkill}
+              >
+                {isDeletingResumeSkill ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={14} />
+                    Yes, Delete Item
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {userToDelete && (

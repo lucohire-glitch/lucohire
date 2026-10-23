@@ -12,6 +12,19 @@ export const requireAuth = (req, res, next) => {
   }
 };
 
+export const optionalAuth = (req, _res, next) => {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (token) {
+    try {
+      req.user = verifyToken(token);
+    } catch {
+      req.user = null;
+    }
+  }
+  next();
+};
+
 export const requireAdmin = (req, res, next) => {
   requireAuth(req, res, () => {
     if (req.user?.role !== 'admin') {

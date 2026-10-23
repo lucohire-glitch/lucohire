@@ -522,6 +522,73 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
             </div>
           </section>
 
+          {/* Chosen Career Path & Syllabus */}
+          {(userData?.profile?.selected_path || localStorage.getItem('luco_selected_path')) && (() => {
+            let pathData = userData?.profile?.selected_path;
+            if (!pathData) {
+              try {
+                const raw = localStorage.getItem('luco_selected_path');
+                if (raw) pathData = JSON.parse(raw);
+              } catch {}
+            }
+            if (!pathData) return null;
+
+            const syllabusList = Array.isArray(pathData.syllabus) ? pathData.syllabus : [];
+
+            return (
+              <section>
+                <div className="section-head">
+                  <p className="section-title">My Career Path &amp; Syllabus</p>
+                  {pathData.badge && (
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}>
+                      {pathData.badge}
+                    </span>
+                  )}
+                </div>
+                <div className="plan-card" style={{ background: '#FFFFFF', border: '1.5px solid #10B981', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.08)' }}>
+                  <div className="plan-top">
+                    <div>
+                      <div className="plan-badge" style={{ background: '#059669', color: '#fff' }}>Target Path</div>
+                      <div className="plan-name" style={{ fontSize: 17, marginTop: 4 }}>{pathData.title}</div>
+                    </div>
+                  </div>
+                  {pathData.sub && <p className="plan-desc" style={{ marginBottom: 10 }}>{pathData.sub}</p>}
+
+                  {syllabusList.length > 0 && (
+                    <div style={{ marginTop: 8, marginBottom: 12 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>
+                        Personalized Learning Syllabus:
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {syllabusList.map((skill: string, idx: number) => (
+                          <span
+                            key={idx}
+                            style={{
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              padding: '4px 10px',
+                              borderRadius: 6,
+                              background: '#F0FDF4',
+                              color: '#047857',
+                              border: '1px solid #BBF7D0'
+                            }}
+                          >
+                            ✓ {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="plan-current" style={{ borderTop: '1px solid #F1F5F9', paddingTop: 10, marginTop: 10 }}>
+                    <span>Status: <b>Active Learning Path</b></span>
+                    <span><b>{syllabusList.length}</b> Skills to Master</span>
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
+
           <section>
             <div className="section-head">
               <p className="section-title">Subscription</p>

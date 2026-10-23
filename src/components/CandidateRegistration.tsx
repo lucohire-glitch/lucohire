@@ -1255,7 +1255,25 @@ export default function CandidateRegistration({
         idVerifyOn,
         idDocType,
         idDocUploaded,
-        tncAccepted: true
+        tncAccepted: true,
+        selected_path: (() => {
+          try {
+            const raw = localStorage.getItem('luco_selected_path');
+            return raw ? JSON.parse(raw) : null;
+          } catch { return null; }
+        })(),
+        selected_plan: (() => {
+          try {
+            const raw = localStorage.getItem('luco_selected_plan');
+            return raw ? JSON.parse(raw) : null;
+          } catch { return null; }
+        })(),
+        resume_data: (() => {
+          try {
+            const raw = localStorage.getItem('luco_resume_data');
+            return raw ? JSON.parse(raw) : null;
+          } catch { return null; }
+        })()
       };
 
       if (alreadyAuthed) {

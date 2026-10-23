@@ -1889,3 +1889,462 @@
     padding: 16px;
   }
 }
+
+/* =========================================
+   PLANS & PRICING MANAGEMENT (ADMIN CRUD)
+========================================= */
+.admin-plans-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-plans-top-card {
+  background: #FFFFFF;
+  border: 1px solid var(--line, #ECEAF9);
+  border-radius: 16px;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 4px 16px rgba(28, 23, 51, 0.04);
+}
+
+.admin-plans-header-left h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink, #1C1733);
+  margin: 0 0 4px 0;
+  letter-spacing: -0.01em;
+}
+
+.admin-plans-header-left p {
+  font-size: 13px;
+  color: var(--ink-soft, #75708F);
+  margin: 0;
+}
+
+.admin-plans-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-plan-cat-pills {
+  display: flex;
+  background: var(--lavender-50, #F7F6FF);
+  border: 1px solid var(--line, #ECEAF9);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.admin-plan-cat-pill {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft, #75708F);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-plan-cat-pill:hover {
+  color: var(--ink, #1C1733);
+}
+
+.admin-plan-cat-pill.active {
+  background: #FFFFFF;
+  color: var(--violet-700, #4A3AE0);
+  box-shadow: 0 2px 6px rgba(74, 58, 224, 0.12);
+}
+
+.admin-add-plan-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  background: var(--violet-700, #4A3AE0);
+  color: #FFFFFF;
+  border: none;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(74, 58, 224, 0.25);
+  transition: all 0.15s ease;
+}
+
+.admin-add-plan-btn:hover {
+  background: var(--violet-500, #6C5CE8);
+  transform: translateY(-1px);
+}
+
+.admin-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.admin-plan-card {
+  background: #FFFFFF;
+  border: 1.5px solid var(--line, #ECEAF9);
+  border-radius: 18px;
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(28, 23, 51, 0.03);
+}
+
+.admin-plan-card:hover {
+  border-color: var(--violet-500, #6C5CE8);
+  box-shadow: 0 8px 24px rgba(108, 92, 232, 0.09);
+  transform: translateY(-2px);
+}
+
+.admin-plan-card.popular {
+  border-color: var(--violet-700, #4A3AE0);
+  background: #FCFBFF;
+  box-shadow: 0 8px 24px rgba(74, 58, 224, 0.12);
+}
+
+.admin-plan-badge-tag {
+  position: absolute;
+  top: -10px;
+  right: 18px;
+  background: var(--violet-700, #4A3AE0);
+  color: #FFFFFF;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+
+.admin-plan-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.admin-plan-cat-tag {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.admin-plan-cat-tag.freelancer {
+  background: var(--lavender-50, #F7F6FF);
+  color: var(--violet-700, #4A3AE0);
+  border: 1px solid var(--violet-200, #D8D2FA);
+}
+
+.admin-plan-cat-tag.recruiter {
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.admin-plan-status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.admin-plan-status-pill.active {
+  background: var(--wa-tint, #EAFBF1);
+  color: var(--wa, #16A34A);
+  border-color: rgba(22, 163, 74, 0.3);
+}
+
+.admin-plan-status-pill.hidden {
+  background: #F3F4F6;
+  color: #6B7280;
+  border-color: #E5E7EB;
+}
+
+.admin-plan-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink, #1C1733);
+  margin: 0 0 8px 0;
+}
+
+.admin-plan-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.admin-plan-price-amt {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--ink, #1C1733);
+  line-height: 1;
+}
+
+.admin-plan-price-time {
+  font-size: 13.5px;
+  color: var(--ink-soft, #75708F);
+  font-weight: 700;
+}
+
+.admin-plan-desc {
+  font-size: 12.5px;
+  color: var(--ink-soft, #75708F);
+  line-height: 1.45;
+  margin-bottom: 14px;
+  min-height: 36px;
+}
+
+.admin-plan-features-box {
+  border-top: 1px solid var(--line, #ECEAF9);
+  padding-top: 14px;
+  margin-bottom: 16px;
+  flex: 1;
+}
+
+.admin-plan-features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-plan-feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink, #1C1733);
+}
+
+.admin-plan-feature-icon {
+  color: var(--wa, #16A34A);
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.admin-plan-card-footer {
+  border-top: 1px solid var(--line, #ECEAF9);
+  padding-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-plan-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid var(--line, #ECEAF9);
+  background: #FFFFFF;
+  color: var(--ink, #1C1733);
+  transition: all 0.15s ease;
+}
+
+.admin-plan-action-btn:hover {
+  background: var(--lavender-50, #F7F6FF);
+  border-color: var(--violet-500, #6C5CE8);
+  color: var(--violet-700, #4A3AE0);
+}
+
+.admin-plan-action-btn.delete {
+  color: var(--red, #C0392B);
+  border-color: #FBEAE8;
+}
+
+.admin-plan-action-btn.delete:hover {
+  background: var(--red-tint, #FBEAE8);
+  border-color: var(--red, #C0392B);
+}
+
+/* =========================================
+   ADD / EDIT PLAN MODAL FORM
+========================================= */
+.admin-plan-form-modal {
+  max-width: 620px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 20px;
+  padding: 28px 28px 24px;
+}
+
+.admin-plan-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line, #ECEAF9);
+}
+
+.admin-plan-modal-header h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink, #1C1733);
+  margin: 0;
+}
+
+.admin-plan-modal-close {
+  background: none;
+  border: none;
+  color: var(--ink-soft, #75708F);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-plan-modal-close:hover {
+  background: var(--lavender-50, #F7F6FF);
+  color: var(--ink, #1C1733);
+}
+
+.admin-form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.admin-time-unit-pills {
+  display: flex;
+  gap: 5px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-time-unit-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line, #ECEAF9);
+  background: var(--lavender-50, #F7F6FF);
+  color: var(--ink-soft, #75708F);
+  cursor: pointer;
+}
+
+.admin-time-unit-pill:hover {
+  background: #FFFFFF;
+  color: var(--violet-700, #4A3AE0);
+  border-color: var(--violet-500, #6C5CE8);
+}
+
+.admin-form-textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1.5px solid var(--line, #ECEAF9);
+  padding: 9px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--ink, #1C1733);
+  outline: none;
+  resize: vertical;
+}
+
+.admin-form-textarea:focus {
+  border-color: var(--violet-500, #6C5CE8);
+}
+
+.admin-plan-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink, #1C1733);
+  cursor: pointer;
+}
+
+.admin-plan-toggle-checkbox {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--violet-700, #4A3AE0);
+  cursor: pointer;
+}
+
+.admin-form-row-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .admin-form-row-2col,
+  .admin-form-row-3col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-modal-input {
+  width: 100%;
+  border: 1.5px solid var(--line, #ECEAF9);
+  border-radius: 10px;
+  background: #FFFFFF;
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  color: var(--ink, #1C1733);
+  padding: 10px 14px;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+
+.admin-modal-input:focus {
+  border-color: var(--violet-500, #6C5CE8);
+  box-shadow: 0 0 0 3px rgba(108, 92, 232, 0.12);
+}
+
+.admin-modal-input::placeholder {
+  color: #9AA0B4;
+  font-size: 13px;
+}
+
+.admin-field-hint {
+  font-size: 11.5px;
+  color: var(--ink-soft, #75708F);
+  margin-top: 4px;
+  line-height: 1.35;
+}
+

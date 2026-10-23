@@ -12,6 +12,9 @@ export default function ResumeCheckView({ onBack, onGoToFreelancers, onOpenAuth,
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     };
+    (window as any).lucoOpenAuth = () => {
+      if (onOpenAuth) onOpenAuth();
+    };
     // Setup vanilla JS logic exactly as it was
     const script = document.createElement('script');
     script.innerHTML = `
@@ -45,6 +48,7 @@ const dropzone=document.getElementById('dropzone'), fileInput=document.getElemen
 const resultsView=document.getElementById('resultsView');
 const MAX_SIZE=10*1024*1024, ALLOWED_EXT=['pdf','doc','docx'];
 let currentFile=null;
+let currentResumeBase64='';
 
 function formatSize(b){ if(b<1024) return b+' B'; if(b<1024*1024) return Math.round(b/1024)+' KB'; return (b/(1024*1024)).toFixed(1)+' MB'; }
 function showError(msg){ errorMsg.textContent=msg; errorMsg.style.display='block'; dropzone.classList.add('error'); setTimeout(()=>dropzone.classList.remove('error'),600); }
@@ -54,7 +58,12 @@ function acceptFile(file){
   const ext=file.name.split('.').pop().toLowerCase();
   if(!ALLOWED_EXT.includes(ext)){ showError('Please upload a PDF or Word document.'); return; }
   if(file.size>MAX_SIZE){ showError('That file is over 10MB — try a smaller version.'); return; }
-  clearError(); currentFile=file;
+  clearError(); currentFile=file; currentResumeBase64='';
+  try {
+    const reader = new FileReader();
+    reader.onload = function() { currentResumeBase64 = reader.result; };
+    reader.readAsDataURL(file);
+  } catch(e) {}
   fileName.textContent=file.name; fileSize.textContent=formatSize(file.size);
   const dzDef = document.getElementById('dropzoneDefaultContent'); if(dzDef) dzDef.style.display='none'; fileCard.classList.add('show'); analyzeBtn.disabled=false;
   document.getElementById('buildResumeCard').classList.add('used');
@@ -116,14 +125,96 @@ analyzeBtn.addEventListener('click', () => {
     ];
     let i = 0;
     if (loaderText) loaderText.textContent = steps[0];
+
+    let apiData = null;
+    const fetchPromise = (async () => {
+      try {
+        const jdText = document.getElementById('jdText')?.value || '';
+        const fName = (currentFile instanceof File) ? currentFile.name : 'Resume.pdf';
+        const token = localStorage.getItem('luco_token') || localStorage.getItem('token') || '';
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        const apiUrl = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+          ? 'http://localhost:5000/api/resume/analyze'
+          : '/api/resume/analyze';
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            resume_name: fName,
+            resume_base64: currentResumeBase64,
+            job_description: jdText
+          })
+        });
+        const data = await res.json();
+        if (data && data.success && data.analysis) {
+          apiData = data.analysis;
+        }
+      } catch(e) {}
+    })();
     
-    const iv = setInterval(() => {
+    const iv = setInterval(async () => {
       i++;
       if (i < steps.length) { 
         if (loaderText) loaderText.textContent = steps[i]; 
         return; 
       }
       clearInterval(iv);
+      await fetchPromise;
+
+      // 1. Calculate / Apply Score & Tag
+      const sc = apiData?.score?.overall || 88;
+      const tag = apiData?.score?.tag || 'Strong Match';
+      const role = apiData?.candidate?.role || 'Software Developer';
+      const expYears = apiData?.candidate?.experience_years || '5+ yrs experience';
+      const skillsList = (apiData?.candidate?.skills && apiData.candidate.skills.length > 0)
+        ? apiData.candidate.skills
+        : ['PHP', 'Laravel', 'React.js', 'Node.js', 'MySQL', 'REST APIs', 'Git', 'Linux'];
+      const candName = apiData?.candidate?.name || 'Monika Singh Barde';
+      const candInitials = apiData?.candidate?.initials || 'MB';
+
+      const numEl = document.getElementById('miniRingNum');
+      if (numEl) numEl.textContent = sc;
+      const ringSvg = document.getElementById('miniRing');
+      if (ringSvg) {
+        const offset = Math.round(138 * (1 - sc / 100) * 100) / 100;
+        ringSvg.setAttribute('stroke-dashoffset', String(offset));
+      }
+      const titleEl = document.querySelector('.score-txt-title');
+      if (titleEl) {
+        titleEl.innerHTML = 'Resume score: ' + sc + ' / 100<span class="score-tag">' + tag + '</span>';
+      }
+      const subEl = document.querySelector('.score-txt-sub');
+      if (subEl) {
+        subEl.textContent = 'Based on 18,000+ ' + role + ' listings';
+      }
+
+      // 2. Existing UI: score, experience, and skills in text element!
+      const percEl = document.querySelector('.score-percentile');
+      if (percEl) {
+        percEl.innerHTML = 'Tumhara resume score <b>' + sc + '/100</b> (' + tag + ') hai <b>' + expYears + '</b> wale ' + role + 's ke liye.<br/><span style="display:inline-block;margin-top:6px;font-size:13px;color:var(--brand-900);"><b>Verified Skills:</b> ' + skillsList.join(', ') + '</span>';
+      }
+
+      // 3. Update CARD_CANDIDATE
+      if (typeof CARD_CANDIDATE !== 'undefined') {
+        CARD_CANDIDATE.name = candName;
+        CARD_CANDIDATE.initials = candInitials;
+        CARD_CANDIDATE.role = role + ' · Full-Stack Specialist';
+        CARD_CANDIDATE.skills = skillsList;
+        CARD_CANDIDATE.score = sc;
+        CARD_CANDIDATE.tag = tag;
+        try { drawCard(); } catch(e) {}
+      }
+
+      if (isUserLoggedIn()) {
+        reportUnlocked = true;
+        document.body.classList.add('report-unlocked');
+        updatePaywallVisibility();
+      } else {
+        reportUnlocked = false;
+        document.body.classList.remove('report-unlocked');
+        updatePaywallVisibility();
+      }
       
       // Loader done: hide loader, restore button, smoothly scroll to results
       if (loader) loader.style.display = 'none';
@@ -456,8 +547,16 @@ const PATHS=[
    oneLiner:"AI Tools + Full-stack → 5 saal safe", lessons:10, jobs:6800}
 ];
 
+function isUserLoggedIn() {
+  try {
+    return !!(localStorage.getItem('luco_token') || localStorage.getItem('token'));
+  } catch(e) {
+    return false;
+  }
+}
+
 let activeTab='overview';
-let reportUnlocked=true;
+let reportUnlocked = isUserLoggedIn();
 const tabAnchor={overview:'secOverview', fixes:'secAnalysis', recruiter:'secRecruiterScan', skills:'secDrop'};
 function applyTab(tab, shouldScroll = true){
   activeTab=tab;
@@ -469,13 +568,19 @@ function applyTab(tab, shouldScroll = true){
 function updatePaywallVisibility(){
   const card = document.getElementById('paywallCard');
   if(!card) return;
-  card.hidden = true;
+  card.hidden = !!reportUnlocked;
 }
 function unlockReport(){
-  reportUnlocked = true;
-  document.body.classList.add('report-unlocked');
-  updatePaywallVisibility();
+  if (isUserLoggedIn()) {
+    reportUnlocked = true;
+    document.body.classList.add('report-unlocked');
+    updatePaywallVisibility();
+  } else {
+    if (window.lucoOpenAuth) window.lucoOpenAuth();
+    else if (window.lucoGoToPricing) window.lucoGoToPricing();
+  }
 }
+window.unlockReport = unlockReport;
 let selectedPaths={}, expandedPaths={};
 /* skills the user has explicitly added from "Skills on the rise" / "Staying relevant through 2030" —
    these flow into every path's syllabus box below, and can be switched off per-path from there */
@@ -671,6 +776,12 @@ document.getElementById('startBtn').addEventListener('click', goNextStep);
 renderResults(); // the report is always visible on the page — Analyze just scrolls you to it
 setExperience('experienced'); // matches the default active pill; also syncs Leadership section visibility
 applyTab('overview', false); // clean, minimal default landing view (no auto-scroll on mount)
+if (reportUnlocked) {
+  document.body.classList.add('report-unlocked');
+} else {
+  document.body.classList.remove('report-unlocked');
+}
+updatePaywallVisibility();
 
 /* ---- single-file shell bridge: works embedded (single merged file) or standalone ---- */
 function LucoTo(e, href){
@@ -710,9 +821,14 @@ function goNextStep(e){
 `;
     document.body.appendChild(script);
     
-    document.body.classList.add('report-unlocked');
+    if (localStorage.getItem('luco_token') || localStorage.getItem('token')) {
+      document.body.classList.add('report-unlocked');
+    } else {
+      document.body.classList.remove('report-unlocked');
+    }
 
     return () => {
+      document.body.classList.remove('report-unlocked');
       if(document.body.contains(script)) {
         document.body.removeChild(script);
       }

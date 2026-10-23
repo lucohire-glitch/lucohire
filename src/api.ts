@@ -153,3 +153,209 @@ export const adminDeleteUser = (role: 'candidate' | 'recruiter', id: number | st
     `/admin/users/${role}/${id}`,
     { method: 'DELETE' }
   );
+
+// ==========================================
+// ADMIN & PUBLIC PLAN MANAGEMENT (CRUD)
+// ==========================================
+
+export interface PlanItem {
+  id: number;
+  name: string;
+  category: 'freelancer' | 'recruiter' | string;
+  price_amount: string;
+  price_unit: string;
+  description?: string;
+  features?: string[];
+  badge?: string;
+  cta_text?: string;
+  why_text?: string;
+  is_popular?: boolean;
+  is_active?: boolean;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const adminGetPlans = (category?: string) =>
+  adminApiRequest<{ success: boolean; stats: any; plans: PlanItem[] }>(
+    `/admin/plans${category && category !== 'all' ? `?category=${category}` : ''}`
+  );
+
+export const adminCreatePlan = (payload: Partial<PlanItem>) =>
+  adminApiRequest<{ success: boolean; message: string; plan: PlanItem }>(
+    '/admin/plans',
+    { method: 'POST', body: payload }
+  );
+
+export const adminUpdatePlan = (id: number, payload: Partial<PlanItem>) =>
+  adminApiRequest<{ success: boolean; message: string; plan: PlanItem }>(
+    `/admin/plans/${id}`,
+    { method: 'PUT', body: payload }
+  );
+
+export const adminDeletePlan = (id: number) =>
+  adminApiRequest<{ success: boolean; message: string; deletedId: number }>(
+    `/admin/plans/${id}`,
+    { method: 'DELETE' }
+  );
+
+export const getPublicPlans = async (category?: string): Promise<{ success: boolean; plans: PlanItem[] }> => {
+  try {
+    const res = await fetch(`${API_URL}/plans${category && category !== 'all' ? `?category=${category}` : ''}`);
+    if (!res.ok) throw new Error('Failed to fetch public plans');
+    return await res.json();
+  } catch {
+    return { success: false, plans: [] };
+  }
+};
+
+// ==========================================
+// CAREER PATHS MANAGEMENT (CHOOSE YOUR PATH CRUD)
+// ==========================================
+
+export interface CareerPathItem {
+  id: number;
+  path_key?: string;
+  custom_id?: string;
+  title: string;
+  sub?: string;
+  badge?: string;
+  recommended?: boolean;
+  syllabus?: string[];
+  kya?: string;
+  one_liner?: string;
+  lessons?: number;
+  jobs?: number;
+  quick_wins?: Array<{ n: string; skill: string; time: string; jobs: string; line: string }>;
+  sort_order?: number;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const getPublicCareerPaths = async (): Promise<{ success: boolean; paths: CareerPathItem[] }> => {
+  try {
+    const res = await fetch(`${API_URL}/paths`);
+    if (!res.ok) throw new Error('Failed to fetch paths');
+    return await res.json();
+  } catch {
+    return { success: false, paths: [] };
+  }
+};
+
+export const adminGetCareerPaths = () =>
+  adminApiRequest<{ success: boolean; count: number; paths: CareerPathItem[] }>('/admin/paths');
+
+export const adminCreateCareerPath = (payload: Partial<CareerPathItem>) =>
+  adminApiRequest<{ success: boolean; message: string; path: CareerPathItem }>('/admin/paths', {
+    method: 'POST',
+    body: payload,
+  });
+
+export const adminUpdateCareerPath = (id: number, payload: Partial<CareerPathItem>) =>
+  adminApiRequest<{ success: boolean; message: string; path: CareerPathItem }>(`/admin/paths/${id}`, {
+    method: 'PUT',
+    body: payload,
+  });
+
+export const adminDeleteCareerPath = (id: number) =>
+  adminApiRequest<{ success: boolean; message: string; deletedId: number }>(`/admin/paths/${id}`, {
+    method: 'DELETE',
+  });
+
+// ==========================================
+// RESUME SKILLS & JD KEYWORDS API
+// ==========================================
+
+export interface ResumeSkillItem {
+  id: number;
+  category: 'rising' | 'keyword' | 'outdated' | 'fading';
+  skill_name: string;
+  trend?: string;
+  jobs?: string;
+  salary?: string;
+  learn_time?: string;
+  note?: string;
+  is_active?: boolean;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const getPublicResumeSkills = async (): Promise<{
+  success: boolean;
+  rising: ResumeSkillItem[];
+  keywords: ResumeSkillItem[];
+  all: ResumeSkillItem[];
+}> => {
+  try {
+    const res = await fetch(`${API_URL}/skills`);
+    if (!res.ok) throw new Error('Failed to fetch skills');
+    return await res.json();
+  } catch {
+    return { success: false, rising: [], keywords: [], all: [] };
+  }
+};
+
+export const adminGetResumeSkills = () =>
+  adminApiRequest<{ success: boolean; count: number; skills: ResumeSkillItem[] }>('/admin/skills');
+
+export const adminCreateResumeSkill = (payload: Partial<ResumeSkillItem>) =>
+  adminApiRequest<{ success: boolean; message: string; skill: ResumeSkillItem }>('/admin/skills', {
+    method: 'POST',
+    body: payload,
+  });
+
+export const adminUpdateResumeSkill = (id: number, payload: Partial<ResumeSkillItem>) =>
+  adminApiRequest<{ success: boolean; message: string; skill: ResumeSkillItem }>(`/admin/skills/${id}`, {
+    method: 'PUT',
+    body: payload,
+  });
+
+export const adminDeleteResumeSkill = (id: number) =>
+  adminApiRequest<{ success: boolean; message: string; deletedId: number }>(`/admin/skills/${id}`, {
+    method: 'DELETE',
+  });
+
+export const saveCandidatePathAndPlan = async (payload: {
+  selected_path?: any;
+  resume_data?: any;
+  purchased_plan?: any;
+}) => {
+  const token = localStorage.getItem('luco_token');
+  if (!token) return null;
+  try {
+    const res = await fetch(`${API_URL}/auth/candidate/path-and-plan`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  } catch {
+    return null;
+  }
+};
+
+export const analyzeResumeAPI = async (payload: {
+  resume_text?: string;
+  resume_name?: string;
+  job_description?: string;
+}) => {
+  const token = localStorage.getItem('luco_token');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_URL}/resume/analyze`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to analyze resume');
+  return data;
+};
+
+

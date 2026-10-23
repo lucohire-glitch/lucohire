@@ -1,5 +1,6 @@
 import { FREELANCERS_DATA, FreelancerItem } from './FreelancersView';
 import React, { useState, useEffect } from 'react';
+import { getPublicPlans, PlanItem } from '../api';
 import './LandingPage.css';
 
 interface LandingPageProps {
@@ -10,6 +11,7 @@ interface LandingPageProps {
 
 export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOpenFreelancerSearch }: LandingPageProps) {
   const [pricingTab, setPricingTab] = useState<'freelancer' | 'recruiter'>('freelancer');
+  const [dbPlans, setDbPlans] = useState<PlanItem[]>([]);
   const [activeFrlFilter, setActiveFrlFilter] = useState('all');
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
   const [selectedProfile, setSelectedProfile] = useState<FreelancerItem | null>(null);
@@ -21,6 +23,13 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
     return f.cat === activeFrlFilter;
   });
 
+  useEffect(() => {
+    getPublicPlans().then((res) => {
+      if (res?.plans && res.plans.length > 0) {
+        setDbPlans(res.plans);
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (window.location.hash) {
@@ -62,6 +71,7 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
         'Profile boost — placed above unverified profiles',
         'Priority on new matching requirements'
       ],
+      badge: 'WORTH IT',
       why: '<b>Free</b> gets you listed and matched. <b>Verified + Boosted</b> gets you picked first.',
       social: '2,300+ freelancers already verified or boosted',
       cta: 'Get Verified — from ₹49/month'
@@ -84,13 +94,42 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
         'AI-shortlisted top 5–6 matches per requirement',
         'Priority support'
       ],
+      badge: 'WORTH IT',
       why: '<b>Free</b> lets you browse everyone. <b>Premium</b> tells you exactly who to message first.',
       social: '1,100+ businesses hiring on LucoHire',
       cta: 'Upgrade — ₹1,499/month'
     }
   };
 
-  const currentPricing = PRICING[pricingTab];
+  // Merge database plans dynamically if configured by admin for this tab
+  const getMergedPricing = () => {
+    const base = PRICING[pricingTab];
+    const categoryPlans = dbPlans.filter((p) => p.category === pricingTab && p.is_active);
+    if (categoryPlans.length === 0) return base;
+
+    const freeDb = categoryPlans.find(
+      (p) => p.price_amount === '₹0' || p.price_amount === '0' || p.name.toLowerCase().includes('free')
+    ) || categoryPlans[0];
+
+    const premDb = categoryPlans.find(
+      (p) => p.id !== freeDb.id && (p.is_popular || !p.name.toLowerCase().includes('free'))
+    ) || (categoryPlans.length > 1 ? categoryPlans[1] : null);
+
+    return {
+      ...base,
+      freeAmt: freeDb.price_amount || base.freeAmt,
+      freeUnit: freeDb.price_unit || base.freeUnit,
+      free: Array.isArray(freeDb.features) && freeDb.features.length > 0 ? freeDb.features : base.free,
+      premAmt: premDb?.price_amount || base.premAmt,
+      premUnit: premDb?.price_unit || base.premUnit,
+      prem: premDb && Array.isArray(premDb.features) && premDb.features.length > 0 ? premDb.features : base.prem,
+      badge: premDb?.badge || base.badge,
+      why: premDb?.why_text || freeDb.why_text || base.why,
+      cta: premDb?.cta_text || base.cta,
+    };
+  };
+
+  const currentPricing = getMergedPricing();
   const CHK = (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 6 9 17l-5-5" />
@@ -451,7 +490,7 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
               ))}
             </div>
             <div className="price-col premium" style={{ background: currentPricing.tint }}>
-              <div className="premium-badge">WORTH IT</div>
+              <div className="premium-badge">{currentPricing.badge || 'WORTH IT'}</div>
               <div className="price-col-lbl" style={{ color: currentPricing.color }}>Paid</div>
               <div className="price-amt" style={{ color: currentPricing.color }}>
                 {currentPricing.premAmt}<span style={{ color: currentPricing.color, opacity: 0.7 }}>{currentPricing.premUnit}</span>
@@ -469,7 +508,13 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
             {currentPricing.social}
           </div>
           <div className="price-cta-row">
-            <button className="price-cta" style={{ background: currentPricing.color }}>{currentPricing.cta}</button>
+            <button
+              className="price-cta"
+              style={{ background: currentPricing.color }}
+              onClick={onOpenRoleChooser}
+            >
+              {currentPricing.cta}
+            </button>
           </div>
         </div>
       </div>
