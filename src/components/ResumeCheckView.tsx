@@ -1,7 +1,24 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import './ResumeCheckView.css';
+import { getCurrentUser, getUserRole, logout } from '../api';
 
-export default function ResumeCheckView({ onBack, onGoToFreelancers, onOpenAuth, onOpenRoleChooser, onOpenCandidateReg, onGoToPricing }: any) {
+export default function ResumeCheckView({
+  currentUser: propUser,
+  userRole: propRole,
+  onLogout,
+  onOpenProfile,
+  onOpenEmployerDashboard,
+  onBack,
+  onGoToFreelancers,
+  onOpenAuth,
+  onOpenRoleChooser,
+  onOpenCandidateReg,
+  onGoToPricing
+}: any) {
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const user = propUser || (typeof window !== 'undefined' ? getCurrentUser() : null);
+  const role = propRole || (typeof window !== 'undefined' ? getUserRole() : '');
+
   useEffect(() => {
     window.scrollTo(0, 0);
     (window as any).lucoGoToPricing = () => {
@@ -15,9 +32,16 @@ export default function ResumeCheckView({ onBack, onGoToFreelancers, onOpenAuth,
     (window as any).lucoOpenAuth = () => {
       if (onOpenAuth) onOpenAuth();
     };
-    // Setup vanilla JS logic exactly as it was
+
+    // Remove any previous instance of the script
+    const prevScript = document.getElementById('resume-check-runtime-script');
+    if (prevScript) prevScript.remove();
+
+    // Setup vanilla JS logic scoped in IIFE to prevent re-declaration errors
     const script = document.createElement('script');
-    script.innerHTML = `
+    script.id = 'resume-check-runtime-script';
+    script.innerHTML = `(function() {
+      'use strict';
 /* ---------------- resume-on-file check: no resume yet → send them to signup ---------------- */
 function hasResumeOnFile(){
   try {
@@ -206,15 +230,26 @@ analyzeBtn.addEventListener('click', () => {
         try { drawCard(); } catch(e) {}
       }
 
-      if (isUserLoggedIn()) {
+      // Check if user has purchased the paid plan
+      let hasPurchasedPaidPlan = false;
+      try {
+        const uStr = localStorage.getItem('user') || localStorage.getItem('luco_user');
+        const uObj = uStr ? JSON.parse(uStr) : null;
+        hasPurchasedPaidPlan = !!(
+          (uObj && (uObj.purchased_plan || uObj.has_plan || uObj.plan)) ||
+          localStorage.getItem('lucohire_plan_purchased') === 'true' ||
+          localStorage.getItem('lucohireHasPaidPlan') === 'true'
+        );
+      } catch(e) {}
+
+      if (hasPurchasedPaidPlan) {
         reportUnlocked = true;
         document.body.classList.add('report-unlocked');
-        updatePaywallVisibility();
       } else {
         reportUnlocked = false;
         document.body.classList.remove('report-unlocked');
-        updatePaywallVisibility();
       }
+      if (typeof updatePaywallVisibility === 'function') updatePaywallVisibility();
       
       // Loader done: hide loader, restore button, smoothly scroll to results
       if (loader) loader.style.display = 'none';
@@ -816,12 +851,40 @@ function goNextStep(e){
     return false;
   }
   window.location.hash = 'pricingSection';
-  return false;
-}
+  window.unlockReport = function() {
+    if (window.lucoGoToPricing) {
+      window.lucoGoToPricing();
+    } else {
+      window.location.hash = 'pricingSection';
+      const el = document.getElementById('pricingSection');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+  window.setExperience = typeof setExperience === 'function' ? setExperience : undefined;
+  window.applyTab = typeof applyTab === 'function' ? applyTab : undefined;
+  window.togglePath = typeof togglePath === 'function' ? togglePath : undefined;
+  window.toggleSkillForPath = typeof toggleSkillForPath === 'function' ? toggleSkillForPath : undefined;
+  window.toggleAddedSkill = typeof toggleAddedSkill === 'function' ? toggleAddedSkill : undefined;
+  window.drawCard = typeof drawCard === 'function' ? drawCard : undefined;
+  window.goNextStep = typeof goNextStep === 'function' ? goNextStep : undefined;
+  window.closeShare = typeof closeShare === 'function' ? closeShare : undefined;
+})();
 `;
     document.body.appendChild(script);
     
-    if (localStorage.getItem('luco_token') || localStorage.getItem('token')) {
+    // Check if user has purchased the paid plan
+    let hasPurchasedPaidPlan = false;
+    try {
+      const uStr = localStorage.getItem('user') || localStorage.getItem('luco_user');
+      const uObj = uStr ? JSON.parse(uStr) : null;
+      hasPurchasedPaidPlan = !!(
+        (uObj && (uObj.purchased_plan || uObj.has_plan || uObj.plan)) ||
+        localStorage.getItem('lucohire_plan_purchased') === 'true' ||
+        localStorage.getItem('lucohireHasPaidPlan') === 'true'
+      );
+    } catch(e) {}
+
+    if (hasPurchasedPaidPlan) {
       document.body.classList.add('report-unlocked');
     } else {
       document.body.classList.remove('report-unlocked');
@@ -829,9 +892,8 @@ function goNextStep(e){
 
     return () => {
       document.body.classList.remove('report-unlocked');
-      if(document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
+      const sc = document.getElementById('resume-check-runtime-script');
+      if (sc) sc.remove();
     };
   }, []);
 
@@ -860,21 +922,176 @@ function goNextStep(e){
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <button
-          type="button"
-          onClick={onOpenAuth}
-          style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px' }}
-        >
-          Login
-        </button>
-        <span style={{ color: 'var(--line)', userSelect: 'none' }}>/</span>
-        <button
-          type="button"
-          onClick={onOpenRoleChooser || onOpenAuth}
-          style={{ fontSize: '14px', fontWeight: 600, color: 'var(--brand-700)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px' }}
-        >
-          Signup
-        </button>
+        {user ? (
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#F5F3FF',
+                border: '1.5px solid #DDD6FE',
+                padding: '6px 14px 6px 8px',
+                borderRadius: '24px',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'all 0.15s ease'
+              }}
+              title="My Account"
+            >
+              <div style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #1B4FE0, #5B21D6)',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 700,
+                fontSize: '12px'
+              }}>
+                {(user.name || 'U')[0].toUpperCase()}
+              </div>
+              <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#181B24' }}>
+                {user.name?.split(' ')[0] || 'Account'}
+              </span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2.5">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {isUserMenuOpen && (
+              <>
+                <div 
+                  style={{ position: 'fixed', inset: 0, zIndex: 998 }} 
+                  onClick={() => setIsUserMenuOpen(false)} 
+                />
+                <div style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: 'calc(100% + 8px)',
+                  background: '#FFFFFF',
+                  borderRadius: '12px',
+                  boxShadow: '0 12px 30px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.06)',
+                  border: '1px solid #E5E7EB',
+                  width: '230px',
+                  zIndex: 999,
+                  padding: '8px'
+                }}>
+                  <div style={{ padding: '8px 10px', borderBottom: '1px solid #F3F4F6', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {user.name}
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {user.email}
+                    </div>
+                    <span style={{
+                      display: 'inline-block',
+                      marginTop: '4px',
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      background: role === 'recruiter' ? '#FEF3C7' : '#EDE9FE',
+                      color: role === 'recruiter' ? '#92400E' : '#5B21D6',
+                      padding: '2px 7px',
+                      borderRadius: '4px'
+                    }}>
+                      {role === 'recruiter' ? 'Recruiter' : 'Freelancer'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      if (role === 'recruiter') {
+                        if (onOpenEmployerDashboard) onOpenEmployerDashboard();
+                      } else {
+                        if (onOpenProfile) onOpenProfile();
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '8px 10px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: '#374151',
+                      borderRadius: '6px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#F3F4F6')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                  >
+                    <span>👤</span>
+                    <span>My Dashboard</span>
+                  </button>
+
+                  <div style={{ height: '1px', background: '#F3F4F6', margin: '4px 0' }} />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      if (onLogout) onLogout();
+                      else {
+                        logout();
+                        window.location.reload();
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '8px 10px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: '#DC2626',
+                      borderRadius: '6px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#FEE2E2')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                  >
+                    <span>🚪</span>
+                    <span>Log Out</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px' }}
+            >
+              Login
+            </button>
+            <span style={{ color: 'var(--line)', userSelect: 'none' }}>/</span>
+            <button
+              type="button"
+              onClick={onOpenRoleChooser || onOpenAuth}
+              style={{ fontSize: '14px', fontWeight: 600, color: 'var(--brand-700)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px' }}
+            >
+              Signup
+            </button>
+          </>
+        )}
       </div>
     </header>
     <main>

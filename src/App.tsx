@@ -285,6 +285,11 @@ export default function App() {
     return (
       <>
         <ResumeCheckView
+          currentUser={currentUser}
+          userRole={userRole}
+          onLogout={handleLogout}
+          onOpenProfile={() => setIsProfileHomeOpen(true)}
+          onOpenEmployerDashboard={() => setIsEmployerDashboardOpen(true)}
           onBack={() => setIsResumeCheckOpen(false)}
           onGoToFreelancers={() => {
             setIsResumeCheckOpen(false);
