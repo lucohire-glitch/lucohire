@@ -230,25 +230,12 @@ analyzeBtn.addEventListener('click', () => {
         try { drawCard(); } catch(e) {}
       }
 
-      // Check if user has purchased the paid plan
-      let hasPurchasedPaidPlan = false;
-      try {
-        const uStr = localStorage.getItem('user') || localStorage.getItem('luco_user');
-        const uObj = uStr ? JSON.parse(uStr) : null;
-        hasPurchasedPaidPlan = !!(
-          (uObj && (uObj.purchased_plan || uObj.has_plan || uObj.plan)) ||
-          localStorage.getItem('lucohire_plan_purchased') === 'true' ||
-          localStorage.getItem('lucohireHasPaidPlan') === 'true'
-        );
-      } catch(e) {}
+      // Store AI analysis
+      window.latestAiAnalysis = apiData;
 
-      if (hasPurchasedPaidPlan) {
-        reportUnlocked = true;
-        document.body.classList.add('report-unlocked');
-      } else {
-        reportUnlocked = false;
-        document.body.classList.remove('report-unlocked');
-      }
+      // On analyze: Section 1 is updated with real AI score, ALL other sections become LOCKED!
+      reportUnlocked = false;
+      document.body.classList.remove('report-unlocked');
       if (typeof updatePaywallVisibility === 'function') updatePaywallVisibility();
       
       // Loader done: hide loader, restore button, smoothly scroll to results
@@ -544,7 +531,11 @@ const REORDER_FIX={
     why:"Fresher ke resume me Education sabse strong proof point hoti hai jab tak solid work-ex na ho — ATS aur recruiter dono ye expect karte hain."}
 };
 let experienceLevel='experienced';
-function allFixes(){ return [...FIXES, REORDER_FIX[experienceLevel]]; }
+let aiFixes = null;
+function allFixes(){
+  if (aiFixes && aiFixes.length > 0) return aiFixes;
+  return [...FIXES, REORDER_FIX[experienceLevel]];
+}
 function setExperience(lvl){
   experienceLevel=lvl;
   document.querySelectorAll('.exp-pill').forEach(p=>p.classList.toggle('active', p.dataset.lvl===lvl));
@@ -591,7 +582,7 @@ function isUserLoggedIn() {
 }
 
 let activeTab='overview';
-let reportUnlocked = isUserLoggedIn();
+let reportUnlocked = true;
 const tabAnchor={overview:'secOverview', fixes:'secAnalysis', recruiter:'secRecruiterScan', skills:'secDrop'};
 function applyTab(tab, shouldScroll = true){
   activeTab=tab;
@@ -606,13 +597,12 @@ function updatePaywallVisibility(){
   card.hidden = !!reportUnlocked;
 }
 function unlockReport(){
-  if (isUserLoggedIn()) {
-    reportUnlocked = true;
-    document.body.classList.add('report-unlocked');
-    updatePaywallVisibility();
+  if (window.lucoGoToPricing) {
+    window.lucoGoToPricing();
   } else {
-    if (window.lucoOpenAuth) window.lucoOpenAuth();
-    else if (window.lucoGoToPricing) window.lucoGoToPricing();
+    const el = document.getElementById('secPaths') || document.getElementById('pricingSection');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else window.location.hash = 'pricingSection';
   }
 }
 window.unlockReport = unlockReport;
@@ -851,6 +841,50 @@ function goNextStep(e){
     return false;
   }
   window.location.hash = 'pricingSection';
+  function applyAiToFullReport(data) {
+    if (!data) return;
+    reportUnlocked = true;
+    document.body.classList.add('report-unlocked');
+    if (typeof updatePaywallVisibility === 'function') updatePaywallVisibility();
+
+    if (data.recruiter_scan) {
+      const rs = data.recruiter_scan;
+      const vBox = document.querySelector('#secRecruiterScan .verdict-box div div');
+      if (vBox && rs.verdict_headline) vBox.textContent = rs.verdict_headline;
+      const vSub = document.querySelector('#secRecruiterScan .verdict-box div div:last-child');
+      if (vSub && rs.verdict_sub) vSub.textContent = rs.verdict_sub;
+    }
+
+    if (Array.isArray(data.fixes) && data.fixes.length > 0) {
+      aiFixes = data.fixes;
+    }
+    if (Array.isArray(data.skills_to_drop) && data.skills_to_drop.length > 0) {
+      OUTDATED.length = 0;
+      data.skills_to_drop.forEach(s => OUTDATED.push(s));
+    }
+    if (Array.isArray(data.fading_skills) && data.fading_skills.length > 0) {
+      FADING.length = 0;
+      data.fading_skills.forEach(s => FADING.push(s));
+    }
+    if (Array.isArray(data.rising_skills) && data.rising_skills.length > 0) {
+      RISING.length = 0;
+      data.rising_skills.forEach(s => RISING.push(s));
+    }
+    if (Array.isArray(data.salary_boosters) && data.salary_boosters.length > 0) {
+      SALARY.length = 0;
+      data.salary_boosters.forEach(s => SALARY.push(s));
+    }
+    if (data.jd_match && Array.isArray(data.jd_match.missing_keywords) && data.jd_match.missing_keywords.length > 0) {
+      const kwContainer = document.getElementById('missingKeywordsContainer');
+      if (kwContainer) {
+        kwContainer.innerHTML = data.jd_match.missing_keywords.map(kw => '<button type="button" class="kw-chip miss" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:1px solid rgba(194,79,63,0.2);background:var(--red-tint);color:var(--red);padding:6px 12px;border-radius:99px;font-weight:600;font-size:12px;"><span>' + kw + '</span><span style="font-size:14px;font-weight:700;line-height:1;">+</span></button>').join('');
+      }
+    }
+
+    renderResults();
+  }
+  window.applyAiToFullReport = applyAiToFullReport;
+
   window.unlockReport = function() {
     if (window.lucoGoToPricing) {
       window.lucoGoToPricing();
@@ -872,23 +906,8 @@ function goNextStep(e){
 `;
     document.body.appendChild(script);
     
-    // Check if user has purchased the paid plan
-    let hasPurchasedPaidPlan = false;
-    try {
-      const uStr = localStorage.getItem('user') || localStorage.getItem('luco_user');
-      const uObj = uStr ? JSON.parse(uStr) : null;
-      hasPurchasedPaidPlan = !!(
-        (uObj && (uObj.purchased_plan || uObj.has_plan || uObj.plan)) ||
-        localStorage.getItem('lucohire_plan_purchased') === 'true' ||
-        localStorage.getItem('lucohireHasPaidPlan') === 'true'
-      );
-    } catch(e) {}
-
-    if (hasPurchasedPaidPlan) {
-      document.body.classList.add('report-unlocked');
-    } else {
-      document.body.classList.remove('report-unlocked');
-    }
+    // On page load or refresh: show full static preview completely UNLOCKED!
+    document.body.classList.add('report-unlocked');
 
     return () => {
       document.body.classList.remove('report-unlocked');
