@@ -166,27 +166,33 @@ export const ScraperEngine = {
       }
 
       // Stage 6: Partial Scan Recovery & DB Storage (Requirement 4)
-      // Save all valid jobs extracted before any failure occurs
+      // Save all valid jobs extracted with concurrent chunking for high speed
       let savedCount = 0;
       const foundIds = [];
+      const CHUNK_SIZE = 25;
 
-      for (const job of jobs) {
-        try {
-          const res = await ScraperModel.upsertJob({
-            ...job,
-            company_id: company.id,
-            company_name: company.name,
-            contact_email: contactEmail || company.contact_email,
-            ats_provider: atsProvider,
-            extraction_method: extractionMethod,
-          });
-          if (res) {
-            savedCount++;
-            foundIds.push(job.external_job_id || job.original_job_url);
-          }
-        } catch (e) {
-          console.error(`Error saving job for ${company.name}:`, e.message);
-        }
+      for (let i = 0; i < jobs.length; i += CHUNK_SIZE) {
+        const chunk = jobs.slice(i, i + CHUNK_SIZE);
+        await Promise.all(
+          chunk.map(async (job) => {
+            try {
+              const res = await ScraperModel.upsertJob({
+                ...job,
+                company_id: company.id,
+                company_name: company.name,
+                contact_email: contactEmail || company.contact_email,
+                ats_provider: atsProvider,
+                extraction_method: extractionMethod,
+              });
+              if (res) {
+                savedCount++;
+                foundIds.push(job.external_job_id || job.original_job_url);
+              }
+            } catch (e) {
+              console.error(`Error saving job for ${company.name}:`, e.message);
+            }
+          })
+        );
       }
 
       // Stage 7: Expiry protection (Requirement 3 & 11)
