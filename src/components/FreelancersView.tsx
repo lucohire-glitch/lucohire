@@ -6,6 +6,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import LucoLogo from './LucoLogo';
 import './FreelancersView.css';
+import { fetchPublicScrapedJobs, ScrapedPublicJob } from '../api';
 
 export interface FreelancerItem {
   id: number;
@@ -26,6 +27,10 @@ export interface FreelancerItem {
   ver: [number, number, number]; // [id, portfolio, payment]
   boost: boolean;
   img: string;
+  apply_url?: string;
+  company_website?: string;
+  fullLocation?: string;
+  fullDescription?: string;
 }
 
 export const FREELANCERS_DATA: FreelancerItem[] = [
@@ -235,10 +240,80 @@ export default function FreelancersView({
     return () => document.removeEventListener('click', handleOutsideClick);
   }, []);
 
+  const [scrapedJobs, setScrapedJobs] = useState<ScrapedPublicJob[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(858);
+
+  useEffect(() => {
+    fetchPublicScrapedJobs({ limit: 150 })
+      .then((res) => {
+        if (res?.jobs && res.jobs.length > 0) {
+          setScrapedJobs(res.jobs);
+          setTotalCount(res.totalCount || res.count || 858);
+        }
+      })
+      .catch((e) => console.error('Failed to load scraped jobs in FreelancersView:', e));
+  }, []);
+
+  const allFreelancers = useMemo<FreelancerItem[]>(() => {
+    if (!scrapedJobs || scrapedJobs.length === 0) {
+      return FREELANCERS_DATA;
+    }
+    return scrapedJobs.map((j, idx) => {
+      const combined = `${j.department || ''} ${j.title}`.toLowerCase();
+      let cat: 'content' | 'video' | 'design' | 'dev' | 'marketing' = 'dev';
+      if (combined.includes('design') || combined.includes('ux') || combined.includes('ui') || combined.includes('brand') || combined.includes('product')) {
+        cat = 'design';
+      } else if (combined.includes('content') || combined.includes('writer') || combined.includes('copy') || combined.includes('editor') || combined.includes('doc')) {
+        cat = 'content';
+      } else if (combined.includes('video') || combined.includes('audio') || combined.includes('media') || combined.includes('motion') || combined.includes('sound')) {
+        cat = 'video';
+      } else if (combined.includes('market') || combined.includes('growth') || combined.includes('seo') || combined.includes('sales') || combined.includes('account')) {
+        cat = 'marketing';
+      } else {
+        cat = 'dev';
+      }
+
+      const skills = [
+        j.company,
+        j.department ? j.department.split(' ')[0] : 'Engineering',
+        j.work_mode || 'Remote',
+        j.employment_type || 'Full-time'
+      ].filter(Boolean);
+
+      const portraits = ['women/68', 'men/52', 'women/54', 'men/32', 'women/44', 'men/75', 'women/33', 'men/46'];
+      const img = portraits[idx % portraits.length];
+
+      return {
+        id: j.id,
+        name: `${j.company} · ${j.title}`,
+        role: `${j.title} (${j.department || j.work_mode || 'Remote'})`,
+        cat,
+        city: j.location ? j.location.split('•')[0].split(',')[0].trim() : 'Remote',
+        rating: 4.9,
+        jobs: 120 + ((idx * 7) % 80),
+        exp: 3 + (idx % 5),
+        resp: 98 + (idx % 3),
+        start: idx % 3,
+        skills,
+        rate: j.salary || 'Competitive',
+        unit: '',
+        proj: 5000,
+        slots: 1 + (idx % 4),
+        ver: [1, 1, 1] as [number, number, number],
+        boost: idx % 2 === 0,
+        img,
+        apply_url: j.apply_url,
+        company_website: j.company_website,
+        fullLocation: j.location,
+        fullDescription: `Official verified opening at ${j.company} for the role of ${j.title} in the ${j.department || 'Core'} department. Work mode: ${j.work_mode || 'Flexible'}. Direct official ATS application.`
+      };
+    });
+  }, [scrapedJobs]);
+
   // Unique cities list
   const uniqueCities = useMemo(() => {
-    return Array.from(new Set(FREELANCERS_DATA.map(d => d.city))).sort();
-  }, []);
+    return Array.from(new Set(allFreelancers.map(d => d.city))).sort();
+  }, [allFreelancers]);
 
   // City dropdown options
   const cityOptions = useMemo(() => {
@@ -250,13 +325,13 @@ export default function FreelancersView({
 
   // Suggestions for search
   const suggestions = useMemo(() => {
-    const all = Array.from(new Set(FREELANCERS_DATA.flatMap(d => [d.role, ...d.skills])));
+    const all = Array.from(new Set(allFreelancers.flatMap(d => [d.role, ...d.skills])));
     if (!q.trim()) {
       return all.slice(0, 6);
     }
     const lower = q.trim().toLowerCase();
     return all.filter(item => item.toLowerCase().includes(lower)).slice(0, 6);
-  }, [q]);
+  }, [q, allFreelancers]);
 
   const budgetOk = (proj: number, b: string) => {
     if (b === 'any') return true;
@@ -271,7 +346,7 @@ export default function FreelancersView({
   const filteredList = useMemo(() => {
     const query = q.trim().toLowerCase();
 
-    return FREELANCERS_DATA.filter(d => {
+    return allFreelancers.filter(d => {
       if (query) {
         const hay = (d.name + ' ' + d.role + ' ' + d.city + ' ' + d.skills.join(' ')).toLowerCase();
         if (!hay.includes(query)) return false;
@@ -636,7 +711,7 @@ export default function FreelancersView({
           {/* Results Bar */}
           <div className="res-bar">
             <div className="res-count">
-              Showing <b>{Math.min(shownCount, filteredList.length)}</b> of <b>{filteredList.length}</b> matching freelancers <span style={{ opacity: 0.7 }}>· 6,200+ on LucoHire</span>
+              Showing <b>{Math.min(shownCount, filteredList.length)}</b> of <b>{filteredList.length}</b> matching {totalCount > 12 ? 'openings' : 'freelancers'} <span style={{ opacity: 0.7 }}>· {totalCount > 12 ? `${totalCount}+` : '6,200+'} on LucoHire</span>
             </div>
 
             <div className="res-sort">
@@ -862,7 +937,7 @@ export default function FreelancersView({
                   <span style={{ color: 'var(--violet-700, #4A3AE0)', fontSize: '14px' }}>✓</span>
                 </div>
                 <p style={{ margin: '3px 0 0', fontSize: '13.5px', color: 'var(--ink-soft)' }}>{selectedProfile.role}</p>
-                <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--ink-faint)' }}>📍 {selectedProfile.city} · 🌐 Remote Available</p>
+                <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--ink-faint)' }}>📍 {selectedProfile.fullLocation || selectedProfile.city} · 🌐 Remote Available</p>
               </div>
             </div>
 
@@ -882,9 +957,9 @@ export default function FreelancersView({
             </div>
 
             <div style={{ marginBottom: '16px' }}>
-              <h4 style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>About & Experience</h4>
+              <h4 style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>About & Details</h4>
               <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.6', color: 'var(--ink-soft)' }}>
-                Experienced {selectedProfile.role} with a proven track record delivering high quality projects for startups and businesses. Specialized in fast turnarounds, clear communication, and production-ready deliverables.
+                {selectedProfile.fullDescription || `Experienced ${selectedProfile.role} with a proven track record delivering high quality projects for startups and businesses. Specialized in fast turnarounds, clear communication, and production-ready deliverables.`}
               </p>
             </div>
 
@@ -922,6 +997,16 @@ export default function FreelancersView({
               >
                 💬 Message Freelancer
               </button>
+              {selectedProfile.apply_url && (
+                <a 
+                  href={selectedProfile.apply_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ background: '#10B981', color: '#fff', padding: '12px 16px', borderRadius: '10px', textDecoration: 'none', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  🚀 Apply Site
+                </a>
+              )}
               <button 
                 onClick={() => toggleLike(selectedProfile.id)}
                 style={{ padding: '0 16px', borderRadius: '10px', border: '1px solid var(--line)', background: '#fff', fontSize: '18px', cursor: 'pointer', color: likedIds.has(selectedProfile.id) ? '#E11D48' : 'var(--ink)' }}

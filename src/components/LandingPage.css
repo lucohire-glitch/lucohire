@@ -1678,4 +1678,128 @@
   .landing-page-root .trust-row {
     flex-direction: column !important;
   }
-}
+}
+
+/* =========================================================
+   SCANNED JOBS & FREELANCERS SEGMENTED CONTROLS & CARDS
+   ========================================================= */
+.landing-page-root .frl-tabs-segmented {
+  display: inline-flex;
+  align-items: center;
+  background: #F3F4F6;
+  padding: 6px;
+  border-radius: 99px;
+  border: 1px solid #E5E7EB;
+  gap: 6px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.landing-page-root .frl-tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 99px;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.landing-page-root .frl-tab-pill:hover {
+  color: var(--ink);
+}
+
+.landing-page-root .frl-tab-pill.active {
+  background: #FFFFFF;
+  color: var(--violet-700, #4A3AE0);
+  box-shadow: 0 4px 12px rgba(74, 58, 224, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.landing-page-root .frl-tab-badge {
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: rgba(74, 58, 224, 0.1);
+  color: var(--violet-700, #4A3AE0);
+}
+
+.landing-page-root .frl-tab-pill.active .frl-tab-badge {
+  background: var(--violet-700, #4A3AE0);
+  color: #FFFFFF;
+}
+
+.landing-page-root .frl-job-search-box {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  margin: 18px auto 0;
+  display: flex;
+  align-items: center;
+}
+
+.landing-page-root .frl-job-search-box svg {
+  position: absolute;
+  left: 18px;
+  color: var(--ink-soft);
+  pointer-events: none;
+}
+
+.landing-page-root .frl-job-search-box input {
+  width: 100%;
+  padding: 13px 44px 13px 46px;
+  border-radius: 99px;
+  border: 1.5px solid #E5E7EB;
+  background: #FFFFFF;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--ink);
+  outline: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.landing-page-root .frl-job-search-box input:focus {
+  border-color: var(--violet-500, #7B68EE);
+  box-shadow: 0 0 0 4px rgba(74, 58, 224, 0.1);
+}
+
+.landing-page-root .frl-search-clear {
+  position: absolute;
+  right: 14px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: #E5E7EB;
+  color: #4B5563;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.landing-page-root .frl-job-card-inner {
+  grid-template-columns: 1.4fr 1fr 1fr !important;
+  align-items: center;
+}
+
+@media (max-width: 860px) {
+  .landing-page-root .frl-job-card-inner {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .landing-page-root .frl-actions-row {
+    justify-content: flex-start !important;
+  }
+}
+

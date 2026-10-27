@@ -110,6 +110,21 @@ export default function App() {
   const [userRole, setUserRole] = useState<string>(() => getUserRole());
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [authToast, setAuthToast] = useState<string | null>(null);
+  const [upgradeSuccessModal, setUpgradeSuccessModal] = useState<any>(null);
+
+  const handleUpgradePlan = (plan: any) => {
+    localStorage.setItem('luco_plan_upgraded', 'true');
+    localStorage.setItem('luco_is_premium', 'true');
+    if (currentUser) {
+      const updated = { ...currentUser, plan: 'paid', is_paid: true };
+      setCurrentUser(updated);
+      try { localStorage.setItem('user', JSON.stringify(updated)); } catch(e){}
+    }
+    const pTitle = plan?.badge ? `Paid (${plan.badge})` : 'Verified Plan (₹49/month)';
+    setUpgradeSuccessModal({
+      planName: pTitle
+    });
+  };
 
   const triggerAuthToast = (msg: string) => {
     setAuthToast(msg);
@@ -1057,7 +1072,105 @@ export default function App() {
           setIsFreelancersViewOpen(true);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
+        currentUser={currentUser}
+        onUpgradePlan={handleUpgradePlan}
       />
+
+      {/* PLAN UPGRADE SUCCESS MODAL */}
+      {upgradeSuccessModal && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(5px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setUpgradeSuccessModal(null)}
+        >
+          <div 
+            style={{
+              background: '#FFFFFF',
+              borderRadius: '24px',
+              maxWidth: '460px',
+              width: '100%',
+              padding: '34px 28px',
+              textAlign: 'center',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              background: '#E5F5EB',
+              color: '#1FA854',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 18px',
+              fontSize: '32px',
+              fontWeight: 800
+            }}>
+              ✓
+            </div>
+            <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#1B1F23', margin: '0 0 10px', fontFamily: "'Fraunces', serif" }}>
+              Plan Upgraded Successfully!
+            </h3>
+            <p style={{ fontSize: '14.5px', color: '#5B6168', lineHeight: 1.55, margin: '0 0 24px' }}>
+              Aapka <b>{upgradeSuccessModal.planName}</b> plan activate ho chuka hai! Ab Resume Check mein aapka pura real AI report aur saare analysis sections unlock ho gaye hain.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setUpgradeSuccessModal(null);
+                setIsResumeCheckOpen(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              style={{
+                width: '100%',
+                padding: '15px 20px',
+                borderRadius: '14px',
+                background: 'var(--brand-700, #4C2FD9)',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: '15px',
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 10px 20px -6px rgba(76, 47, 217, 0.5)',
+                marginBottom: '10px',
+                fontFamily: 'inherit'
+              }}
+            >
+              Go to Resume Check →
+            </button>
+            <button
+              type="button"
+              onClick={() => setUpgradeSuccessModal(null)}
+              style={{
+                width: '100%',
+                padding: '10px',
+                borderRadius: '12px',
+                background: 'none',
+                color: '#6B7280',
+                fontWeight: 600,
+                fontSize: '13.5px',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'inherit'
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
 
 

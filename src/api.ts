@@ -358,4 +358,210 @@ export const analyzeResumeAPI = async (payload: {
   return data;
 };
 
+// ==========================================
+// UNIVERSAL JOB SCRAPING ENGINE (v2) APIs
+// ==========================================
+
+export interface ScrapedCompany {
+  id: number;
+  name: string;
+  website: string;
+  career_url: string;
+  contact_email: string;
+  ats_provider: string;
+  access_status: 'ALLOWED' | 'ALLOWED_API_ONLY' | 'RESTRICTED' | 'BLOCKED_BY_OWNER' | 'UNDER_REVIEW';
+  verification_status: 'Verified' | 'Needs review';
+  country?: string;
+  last_scanned_at?: string;
+  structure_memory?: any;
+  active_jobs_count?: number;
+  latest_scan_status?: string;
+  latest_scan_coverage?: string;
+}
+
+export interface ScrapedJob {
+  id: number;
+  company_id: number;
+  company_name: string;
+  company_website?: string;
+  company_email?: string;
+  title: string;
+  location: string;
+  work_mode: string;
+  employment_type: string;
+  department?: string;
+  experience?: string;
+  salary?: string;
+  skills?: string[];
+  description?: string;
+  original_job_url: string;
+  apply_url: string;
+  ats_provider?: string;
+  extraction_method?: string;
+  confidence_score?: number;
+  status: 'ACTIVE' | 'DISCOVERED' | 'SUSPECTED_REMOVED' | 'EXPIRED' | 'UNPUBLISHED';
+  is_published: boolean;
+  last_verified_at: string;
+}
+
+export interface ScraperScanRun {
+  id: number;
+  company_id: number;
+  company_name: string;
+  status: 'PASS' | 'PARTIAL' | 'INCOMPLETE' | 'MANUAL_REVIEW' | 'SOURCE_ERROR' | 'NO_OPENINGS' | 'ACCESS_RESTRICTED';
+  coverage: 'COMPLETE' | 'PARTIAL' | 'UNKNOWN';
+  extraction_method: string;
+  jobs_found: number;
+  reported_job_count?: number;
+  pages_visited: number;
+  filters_explored: number;
+  duration_seconds: number;
+  failed_stage?: string;
+  http_status_summary?: string;
+  snapshot_data?: any;
+  incomplete_sections?: string[];
+  pending_tasks?: string[];
+  outcome_notes?: string;
+  retry_outcome?: string;
+  created_at: string;
+}
+
+export interface ScrapedPublicJob {
+  id: number;
+  title: string;
+  company: string;
+  company_website?: string;
+  company_email?: string;
+  location: string;
+  work_mode: string;
+  employment_type: string;
+  department?: string;
+  salary?: string;
+  apply_url: string;
+  last_verified?: string;
+  created_at?: string;
+}
+
+// 1. Candidate Public Jobs API (Live Jobs on LucoHire)
+export const fetchPublicScrapedJobs = async (
+  params: { search?: string; location?: string; work_mode?: string; limit?: number; offset?: number } = {}
+) => {
+  const query = new URLSearchParams();
+  if (params.search) query.append('search', params.search);
+  if (params.location) query.append('location', params.location);
+  if (params.work_mode) query.append('work_mode', params.work_mode);
+  if (params.limit) query.append('limit', String(params.limit));
+  if (params.offset) query.append('offset', String(params.offset));
+
+  const res = await fetch(`${API_URL}/scraper/public-jobs?${query.toString()}`);
+  return (await res.json()) as { success: boolean; jobs: ScrapedPublicJob[]; count: number; totalCount?: number };
+};
+
+// 2. Admin Scraper APIs
+const authHeaders = () => {
+  const token = getAdminToken() || localStorage.getItem('luco_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
+export const fetchScraperCompanies = async () => {
+  const res = await fetch(`${API_URL}/scraper/companies`, { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch companies');
+  return data;
+};
+
+export const addScraperCompany = async (payload: { name: string; website?: string; careerUrl?: string; contactEmail?: string }) => {
+  const res = await fetch(`${API_URL}/scraper/companies`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to add company');
+  return data;
+};
+
+export const importScraperCsv = async (companies: Array<{ name: string; website?: string; country?: string; contactEmail?: string }>) => {
+  const res = await fetch(`${API_URL}/scraper/companies/import-csv`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ companies }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to import CSV');
+  return data;
+};
+
+export const triggerCompanyScan = async (companyId: number) => {
+  const res = await fetch(`${API_URL}/scraper/companies/${companyId}/scan`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to scan company');
+  return data;
+};
+
+export const triggerScanAll = async () => {
+  const res = await fetch(`${API_URL}/scraper/scan-all`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to run batch scans');
+  return data;
+};
+
+export const fetchScraperScans = async (companyId?: number) => {
+  const url = companyId ? `${API_URL}/scraper/scans?company_id=${companyId}` : `${API_URL}/scraper/scans`;
+  const res = await fetch(url, { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch scans');
+  return data;
+};
+
+export const fetchScraperScanDetails = async (scanId: number) => {
+  const res = await fetch(`${API_URL}/scraper/scans/${scanId}`, { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch scan details');
+  return data;
+};
+
+export const retryScraperPending = async (scanId: number) => {
+  const res = await fetch(`${API_URL}/scraper/scans/${scanId}/retry-pending`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to retry pending');
+  return data;
+};
+
+export const fetchScraperJobs = async (params: { company_id?: number; status?: string; search?: string } = {}) => {
+  const query = new URLSearchParams();
+  if (params.company_id) query.append('company_id', String(params.company_id));
+  if (params.status) query.append('status', params.status);
+  if (params.search) query.append('search', params.search);
+
+  const res = await fetch(`${API_URL}/scraper/jobs?${query.toString()}`, { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch jobs');
+  return data;
+};
+
+export const toggleScraperJobPublish = async (jobId: number, is_published: boolean) => {
+  const res = await fetch(`${API_URL}/scraper/jobs/${jobId}/publish`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ is_published }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to toggle job status');
+  return data;
+};
+
+
 

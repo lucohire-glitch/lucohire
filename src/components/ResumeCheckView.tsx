@@ -33,6 +33,23 @@ export default function ResumeCheckView({
       if (onOpenAuth) onOpenAuth();
     };
 
+    (window as any).handleLockClick = () => {
+      const loggedIn = !!(localStorage.getItem('luco_token') || localStorage.getItem('token'));
+      if (!loggedIn) {
+        if (onOpenAuth) {
+          onOpenAuth();
+          return;
+        }
+      }
+      if (onGoToPricing) {
+        onGoToPricing();
+      } else {
+        window.location.hash = 'pricingSection';
+        const el = document.getElementById('pricingSection');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
+
     // Remove any previous instance of the script
     const prevScript = document.getElementById('resume-check-runtime-script');
     if (prevScript) prevScript.remove();
@@ -42,26 +59,13 @@ export default function ResumeCheckView({
     script.id = 'resume-check-runtime-script';
     script.innerHTML = `(function() {
       'use strict';
-/* ---------------- resume-on-file check: no resume yet → send them to signup ---------------- */
+/* ---------------- resume-on-file check ---------------- */
 function hasResumeOnFile(){
-  try {
-    const v = localStorage.getItem('lucohireHasResume');
-    return v === null ? true : v === 'true'; // no signal yet → assume they have one, don't block the page
-  } catch(e){ return true; }
+  return true;
 }
 function goToSignup(){
   try { if(window.top && window.top !== window) window.top.postMessage({lucohire:'navigate', view:'signup'}, '*'); } catch(e){}
   try { if(window.top === window) window.location.href = 'signup.html'; } catch(e){}
-}
-if(!hasResumeOnFile()){
-  document.addEventListener('DOMContentLoaded', ()=>{
-    document.getElementById('uploadFlow').style.display='none';
-    const nr=document.getElementById('noResumeState');
-    nr.classList.add('show');
-    document.getElementById('noResumeCta').addEventListener('click', e=>{ e.preventDefault(); goToSignup(); });
-    document.getElementById('noResumeSub').textContent='Tumhare LucoHire profile me abhi resume attach nahi hai. Signup pe le ja rahe hain…';
-    setTimeout(goToSignup, 1600);
-  });
 }
 
 /* ---------------- shared: upload → loading → results ---------------- */
@@ -233,9 +237,24 @@ analyzeBtn.addEventListener('click', () => {
       // Store AI analysis
       window.latestAiAnalysis = apiData;
 
-      // On analyze: Section 1 is updated with real AI score, ALL other sections become LOCKED!
-      reportUnlocked = false;
-      document.body.classList.remove('report-unlocked');
+      const loggedIn = !!(localStorage.getItem('luco_token') || localStorage.getItem('token'));
+      const isPaidUser = loggedIn && (
+        localStorage.getItem('luco_plan_upgraded') === 'true' || 
+        localStorage.getItem('luco_is_premium') === 'true'
+      );
+
+      if (isPaidUser && apiData) {
+        // Logged-in & Upgraded user: apply full AI analysis to all sections and stay UNLOCKED!
+        reportUnlocked = true;
+        document.body.classList.add('report-unlocked');
+        if (typeof applyAiToFullReport === 'function') {
+          applyAiToFullReport(apiData);
+        }
+      } else {
+        // Guest or Free user: Section 1 has AI score, rest is locked
+        reportUnlocked = false;
+        document.body.classList.remove('report-unlocked');
+      }
       if (typeof updatePaywallVisibility === 'function') updatePaywallVisibility();
       
       // Loader done: hide loader, restore button, smoothly scroll to results
@@ -841,7 +860,10 @@ function goNextStep(e){
     return false;
   }
   window.location.hash = 'pricingSection';
-  function applyAiToFullReport(data) {
+  return false;
+}
+
+function applyAiToFullReport(data) {
     if (!data) return;
     reportUnlocked = true;
     document.body.classList.add('report-unlocked');
@@ -877,7 +899,7 @@ function goNextStep(e){
     if (data.jd_match && Array.isArray(data.jd_match.missing_keywords) && data.jd_match.missing_keywords.length > 0) {
       const kwContainer = document.getElementById('missingKeywordsContainer');
       if (kwContainer) {
-        kwContainer.innerHTML = data.jd_match.missing_keywords.map(kw => '<button type="button" class="kw-chip miss" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:1px solid rgba(194,79,63,0.2);background:var(--red-tint);color:var(--red);padding:6px 12px;border-radius:99px;font-weight:600;font-size:12px;"><span>' + kw + '</span><span style="font-size:14px;font-weight:700;line-height:1;">+</span></button>').join('');
+        kwContainer.innerHTML = data.jd_match.missing_keywords.map(kw => '<span class="kw-chip miss">' + kw + '</span>').join('');
       }
     }
 
@@ -1222,413 +1244,375 @@ function goNextStep(e){
     </div>
     
     <section className="view" id="resultsView" style={{ display: 'block' }}>
-    
-    <div className="score-strip">
-      <div className="score-ring-sm"><svg viewBox="0 0 52 52"><circle className="trk" cx="26" cy="26" r="22"/><circle className="fil" id="miniRing" cx="26" cy="26" r="22" strokeDasharray="138" strokeDashoffset="50"/></svg><div className="score-num-sm" id="miniRingNum">64</div></div>
-      <div><div className="score-txt-title">Resume score: 64 / 100<span className="score-tag">Needs work</span></div><div className="score-txt-sub">Based on 18,000+ recent listings</div></div>
-    </div>
-
-    <div className="score-percentile">Tumhara score <b>average se upar</b> hai 2–4 yr experience wale UI/UX designers ke liye (average: 58/100).</div>
-
-    <div className="quick-links-row" style={{ display: 'none' }}>
-      <a href="#dropzone" className="quick-link">↑ Upload a different resume</a>
-      <span className="qlr-dot">•</span>
-      <a href="#jdToggle" className="quick-link" id="jdQuickLink">+ Add the job description</a>
-    </div>
-
-    <div className="exp-toggle" id="expToggle" style={{ display: 'none' }}>
-      <span className="exp-toggle-label">Yeh resume:</span>
-      <button className="exp-pill active" data-lvl="experienced" onClick={() => {(window as any).setExperience('experienced') }}>2+ yrs experience</button>
-      <button className="exp-pill" data-lvl="fresher" onClick={() => {(window as any).setExperience('fresher') }}>Fresher / 0-1 yr</button>
-    </div>
-
-    <div className="tab-bar" id="tabBar" style={{ display: 'none' }}>
-      <div className="tab-btn active" data-tab="overview" onClick={() => {(window as any).applyTab('overview') }}>Overview</div>
-      <div className="tab-btn" data-tab="fixes" onClick={() => {(window as any).applyTab('fixes') }}>Fixes</div>
-      <div className="tab-btn" data-tab="recruiter" onClick={() => {(window as any).applyTab('recruiter') }}>Recruiter</div>
-      <div className="tab-btn" data-tab="skills" onClick={() => {(window as any).applyTab('skills') }}>Skills</div>
-    </div>
-
-    <div className="unlocked-banner">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><polyline points="20 6 9 17 4 12"/></svg>
-      Full report unlocked — everything below is yours
-    </div>
-
-    <div className="paywall-card" id="paywallCard" hidden>
-      <div className="paywall-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
-      <h3>Unlock your full resume report</h3>
-      <p>You've seen the headline. Here's everything behind it — the exact fixes, the recruiter's real verdict, and a resume ready to send.</p>
-      <ul className="paywall-list">
-        <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Every weak bullet, rewritten line-by-line</li>
-        <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>The recruiter's full 6-second scan, not just the verdict</li>
-        <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Missing JD keywords + ATS parsing fixes</li>
-        <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Skills to drop, skills to learn, salary-boosting roadmap</li>
-        <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>A rewritten, ATS-optimised resume — ready to send today</li>
-      </ul>
-      <button className="paywall-cta" onClick={() => {(window as any).unlockReport() }}>Unlock full report — ₹499</button>
-      <p className="paywall-trust">One-time · or included free with the Job-Ready plan</p>
-    </div>
-
-    <div className="section" id="secOverview" data-tab="overview">
-      <div className="verdict-box" style={{'background': 'var(--tint)', 'border': '1px solid var(--line)'}}>
-        <div className="verdict-icon" style={{'background': 'var(--amber-tint)', 'color': 'var(--amber)'}}>⚠</div>
-        <div><div style={{'fontWeight': '700', 'fontSize': '14px', 'color': 'var(--ink)'}}>Borderline — 6 me se 6 recruiter 6 sec ke baad skip kar sakte hain</div><div style={{'fontSize': '11.5px', 'color': 'var(--ink-soft)', 'marginTop': '2px'}}>Wajah aur pura breakdown → Recruiter tab</div></div>
+      <div className="score-strip">
+        <div className="score-ring-sm"><svg viewBox="0 0 52 52"><circle className="trk" cx="26" cy="26" r="22"/><circle className="fil" id="miniRing" cx="26" cy="26" r="22" strokeDasharray="138" strokeDashoffset="50"/></svg><div className="score-num-sm" id="miniRingNum">64</div></div>
+        <div><div className="score-txt-title">Resume score: 64 / 100<span className="score-tag">Needs work</span></div><div className="score-txt-sub">Based on 18,000+ recent listings</div></div>
       </div>
 
-      <div className="mini-grid" style={{'marginTop': '12px'}}>
-        <div className="mini-stat-card">
-          <div className="msc-label">Benchmark</div>
-          <div className="msc-value">Top 35%</div>
-          <div className="msc-sub">2-4 yr UI/UX resumes ke beech</div>
-        </div>
-        <div className="mini-stat-card">
-          <div className="msc-label">Your edge</div>
-          <div className="msc-value">Stable tenure</div>
-          <div className="msc-sub">1.8 yr avg, koi gap nahi — isko aur highlight karo</div>
-        </div>
+      <div className="score-percentile">Tumhara score <b>average se upar</b> hai 2–4 yr experience wale UI/UX designers ke liye (average: 58/100).</div>
+
+      <div className="unlocked-banner">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><polyline points="20 6 9 17 4 12"/></svg>
+        Full report unlocked — everything below is yours
       </div>
 
-      <div className="stat-row" style={{'marginTop': '4px'}}>
-        <div className="stat-cell"><div className="stat-num" style={{'color': 'var(--red)'}}>3</div><div className="stat-lbl">skills to drop</div></div>
-        <div className="stat-cell"><div className="stat-num" style={{'color': 'var(--green)'}}>4</div><div className="stat-lbl">skills rising</div></div>
-        <div className="stat-cell"><div className="stat-num">3</div><div className="stat-lbl">quick wins</div></div>
-        <div className="stat-cell"><div className="stat-num" style={{'color': 'var(--brand-700)'}}>12.7k+</div><div className="stat-lbl">jobs unlock</div></div>
+      <div className="paywall-card" id="paywallCard" hidden>
+        <div className="paywall-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+        <h3>Unlock your full resume report</h3>
+        <p>You've seen the headline. Here's everything behind it — the exact fixes, the recruiter's real verdict, and a resume ready to send.</p>
+        <ul className="paywall-list">
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Every weak bullet, rewritten line-by-line</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>The recruiter's full 6-second scan, not just the verdict</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Missing JD keywords + ATS parsing fixes</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Skills to drop, skills to learn, salary-boosting roadmap</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>A rewritten, ATS-optimised resume — ready to send today</li>
+        </ul>
+        <button className="paywall-cta" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>Unlock full report — ₹499</button>
+        <p className="paywall-trust">One-time · or included free with the Job-Ready plan</p>
       </div>
 
-      <div className="mini-label" style={{'marginTop': '18px'}}>Sabse bada risk abhi</div>
-      <div className="hub-link" onClick={() => {(window as any).applyTab('fixes') }} style={{'cursor': 'pointer'}}>
-        <div className="hl-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
-        <div className="hl-text"><div className="hl-title">4 JD keywords missing — sabse bada rejection risk</div><div className="hl-sub">Unlock to see exactly which ones</div></div>
-        <svg className="hl-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </div>
-
-      <div className="mini-label" style={{'marginTop': '16px'}}>Dekho</div>
-      <div style={{'display': 'flex', 'flexDirection': 'column', 'gap': '8px'}}>
-        <div className="hub-link" onClick={() => {(window as any).applyTab('fixes') }} style={{'cursor': 'pointer'}}>
-          <div className="hl-icon">✍</div>
-          <div className="hl-text"><div className="hl-title">Fixes</div><div className="hl-sub">Line-by-line rewrites, ATS risk, missing keywords</div></div>
-          <svg className="hl-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+      {/* SECTION 1: OVERVIEW */}
+      <div className="section locked-premium" id="secOverview" data-tab="overview">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
         </div>
-        <div className="hub-link" onClick={() => {(window as any).applyTab('recruiter') }} style={{'cursor': 'pointer'}}>
-          <div className="hl-icon">👁</div>
-          <div className="hl-text"><div className="hl-title">Recruiter view</div><div className="hl-sub">6-sec scan, ownership language, likely interview Qs</div></div>
-          <svg className="hl-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-        <div className="hub-link" onClick={() => {(window as any).applyTab('skills') }} style={{'cursor': 'pointer'}}>
-          <div className="hl-icon">📈</div>
-          <div className="hl-text"><div className="hl-title">Skills & roadmap</div><div className="hl-sub">Drop, rising, salary, paths, quick wins</div></div>
-          <svg className="hl-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-      </div>
-    </div>
-
-    <div className="section locked-premium" id="secRecruiterScan" data-tab="recruiter">
-      <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div className="dark-card" style={{'background': 'linear-gradient(160deg, var(--brand-900) 0%, var(--brand-700) 100%)'}}>
-        <div className="section-head">
-          <div className="sec-icon" style={{'background': 'rgba(255,255,255,.12)', 'color': '#fff'}}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></div>
-          <div className="section-head-text"><h2>Recruiter's 6-second scan</h2><p>Yeh wahi verdict hai jo ek real recruiter 6 second me deta hai — resume properly padhne se pehle</p></div>
-        </div>
-
-        <div className="verdict-box">
+        <div className="verdict-box" style={{'background': 'var(--tint)', 'border': '1px solid var(--line)'}}>
           <div className="verdict-icon" style={{'background': 'var(--amber-tint)', 'color': 'var(--amber)'}}>⚠</div>
-          <div><div style={{'fontWeight': '700', 'fontSize': '14px', 'color': '#fff'}}>Borderline — 6 me se 6 recruiter 6 sec ke baad skip kar sakte hain</div><div style={{'fontSize': '11.5px', 'color': 'rgba(255,255,255,.6)', 'marginTop': '2px'}}>Reason: pehli nazar me impact numbers nahi dikhte</div></div>
+          <div><div style={{'fontWeight': '700', 'fontSize': '14px', 'color': 'var(--ink)'}}>Borderline — 6 me se 6 recruiter 6 sec ke baad skip kar sakte hain</div><div style={{'fontSize': '11.5px', 'color': 'var(--ink-soft)', 'marginTop': '2px'}}>Wajah aur pura breakdown → Recruiter tab</div></div>
         </div>
 
-        <div className="mini-label on-dark" style={{'marginTop': '16px'}}>👁 Nazar is order me jaati hai</div>
+        <div className="mini-grid" style={{'marginTop': '12px'}}>
+          <div className="mini-stat-card">
+            <div className="msc-label">Benchmark</div>
+            <div className="msc-value">Top 35%</div>
+            <div className="msc-sub">2-4 yr UI/UX resumes ke beech</div>
+          </div>
+          <div className="mini-stat-card">
+            <div className="msc-label">Your edge</div>
+            <div className="msc-value">Stable tenure</div>
+            <div className="msc-sub">1.8 yr avg, koi gap nahi — isko aur highlight karo</div>
+          </div>
+        </div>
+
+        <div className="stat-row" style={{'marginTop': '4px'}}>
+          <div className="stat-cell"><div className="stat-num" style={{'color': 'var(--red)'}}>3</div><div className="stat-lbl">skills to drop</div></div>
+          <div className="stat-cell"><div className="stat-num" style={{'color': 'var(--green)'}}>4</div><div className="stat-lbl">skills rising</div></div>
+          <div className="stat-cell"><div className="stat-num">3</div><div className="stat-lbl">quick wins</div></div>
+          <div className="stat-cell"><div className="stat-num" style={{'color': 'var(--brand-700)'}}>12.7k+</div><div className="stat-lbl">jobs unlock</div></div>
+        </div>
+
+        <div className="mini-label" style={{'marginTop': '18px'}}>Sabse bada risk abhi</div>
+        <div className="hub-link" onClick={() => {(window as any).applyTab('fixes') }} style={{'cursor': 'pointer'}}>
+          <div className="hl-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
+          <div className="hl-text"><div className="hl-title">4 JD keywords missing — sabse bada rejection risk</div><div className="hl-sub">Unlock to see exactly which ones</div></div>
+          <svg className="hl-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+
+        <div className="mini-label" style={{'marginTop': '16px'}}>Dekho</div>
         <div style={{'display': 'flex', 'flexDirection': 'column', 'gap': '8px'}}>
-          <div className="scan-row">1. Job title + company (top) — clear ✓</div>
-          <div className="scan-row">2. Last role ka pehla bullet — "responsible for" se shuru hota hai, weak ⚠</div>
-          <div className="scan-row">3. Numbers / impact — miss ho jaate hain, kahin highlight nahi ✗</div>
+          <div className="hub-link" onClick={() => {(window as any).applyTab('fixes') }} style={{'cursor': 'pointer'}}>
+            <div className="hl-icon">✍</div>
+            <div className="hl-text"><div className="hl-title">Fixes</div><div className="hl-sub">Line-by-line rewrites, ATS risk, missing keywords</div></div>
+            <svg className="hl-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+          <div className="hub-link" onClick={() => {(window as any).applyTab('recruiter') }} style={{'cursor': 'pointer'}}>
+            <div className="hl-icon">👁</div>
+            <div className="hl-text"><div className="hl-title">Recruiter view</div><div className="hl-sub">6-sec scan, ownership language, likely interview Qs</div></div>
+            <svg className="hl-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+          <div className="hub-link" onClick={() => {(window as any).applyTab('skills') }} style={{'cursor': 'pointer'}}>
+            <div className="hl-icon">📈</div>
+            <div className="hl-text"><div className="hl-title">Skills & roadmap</div><div className="hl-sub">Drop, rising, salary, paths, quick wins</div></div>
+            <svg className="hl-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 2: RECRUITER 6-SEC SCAN */}
+      <div className="section locked-premium" id="secRecruiterScan" data-tab="recruiter">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
+        <div className="dark-card" style={{'background': 'linear-gradient(160deg, var(--brand-900) 0%, var(--brand-700) 100%)'}}>
+          <div className="section-head">
+            <div className="sec-icon" style={{'background': 'rgba(255,255,255,.12)', 'color': '#fff'}}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></div>
+            <div className="section-head-text"><h2>Recruiter's 6-second scan</h2><p>Yeh wahi verdict hai jo ek real recruiter 6 second me deta hai — resume properly padhne se pehle</p></div>
+          </div>
+
+          <div className="verdict-box">
+            <div className="verdict-icon" style={{'background': 'var(--amber-tint)', 'color': 'var(--amber)'}}>⚠</div>
+            <div><div style={{'fontWeight': '700', 'fontSize': '14px', 'color': '#fff'}}>Borderline — 6 me se 6 recruiter 6 sec ke baad skip kar sakte hain</div><div style={{'fontSize': '11.5px', 'color': 'rgba(255,255,255,.6)', 'marginTop': '2px'}}>Reason: pehli nazar me impact numbers nahi dikhte</div></div>
+          </div>
+
+          <div className="mini-label on-dark" style={{'marginTop': '16px'}}>👁 Nazar is order me jaati hai</div>
+          <div style={{'display': 'flex', 'flexDirection': 'column', 'gap': '8px'}}>
+            <div className="scan-row">1. Job title + company (top) — clear ✓</div>
+            <div className="scan-row">2. Last role ka pehla bullet — "responsible for" se shuru hota hai, weak ⚠</div>
+            <div className="scan-row">3. Numbers / impact — miss ho jaate hain, kahin highlight nahi ✗</div>
+          </div>
+
+          <div style={{'marginTop': '16px'}}>
+            <div style={{'display': 'flex', 'justifyContent': 'space-between', 'fontSize': '12px', 'color': 'rgba(255,255,255,.75)', 'marginBottom': '5px'}}><span>Ownership language (drove, led, built)</span><b style={{'color': '#fff'}}>35%</b></div>
+            <div className="bar-track"><div className="bar-fill" style={{'width': '35%', 'background': 'var(--amber)'}}></div></div>
+            <div style={{'fontSize': '11px', 'color': 'rgba(255,255,255,.5)', 'marginTop': '4px'}}>7 me se sirf 2-3 bullets strong language use karte hain, baaki "responsible for / worked on" jaisa weak hai</div>
+          </div>
+          <div style={{'marginTop': '14px'}}>
+            <div style={{'display': 'flex', 'justifyContent': 'space-between', 'fontSize': '12px', 'color': 'rgba(255,255,255,.75)', 'marginBottom': '5px'}}><span>Relevance to target role</span><b style={{'color': '#fff'}}>72%</b></div>
+            <div className="bar-track"><div className="bar-fill" style={{'width': '72%', 'background': 'var(--green)'}}></div></div>
+            <div style={{'fontSize': '11px', 'color': 'rgba(255,255,255,.5)', 'marginTop': '4px'}}>Baaki 28% content (purani internship, unrelated tools) filler lag raha hai</div>
+          </div>
+          <div style={{'marginTop': '14px'}}>
+            <div style={{'display': 'flex', 'justifyContent': 'space-between', 'fontSize': '12px', 'color': 'rgba(255,255,255,.75)', 'marginBottom': '5px'}}><span>Career pattern</span><b style={{'color': '#fff'}}>Stable ✓</b></div>
+            <div style={{'fontSize': '11px', 'color': 'rgba(255,255,255,.5)'}}>Average tenure 1.8 yrs, koi unexplained gap nahi — job-hopping red flag nahi hai</div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 3: YEH MAT LIKHO, YEH LIKHO (FIXES) */}
+      <div className="section locked-premium" id="secAnalysis" data-tab="fixes">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
+        <div className="section-head">
+          <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+          <div className="section-head-text"><h2>Yeh mat likho, yeh likho</h2><p>Line-by-line fixes — wording aur structure, dono. Ye exact wahi cheezein hain jo abhi tumhara ATS score aur recruiter ka pehla impression, dono kaat rahi hain.</p></div>
+        </div>
+        <div id="fixList"></div>
+      </div>
+
+      {/* SECTION 4: JD MATCH DEEP-DIVE */}
+      <div className="section locked-premium" id="secJDMatch" data-tab="fixes">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
+        <div className="section-head">
+          <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
+          <div className="section-head-text"><h2>JD match deep-dive</h2><p>Tumne jo job description upload ki, uske against exact match — generic nahi, isi job ke liye</p></div>
+        </div>
+
+        <div style={{'display': 'flex', 'alignItems': 'center', 'gap': '14px', 'background': 'var(--tint)', 'border': '1px solid var(--line)', 'borderRadius': '16px', 'padding': '14px', 'marginTop': '16px'}}>
+          <div className="score-ring-sm"><svg viewBox="0 0 52 52"><circle className="trk" cx="26" cy="26" r="22"/><circle className="fil" cx="26" cy="26" r="22" strokeDasharray="138" strokeDashoffset="55" style={{'stroke': 'var(--amber)'}}/></svg><div className="score-num-sm">60%</div></div>
+          <div style={{'fontSize': '12px', 'color': 'var(--ink-soft)', 'lineHeight': '1.5'}}><b style={{'color': 'var(--ink)'}}>18 of 30</b> JD keywords match. Baaki 12 missing — inhe (genuinely) add karne se match 85%+ ja sakta hai.</div>
         </div>
 
         <div style={{'marginTop': '16px'}}>
-          <div style={{'display': 'flex', 'justifyContent': 'space-between', 'fontSize': '12px', 'color': 'rgba(255,255,255,.75)', 'marginBottom': '5px'}}><span>Ownership language (drove, led, built)</span><b style={{'color': '#fff'}}>35%</b></div>
-          <div className="bar-track"><div className="bar-fill" style={{'width': '35%', 'background': 'var(--amber)'}}></div></div>
-          <div style={{'fontSize': '11px', 'color': 'rgba(255,255,255,.5)', 'marginTop': '4px'}}>7 me se sirf 2-3 bullets strong language use karte hain, baaki "responsible for / worked on" jaisa weak hai</div>
-        </div>
-        <div style={{'marginTop': '14px'}}>
-          <div style={{'display': 'flex', 'justifyContent': 'space-between', 'fontSize': '12px', 'color': 'rgba(255,255,255,.75)', 'marginBottom': '5px'}}><span>Relevance to target role</span><b style={{'color': '#fff'}}>72%</b></div>
-          <div className="bar-track"><div className="bar-fill" style={{'width': '72%', 'background': 'var(--green)'}}></div></div>
-          <div style={{'fontSize': '11px', 'color': 'rgba(255,255,255,.5)', 'marginTop': '4px'}}>Baaki 28% content (purani internship, unrelated tools) filler lag raha hai</div>
-        </div>
-        <div style={{'marginTop': '14px'}}>
-          <div style={{'display': 'flex', 'justifyContent': 'space-between', 'fontSize': '12px', 'color': 'rgba(255,255,255,.75)', 'marginBottom': '5px'}}><span>Career pattern</span><b style={{'color': '#fff'}}>Stable ✓</b></div>
-          <div style={{'fontSize': '11px', 'color': 'rgba(255,255,255,.5)'}}>Average tenure 1.8 yrs, koi unexplained gap nahi — job-hopping red flag nahi hai</div>
-        </div>
-      </div>
-    </div>
-
-    <div className="section locked-premium" id="secAnalysis" data-tab="fixes">
-      <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div className="section-head">
-        <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
-        <div className="section-head-text"><h2>Yeh mat likho, yeh likho</h2><p>Line-by-line fixes — wording aur structure, dono. Ye exact wahi cheezein hain jo abhi tumhara ATS score aur recruiter ka pehla impression, dono kaat rahi hain.</p></div>
-      </div>
-      <div id="fixList"></div>
-    </div>
-
-    <div className="section locked-premium" id="secJDMatch" data-tab="fixes">
-      <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div className="section-head">
-        <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
-        <div className="section-head-text"><h2>JD match deep-dive</h2><p>Tumne jo job description upload ki, uske against exact match — generic nahi, isi job ke liye</p></div>
-      </div>
-
-      <div style={{'display': 'flex', 'alignItems': 'center', 'gap': '14px', 'background': 'var(--tint)', 'border': '1px solid var(--line)', 'borderRadius': '16px', 'padding': '14px', 'marginTop': '16px'}}>
-        <div className="score-ring-sm"><svg viewBox="0 0 52 52"><circle className="trk" cx="26" cy="26" r="22"/><circle className="fil" cx="26" cy="26" r="22" strokeDasharray="138" strokeDashoffset="55" style={{'stroke': 'var(--amber)'}}/></svg><div className="score-num-sm">60%</div></div>
-        <div style={{'fontSize': '12px', 'color': 'var(--ink-soft)', 'lineHeight': '1.5'}}><b style={{'color': 'var(--ink)'}}>18 of 30</b> JD keywords match. Baaki 12 missing — inhe (genuinely) add karne se match 85%+ ja sakta hai.</div>
-      </div>
-
-            <div style={{'marginTop': '16px'}}>
-        <div className="mini-label">Missing keywords (tap + to add to your resume)</div>
-        <div id="missingKeywordsContainer" style={{'display': 'flex', 'flexWrap': 'wrap', 'gap': '8px'}}>
-          {[
-            'Figma Variables',
-            'Design Systems',
-            'A/B Testing',
-            'Accessibility (WCAG)'
-          ].map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              className="kw-chip miss"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer',
-                border: '1px solid rgba(194,79,63,0.2)',
-                background: 'var(--red-tint)',
-                color: 'var(--red)',
-                padding: '6px 12px',
-                borderRadius: '99px',
-                fontWeight: 600,
-                fontSize: '12px',
-                transition: 'all 0.15s ease'
-              }}
-              onClick={(e) => {
-                const btn = e.currentTarget;
-                const isAdded = btn.classList.contains('hit');
-                if (!isAdded) {
-                  btn.classList.remove('miss');
-                  btn.classList.add('hit');
-                  btn.style.background = 'var(--green-tint)';
-                  btn.style.color = 'var(--green)';
-                  btn.style.borderColor = 'rgba(31,168,84,0.3)';
-                  btn.innerHTML = '<span>' + tag + '</span><span style="font-size:13px;font-weight:700;">✓ Added</span>';
-                  
-                  // Also add to candidate top skills if canvas is refreshed
-                  try {
-                    if ((window as any).CARD_CANDIDATE && !(window as any).CARD_CANDIDATE.skills.includes(tag)) {
-                      (window as any).CARD_CANDIDATE.skills.push(tag);
-                    }
-                  } catch(err){}
-                } else {
-                  btn.classList.remove('hit');
-                  btn.classList.add('miss');
-                  btn.style.background = 'var(--red-tint)';
-                  btn.style.color = 'var(--red)';
-                  btn.style.borderColor = 'rgba(194,79,63,0.2)';
-                  btn.innerHTML = '<span>' + tag + '</span><span style="font-size:14px;font-weight:700;line-height:1;">+</span>';
-                }
-              }}
-            >
-              <span>{tag}</span>
-              <span style={{ fontSize: '14px', fontWeight: 700, lineHeight: 1 }}>+</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{'marginTop': '16px'}}>
-        <div className="mini-label">ATS parsing simulation — jo bot literally padh paata hai</div>
-        <div style={{'display': 'flex', 'flexDirection': 'column', 'gap': '7px'}}>
-          <div className="parse-row ok"><span>✓</span> Work experience, dates, job titles — clean parse</div>
-          <div className="parse-row bad"><span>✗</span> Skills 2-column table me hain — ATS ignore kar deta hai, plain list me convert karo</div>
-          <div className="parse-row bad"><span>✗</span> Contact info header/footer me hai — kai ATS parsers isko skip kar dete hain</div>
-        </div>
-      </div>
-
-      <div style={{'marginTop': '16px'}}>
-        <div className="mini-label">Quantification audit — number missing bullets</div>
-        <div className="fix-card" style={{'marginTop': '0'}}>
-          <span className="fix-tag">No impact number</span>
-          <div className="fix-line fix-before">Improved onboarding flow for new users</div>
-          <div className="fix-line fix-after">Redesigned onboarding flow, cutting drop-off from [X]% to [Y]%</div>
-          <div className="fix-why">Bina number ke, recruiter impact ka andaza nahi laga paata — exact % add karo</div>
-        </div>
-        <div className="fix-card">
-          <span className="fix-tag">No impact number</span>
-          <div className="fix-line fix-before">Worked closely with engineering team on new features</div>
-          <div className="fix-line fix-after">Partnered with a 4-person eng team to ship [X] features across [Y] sprints</div>
-          <div className="fix-why">Team size / scope specify karo — "worked closely" kuch nahi batata</div>
-        </div>
-      </div>
-    </div>
-
-    <p className="sub-note" data-tab="skills" style={{'margin': '16px 16px 2px'}}>Yeh teen sections sirf <b>diagnosis</b> ke liye hain. Jo skill "+ Add to plan" karoge wo neeche "Choose your path" me syllabus ka hissa ban jaayegi — actual seekhna agle step, <b>Padhaao</b>, me hoga.</p>
-
-    <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-    <div className="section locked-premium" id="secDrop" data-tab="skills">
-      <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div className="section-head">
-        <div className="sec-icon warn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg></div>
-        <div className="section-head-text"><h2>Skills to drop</h2><p>Not showing up in job listings anymore — hatao toh calls badhengi</p></div>
-      </div>
-      <div id="outdatedList"></div>
-    </div>
-
-    <div className="section locked-premium" data-tab="skills">
-      <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div className="section-head"><h2>Fading skills</h2><p>Abhi hai, par demand gir rahi hai</p></div>
-      <div id="fadingList"></div>
-    </div>
-    </div>
-
-    
-
-    
-
-    <div className="section locked-premium" id="secATS" data-tab="fixes">
-      <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div className="fear-card">
-        <div className="fear-eyebrow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>Reality check</div>
-        <div className="fear-title">Human tumhara resume dekhta hi nahi — jab tak ATS pehle "haan" na bole</div>
-        <div className="fear-body">Top product companies aur bade startups apna pehla shortlist ek software (ATS) se karte hain, human se nahi. Formatting ya keyword match weak hai toh resume seedha reject queue me chala jaata hai — kisi recruiter ne aankh tak nahi maari. Manual review sirf unhi resumes pe hota hai jo ye pehla filter paar kar lete hain.</div>
-        <div className="fear-stat">Tumhara resume score abhi <b>64/100</b> hai — is range ke resumes ka bada hissa isi pehle filter par hi atak jaata hai, kaam ke skills hone ke baad bhi.</div>
-        <div className="fear-gap-note">Career break liya hai? Wo tumhare against nahi jaata — jab tak resume usse clearly explain kare. ATS khaali employment gaps ko bhi flag karta hai, isliye "Yeh mat likho, yeh likho" section me ek exact example diya gaya hai gap explain karne ka.</div>
-        <a className="fear-cta" href="#secAnalysis">Dekho exact fixes neeche ↓</a>
-      </div>
-    </div>
-
-    
-
-    
-
-    
-
-    
-
-    <div className="section locked-premium" id="secNextSteps" data-tab="recruiter">
-      <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div className="section-head">
-        <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg></div>
-        <div className="section-head-text"><h2>What happens after you apply</h2><p>Is resume ke saath is exact JD pe apply karoge toh kya hoga — aur interview tak pahunche toh kya poocha jaayega</p></div>
-      </div>
-
-      <div style={{'background': 'var(--tint)', 'border': '1px solid var(--line)', 'borderRadius': '16px', 'padding': '14px', 'marginBottom': '14px'}}>
-        <div className="mini-label" style={{'marginBottom': '10px'}}>Top 3 rejection reasons (agar reject hua toh)</div>
-        <div style={{'display': 'flex', 'flexDirection': 'column', 'gap': '10px'}}>
-          <div>
-            <div style={{'display': 'flex', 'justifyContent': 'space-between', 'fontSize': '12.5px', 'marginBottom': '4px'}}><span>Missing keywords (Figma Variables, A/B Testing)</span><b style={{'color': 'var(--red)'}}>42%</b></div>
-            <div className="bar-track light"><div className="bar-fill" style={{'width': '42%', 'background': 'var(--red)'}}></div></div>
+          <div className="mini-label">Missing keywords (add karo agar genuinely aata hai)</div>
+          <div id="missingKeywordsContainer" style={{'display': 'flex', 'flexWrap': 'wrap', 'gap': '7px'}}>
+            <span className="kw-chip miss">Figma Variables</span>
+            <span className="kw-chip miss">Design Systems</span>
+            <span className="kw-chip miss">A/B Testing</span>
+            <span className="kw-chip miss">Accessibility (WCAG)</span>
           </div>
-          <div>
-            <div style={{'display': 'flex', 'justifyContent': 'space-between', 'fontSize': '12.5px', 'marginBottom': '4px'}}><span>No quantified impact in bullets</span><b style={{'color': 'var(--amber)'}}>33%</b></div>
-            <div className="bar-track light"><div className="bar-fill" style={{'width': '33%', 'background': 'var(--amber)'}}></div></div>
+        </div>
+
+        <div style={{'marginTop': '16px'}}>
+          <div className="mini-label">ATS parsing simulation — jo bot literally padh paata hai</div>
+          <div style={{'display': 'flex', 'flexDirection': 'column', 'gap': '7px'}}>
+            <div className="parse-row ok"><span>✓</span> Work experience, dates, job titles — clean parse</div>
+            <div className="parse-row bad"><span>✗</span> Skills 2-column table me hain — ATS ignore kar deta hai, plain list me convert karo</div>
+            <div className="parse-row bad"><span>✗</span> Contact info header/footer me hai — kai ATS parsers isko skip kar dete hain</div>
           </div>
-          <div>
-            <div style={{'display': 'flex', 'justifyContent': 'space-between', 'fontSize': '12.5px', 'marginBottom': '4px'}}><span>ATS parsing issue (table format)</span><b style={{'color': 'var(--ink-soft)'}}>25%</b></div>
-            <div className="bar-track light"><div className="bar-fill" style={{'width': '25%', 'background': 'var(--ink-soft)'}}></div></div>
+        </div>
+
+        <div style={{'marginTop': '16px'}}>
+          <div className="mini-label">Quantification audit — number missing bullets</div>
+          <div className="fix-card" style={{'marginTop': '0'}}>
+            <span className="fix-tag">No impact number</span>
+            <div className="fix-line fix-before">Improved onboarding flow for new users</div>
+            <div className="fix-line fix-after">Redesigned onboarding flow, cutting drop-off from [X]% to [Y]%</div>
+            <div className="fix-why">Bina number ke, recruiter impact ka andaza nahi laga paata — exact % add karo</div>
+          </div>
+          <div className="fix-card">
+            <span className="fix-tag">No impact number</span>
+            <div className="fix-line fix-before">Worked closely with engineering team on new features</div>
+            <div className="fix-line fix-after">Partnered with a 4-person eng team to ship [X] features across [Y] sprints</div>
+            <div className="fix-why">Team size / scope specify karo — "worked closely" kuch nahi batata</div>
           </div>
         </div>
       </div>
 
-      <div className="mini-label">Interview me yeh 5 poocha jaayega (resume ke claims se)</div>
-      <div className="skill-row"><div><div className="skill-name">"Improved onboarding flow" — exact numbers batao?</div><div className="skill-meta">Kyunki bullet me impact quantified nahi hai</div></div></div>
-      <div className="skill-row"><div><div className="skill-name">Design system kaise maintain kiya, kitne components?</div><div className="skill-meta">JD me "Design Systems" explicitly maanga gaya hai</div></div></div>
-      <div className="skill-row"><div><div className="skill-name">Kabhi A/B test run kiya? Result kya tha?</div><div className="skill-meta">Resume me mention nahi, par role ke liye critical hai</div></div></div>
-      <div className="skill-row"><div><div className="skill-name">Eng team ke saath kaam karne ka process kya tha?</div><div className="skill-meta">"Worked closely with engineering" ka follow-up</div></div></div>
-      <div className="skill-row" style={{'borderBottom': 'none'}}><div><div className="skill-name">1.8 yrs me role switch kyun kiya?</div><div className="skill-meta">Tenure pattern se predictable follow-up</div></div></div>
-    </div>
+      <p className="sub-note" data-tab="skills" style={{'margin': '16px 16px 2px'}}>Yeh teen sections sirf <b>diagnosis</b> ke liye hain. Jo skill "+ Add to plan" karoge wo neeche "Choose your path" me syllabus ka hissa ban jaayegi — actual seekhna agle step, <b>Padhaao</b>, me hoga.</p>
 
-    
-
-    <div className="section locked-premium" id="secSalary" data-tab="skills">
-      <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div className="section-head">
-        <div className="sec-icon" style={{'fontWeight': '800', 'fontSize': '15px'}}>₹</div>
-        <div className="section-head-text"><h2>For a higher salary</h2><p>15 LPA+ ka filter — inn 3 cheezon ki wajah se hi shortlist rukti hai, baaki sab theek hone ke baad bhi</p></div>
-      </div>
-      <div id="salaryList"></div>
-    </div>
-
-<div className="section exp-hidden locked-premium" id="secLeadership" data-tab="skills">
-      <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div className="section-head">
-        <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-        <div className="section-head-text"><h2>Leadership signal check</h2><p>Senior ya leadership role target kar rahe ho? Ye 4 cheezein abhi resume me missing lag rahi hain</p></div>
-      </div>
-      <div className="leadership-list">
-        <div className="lead-check-item"><span className="lci-icon">–</span><div><b>Team size</b> — "led a team of X engineers" jaisi line kahin nahi hai</div></div>
-        <div className="lead-check-item"><span className="lci-icon">–</span><div><b>Mentoring</b> — juniors ko mentor karne ka koi mention nahi</div></div>
-        <div className="lead-check-item"><span className="lci-icon">–</span><div><b>Business impact</b> — revenue, cost ya retention jaisa business-level number missing hai</div></div>
-        <div className="lead-check-item"><span className="lci-icon">–</span><div><b>Architecture decisions</b> — system-level decisions ka ownership nahi likha</div></div>
-      </div>
-      <p className="leadership-note">Sirf senior/leadership-track ke liye relevant hai — isliye ye tabhi dikh raha hai jab "2+ yrs experience" selected ho. "Fresher / 0-1 yr" pe switch karoge toh ye section apne aap hide ho jaayega.</p>
-    </div>
-
-<div className="section flush" id="secWins" data-tab="skills">
-      <div className="dark-card">
+      {/* SECTION 5: SKILLS TO DROP */}
+      <div className="section locked-premium" id="secDrop" data-tab="skills">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
         <div className="section-head">
-          <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
-          <div className="section-head-text"><h2 id="winsTitle">3 quick wins for the next 30 days</h2><p id="winsSub">Ek path select karo upar se — usi ke hisab se yahan exact 3 wins dikhengi</p></div>
+          <div className="sec-icon warn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg></div>
+          <div className="section-head-text"><h2>Skills to drop</h2><p>Not showing up in job listings anymore — hatao toh calls badhengi</p></div>
         </div>
-        <div className="wins-empty" id="winsEmpty">Abhi tak koi path select nahi kiya. <b>"Choose your path"</b> me se ek pe tap karo, iske 3 wins turant yahan aa jaayenge.</div>
-        <div className="wins-fresher-note" id="winsFresherNote" hidden>Fresher ho? Inhe personal ya college project ke against likho, job experience ke against nahi.</div>
-        <div id="winList"></div>
+        <div id="outdatedList"></div>
       </div>
-    </div>
 
-<div className="section" id="secDownload">
-      <div className="section-head">
-        <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M12 15V3M12 15l-4-4M12 15l4-4"/><path d="M4 17v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
-        <div className="section-head-text"><h2>Your rewritten, ATS-optimised resume</h2><p>Every fix above, already applied — download it and send it today</p></div>
+      {/* SECTION 6: FADING SKILLS */}
+      <div className="section locked-premium" data-tab="skills">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
+        <div className="section-head"><h2>Fading skills</h2><p>Abhi hai, par demand gir rahi hai</p></div>
+        <div id="fadingList"></div>
       </div>
-      <div className="locked-premium" style={{'marginTop': '14px'}}>
-        <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-        <div className="share-row-stack">
-          <button className="share-btn full" id="downloadAtsBtn">⬇ Download ATS-friendly resume</button>
-          <div className="share-row" style={{'marginTop': '10px'}}>
-            <button className="share-btn" id="shareResumeBtn">↗ Share resume</button>
+
+      {/* SECTION 7: SKILLS ON THE RISE */}
+      <div className="section locked-premium" id="secRising" data-tab="skills">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
+        <div className="section-head">
+          <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+          <div className="section-head-text"><h2>Skills on the rise</h2><p>Ab seekhoge toh 2 saal aage rahoge — inn hi skills ki wajah se naye job postings me salary range upar shift hui hai</p></div>
+        </div>
+        <div id="risingList"></div>
+      </div>
+
+      {/* SECTION 8: FOR A HIGHER SALARY */}
+      <div className="section locked-premium" id="secSalary" data-tab="skills">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
+        <div className="section-head">
+          <div className="sec-icon" style={{'fontWeight': '800', 'fontSize': '15px'}}>₹</div>
+          <div className="section-head-text"><h2>For a higher salary</h2><p>15 LPA+ ka filter — inn 3 cheezon ki wajah se hi shortlist rukti hai, baaki sab theek hone ke baad bhi</p></div>
+        </div>
+        <div id="salaryList"></div>
+      </div>
+
+      {/* SECTION 9: ATS REALITY CHECK */}
+      <div className="section locked-premium" id="secATS" data-tab="fixes">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
+        <div className="fear-card">
+          <div className="fear-eyebrow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>Reality check</div>
+          <div className="fear-title">Human tumhara resume dekhta hi nahi — jab tak ATS pehle "haan" na bole</div>
+          <div className="fear-body">Top product companies aur bade startups apna pehla shortlist ek software (ATS) se karte hain, human se nahi. Formatting ya keyword match weak hai toh resume seedha reject queue me chala jaata hai — kisi recruiter ne aankh tak nahi maari. Manual review sirf unhi resumes pe hota hai jo ye pehla filter paar kar lete hain.</div>
+          <div className="fear-stat">Tumhara resume score abhi <b>64/100</b> hai — is range ke resumes ka bada hissa isi pehle filter par hi atak jaata hai, kaam ke skills hone ke baad bhi.</div>
+          <div className="fear-gap-note">Career break liya hai? Wo tumhare against nahi jaata — jab tak resume usse clearly explain kare. ATS khaali employment gaps ko bhi flag karta hai, isliye "Yeh mat likho, yeh likho" section me ek exact example diya gaya hai gap explain karne ka.</div>
+          <a className="fear-cta" href="#secAnalysis">Dekho exact fixes neeche ↓</a>
+        </div>
+      </div>
+
+      {/* SECTION 10: STAYING RELEVANT THROUGH 2030 */}
+      <div className="section locked-premium" id="secRoadmap" data-tab="skills">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
+        <div className="section-head">
+          <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h6a4 4 0 0 0 4-4V9a4 4 0 0 0-4-4H9"/></svg></div>
+          <div className="section-head-text"><h2>Staying relevant through 2030</h2><p>Future-proof roadmap — har saal jo naya seekhna padega, taaki AI ya juniors overtake na kar paayein</p></div>
+        </div>
+        <div className="timeline" id="timelineList"></div>
+      </div>
+
+      {/* SECTION 11: LEADERSHIP SIGNAL CHECK */}
+      <div className="section exp-hidden locked-premium" id="secLeadership" data-tab="skills">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
+        <div className="section-head">
+          <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <div className="section-head-text"><h2>Leadership signal check</h2><p>Senior ya leadership role target kar rahe ho? Ye 4 cheezein abhi resume me missing lag rahi hain</p></div>
+        </div>
+        <div className="leadership-list">
+          <div className="lead-check-item"><span className="lci-icon">–</span><div><b>Team size</b> — "led a team of X engineers" jaisi line kahin nahi hai</div></div>
+          <div className="lead-check-item"><span className="lci-icon">–</span><div><b>Mentoring</b> — juniors ko mentor karne ka koi mention nahi</div></div>
+          <div className="lead-check-item"><span className="lci-icon">–</span><div><b>Business impact</b> — revenue, cost ya retention jaisa business-level number missing hai</div></div>
+          <div className="lead-check-item"><span className="lci-icon">–</span><div><b>Architecture decisions</b> — system-level decisions ka ownership nahi likha</div></div>
+        </div>
+        <p className="leadership-note">Sirf senior/leadership-track ke liye relevant hai — isliye ye tabhi dikh raha hai jab "2+ yrs experience" selected ho. "Fresher / 0-1 yr" pe switch karoge toh ye section apne aap hide ho jaayega.</p>
+      </div>
+
+      {/* SECTION 12: CHOOSE YOUR PATH */}
+      <div className="section locked-premium" id="secPaths" style={{'marginBottom': '20px'}} data-tab="skills">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
+        <div className="section-head">
+          <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></div>
+          <div className="section-head-text"><h2>Choose your path</h2><p>Jo select karoge, wahi tumhara syllabus banega</p></div>
+        </div>
+        <div id="pathList"></div>
+      </div>
+
+      {/* SECTION 13: 3 QUICK WINS */}
+      <div className="section flush locked-premium" id="secWins" data-tab="skills">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
+        <div className="dark-card">
+          <div className="section-head">
+            <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+            <div className="section-head-text"><h2 id="winsTitle">3 quick wins for the next 30 days</h2><p id="winsSub">Ek path select karo upar se — usi ke hisab se yahan exact 3 wins dikhengi</p></div>
+          </div>
+          <div className="wins-empty" id="winsEmpty">Abhi tak koi path select nahi kiya. <b>"Choose your path"</b> me se ek pe tap karo, iske 3 wins turant yahan aa jaayenge.</div>
+          <div className="wins-fresher-note" id="winsFresherNote" hidden>Fresher ho? Inhe personal ya college project ke against likho, job experience ke against nahi.</div>
+          <div id="winList"></div>
+        </div>
+      </div>
+
+      {/* SECTION 14: WHAT HAPPENS AFTER YOU APPLY */}
+      <div className="section locked-premium" id="secNextSteps" data-tab="recruiter">
+        <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+          <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+        </div>
+        <div className="section-head">
+          <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg></div>
+          <div className="section-head-text"><h2>What happens after you apply</h2><p>Is resume ke saath is exact JD pe apply karoge toh kya hoga — aur interview tak pahunche toh kya poocha jaayega</p></div>
+        </div>
+
+        <div style={{'background': 'var(--tint)', 'border': '1px solid var(--line)', 'borderRadius': '16px', 'padding': '14px', 'marginBottom': '14px'}}>
+          <div className="mini-label" style={{'marginBottom': '10px'}}>Top 3 rejection reasons (agar reject hua toh)</div>
+          <div style={{'display': 'flex', 'flexDirection': 'column', 'gap': '10px'}}>
+            <div>
+              <div style={{'display': 'flex', 'justifyContent': 'space-between', 'fontSize': '12.5px', 'marginBottom': '4px'}}><span>Missing keywords (Figma Variables, A/B Testing)</span><b style={{'color': 'var(--red)'}}>42%</b></div>
+              <div className="bar-track light"><div className="bar-fill" style={{'width': '42%', 'background': 'var(--red)'}}></div></div>
+            </div>
+            <div>
+              <div style={{'display': 'flex', 'justifyContent': 'space-between', 'fontSize': '12.5px', 'marginBottom': '4px'}}><span>No quantified impact in bullets</span><b style={{'color': 'var(--amber)'}}>33%</b></div>
+              <div className="bar-track light"><div className="bar-fill" style={{'width': '33%', 'background': 'var(--amber)'}}></div></div>
+            </div>
+            <div>
+              <div style={{'display': 'flex', 'justifyContent': 'space-between', 'fontSize': '12.5px', 'marginBottom': '4px'}}><span>ATS parsing issue (table format)</span><b style={{'color': 'var(--ink-soft)'}}>25%</b></div>
+              <div className="bar-track light"><div className="bar-fill" style={{'width': '25%', 'background': 'var(--ink-soft)'}}></div></div>
+            </div>
           </div>
         </div>
-      </div>
-      <button className="share-btn primary" style={{'width': '100%', 'marginTop': '10px'}} id="shareBtn">↗ Share score card</button>
-    </div>
 
-<div className="section locked-premium" id="secRising" data-tab="skills">
-      <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div className="section-head">
-        <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
-        <div className="section-head-text"><h2>Skills on the rise</h2><p>Ab seekhoge toh 2 saal aage rahoge — inn hi skills ki wajah se naye job postings me salary range upar shift hui hai</p></div>
+        <div className="mini-label">Interview me yeh 5 poocha jaayega (resume ke claims se)</div>
+        <div className="skill-row"><div><div className="skill-name">"Improved onboarding flow" — exact numbers batao?</div><div className="skill-meta">Kyunki bullet me impact quantified nahi hai</div></div></div>
+        <div className="skill-row"><div><div className="skill-name">Design system kaise maintain kiya, kitne components?</div><div className="skill-meta">JD me "Design Systems" explicitly maanga gaya hai</div></div></div>
+        <div className="skill-row"><div><div className="skill-name">Kabhi A/B test run kiya? Result kya tha?</div><div className="skill-meta">Resume me mention nahi, par role ke liye critical hai</div></div></div>
+        <div className="skill-row"><div><div className="skill-name">Eng team ke saath kaam karne ka process kya tha?</div><div className="skill-meta">"Worked closely with engineering" ka follow-up</div></div></div>
+        <div className="skill-row" style={{'borderBottom': 'none'}}><div><div className="skill-name">1.8 yrs me role switch kyun kiya?</div><div className="skill-meta">Tenure pattern se predictable follow-up</div></div></div>
       </div>
-      <div id="risingList"></div>
-    </div>
 
-<div className="section locked-premium" id="secRoadmap" data-tab="skills">
-      <div className="lock-badge"><div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div></div>
-      <div className="section-head">
-        <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h6a4 4 0 0 0 4-4V9a4 4 0 0 0-4-4H9"/></svg></div>
-        <div className="section-head-text"><h2>Staying relevant through 2030</h2><p>Future-proof roadmap — har saal jo naya seekhna padega, taaki AI ya juniors overtake na kar paayein</p></div>
+      {/* SECTION 15: YOUR REWRITTEN ATS-OPTIMISED RESUME */}
+      <div className="section" id="secDownload" style={{'marginBottom': '100px'}}>
+        <div className="section-head">
+          <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><path d="M12 15V3M12 15l-4-4M12 15l4-4"/><path d="M4 17v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
+          <div className="section-head-text"><h2>Your rewritten, ATS-optimised resume</h2><p>Every fix above, already applied — download it and send it today</p></div>
+        </div>
+        <div className="locked-premium" style={{'marginTop': '14px'}}>
+          <div className="lock-badge" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>
+            <div className="lock-badge-inner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Unlocks with full report</div>
+          </div>
+          <div className="share-row-stack">
+            <button className="share-btn full" id="downloadAtsBtn">⬇ Download ATS-friendly resume</button>
+            <div className="share-row" style={{'marginTop': '10px'}}>
+              <button className="share-btn" id="shareResumeBtn">↗ Share resume</button>
+            </div>
+          </div>
+        </div>
+        <button className="share-btn primary" style={{'width': '100%', 'marginTop': '10px'}} id="shareBtn">↗ Share score card</button>
       </div>
-      <div className="timeline" id="timelineList"></div>
-    </div>
 
-<div className="section" id="secPaths" style={{'marginBottom': '110px'}} data-tab="skills">
-      <div className="section-head">
-        <div className="sec-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></div>
-        <div className="section-head-text"><h2>Choose your path</h2><p>Jo select karoge, wahi tumhara syllabus banega</p></div>
+      {/* SUMMARY STICKY BAR */}
+      <div className="summary-bar" id="summaryBar" hidden>
+        <p className="summary-text" id="summaryText"></p>
+        <button className="cta" id="startBtn" style={{'marginTop': '0'}} onClick={(e) => { e.preventDefault(); if (onGoToPricing) onGoToPricing(); else if ((window as any).lucoGoToPricing) (window as any).lucoGoToPricing(); }}>Next: Choose your plan →</button>
       </div>
-      <div id="pathList"></div>
-    </div>
-
-    <div className="summary-bar" id="summaryBar" hidden>
-      <p className="summary-text" id="summaryText"></p>
-      <button className="cta" id="startBtn" style={{'marginTop': '0'}} onClick={(e) => { e.preventDefault(); if (onGoToPricing) onGoToPricing(); else if ((window as any).lucoGoToPricing) (window as any).lucoGoToPricing(); }}>Next: Choose your plan →</button>
-    </div>
-  </section>
+    </section>
 
 </div>
     </div>

@@ -2,12 +2,14 @@ import { env } from './config/env.js';
 import { initSchema } from './config/db.js';
 import { PlanModel } from './models/planModel.js';
 import { CareerPathModel } from './models/careerPathModel.js';
+import { ScraperModel } from './models/scraperModel.js';
 import app from './app.js';
 
 initSchema()
   .then(() => PlanModel.initTableAndSeed())
   .then(() => CareerPathModel.initTableAndSeed())
-  .then(() => console.log('DB, Plans, and Career Paths ready'))
+  .then(() => ScraperModel.initTables())
+  .then(() => console.log('DB, Plans, Career Paths, and Scraper Engine ready'))
   .catch((e) => console.error('DB init failed:', e.message));
 
 const server = app.listen(env.port, () => {

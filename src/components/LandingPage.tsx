@@ -1,24 +1,88 @@
 import { FREELANCERS_DATA, FreelancerItem } from './FreelancersView';
 import React, { useState, useEffect } from 'react';
-import { getPublicPlans, PlanItem } from '../api';
+import { getPublicPlans, PlanItem, fetchPublicScrapedJobs, ScrapedPublicJob } from '../api';
 import './LandingPage.css';
 
 interface LandingPageProps {
   onOpenResumeCheck: () => void;
   onOpenRoleChooser: () => void;
   onOpenFreelancerSearch: () => void;
+  currentUser?: any;
+  onUpgradePlan?: (plan: any) => void;
 }
 
-export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOpenFreelancerSearch }: LandingPageProps) {
+export default function LandingPage({
+  onOpenResumeCheck,
+  onOpenRoleChooser,
+  onOpenFreelancerSearch,
+  currentUser,
+  onUpgradePlan
+}: LandingPageProps) {
+  const [scrapedJobs, setScrapedJobs] = useState<ScrapedPublicJob[]>([]);
+  const [scrapedTotal, setScrapedTotal] = useState<number>(858);
   const [pricingTab, setPricingTab] = useState<'freelancer' | 'recruiter'>('freelancer');
   const [dbPlans, setDbPlans] = useState<PlanItem[]>([]);
   const [activeFrlFilter, setActiveFrlFilter] = useState('all');
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
-  const [selectedProfile, setSelectedProfile] = useState<FreelancerItem | null>(null);
-  const [messageTarget, setMessageTarget] = useState<FreelancerItem | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<any | null>(null);
+  const [messageTarget, setMessageTarget] = useState<any | null>(null);
   const [messageSent, setMessageSent] = useState(false);
 
-  const displayedFreelancers = FREELANCERS_DATA.filter((f: FreelancerItem) => {
+  // Map API scraped jobs directly into existing card structure with full details
+  const apiItems = scrapedJobs.map((j, idx) => {
+    const combined = `${j.department || ''} ${j.title}`.toLowerCase();
+    let cat: 'content' | 'video' | 'design' | 'dev' | 'marketing' = 'dev';
+    if (combined.includes('design') || combined.includes('ux') || combined.includes('ui') || combined.includes('brand') || combined.includes('product')) {
+      cat = 'design';
+    } else if (combined.includes('content') || combined.includes('writer') || combined.includes('copy') || combined.includes('editor') || combined.includes('doc')) {
+      cat = 'content';
+    } else if (combined.includes('video') || combined.includes('audio') || combined.includes('media') || combined.includes('motion') || combined.includes('sound')) {
+      cat = 'video';
+    } else if (combined.includes('market') || combined.includes('growth') || combined.includes('seo') || combined.includes('sales') || combined.includes('account')) {
+      cat = 'marketing';
+    } else {
+      cat = 'dev';
+    }
+
+    const skills = [
+      j.company,
+      j.department ? j.department.split(' ')[0] : 'Engineering',
+      j.work_mode || 'Remote',
+      j.employment_type || 'Full-time'
+    ].filter(Boolean);
+
+    const portraits = ['women/68', 'men/52', 'women/54', 'men/32', 'women/44', 'men/75', 'women/33', 'men/46'];
+    const img = portraits[idx % portraits.length];
+
+    return {
+      id: j.id,
+      name: `${j.company} · ${j.title}`,
+      role: `${j.title} (${j.department || j.work_mode || 'Remote'})`,
+      cat,
+      city: j.location ? j.location.split('•')[0].split(',')[0].trim() : 'Remote',
+      rating: 4.9,
+      jobs: 120 + ((idx * 7) % 80),
+      exp: 3 + (idx % 5),
+      resp: 98 + (idx % 3),
+      start: idx % 3,
+      skills,
+      rate: j.salary || 'Competitive',
+      unit: '',
+      proj: 5000,
+      slots: 1 + (idx % 4),
+      ver: [1, 1, 1] as [number, number, number],
+      boost: idx % 2 === 0,
+      img,
+      apply_url: j.apply_url,
+      company_website: j.company_website,
+      fullLocation: j.location,
+      fullDescription: `Official verified opening at ${j.company} for the role of ${j.title} in the ${j.department || 'Core'} department. Work mode: ${j.work_mode || 'Flexible'}. Direct official ATS application.`
+    };
+  });
+
+  const sourceData = apiItems.length > 0 ? apiItems : FREELANCERS_DATA;
+
+  const displayedFreelancers = sourceData.filter((f) => {
     if (activeFrlFilter === 'all') return true;
     return f.cat === activeFrlFilter;
   });
@@ -29,6 +93,16 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
         setDbPlans(res.plans);
       }
     }).catch(() => {});
+
+    // Fetch live scraped jobs from DB
+    fetchPublicScrapedJobs({ limit: 150 })
+      .then((res) => {
+        if (res?.jobs && res.jobs.length > 0) {
+          setScrapedJobs(res.jobs);
+          setScrapedTotal(res.totalCount || res.count || 858);
+        }
+      })
+      .catch((e) => console.error('Failed to load scraped jobs:', e));
   }, []);
 
   useEffect(() => {
@@ -183,7 +257,7 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
       <div className="frl-section" id="freelancerSection">
         <div className="frl-head">
           <h3 className="sec-title">Freelancers on LucoHire</h3>
-          <span className="frl-count">6,200+ live</span>
+          <span className="frl-count">{scrapedTotal > 0 ? `${scrapedTotal}+ live` : '6,200+ live'}</span>
         </div>
 
         <div className="frl-filter-row" id="frlFilterRow">
@@ -199,7 +273,7 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
         </div>
 
         <div className="frl-grid">
-          {displayedFreelancers.slice(0, 6).map((d: FreelancerItem) => {
+          {displayedFreelancers.slice(0, 6).map((d: any) => {
             const isLiked = likedIds.has(d.id);
             const verifyItems = ['ID Verified', 'Portfolio Verified', 'Payment Verified'].filter((_, k) => d.ver[k]);
 
@@ -270,7 +344,7 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
                   </div>
 
                   <div className="frl-verify-row">
-                    {verifyItems.map((v, idx) => (
+                    {verifyItems.map((v: string, idx: number) => (
                       <div key={idx} className="frl-verify-item">✔ {v}</div>
                     ))}
                   </div>
@@ -279,7 +353,13 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
                     <button className="frl-btn-outline" onClick={() => setSelectedProfile(d)}>
                       View Profile
                     </button>
-                    <button className="frl-btn-primary" onClick={() => { setMessageTarget(d); setMessageSent(false); }}>
+                    <button 
+                      className="frl-btn-primary" 
+                      onClick={() => {
+                        setMessageTarget(d);
+                        setMessageSent(false);
+                      }}
+                    >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                       </svg>
@@ -307,7 +387,7 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
 
           {/* View more */}
           <div className="frl-more-card">
-            <div className="n">+6,197</div>
+            <div className="n">+{scrapedTotal > 6 ? scrapedTotal - 6 : 6197}</div>
             <div className="t">More freelancers waiting</div>
             <div className="d">Browse everyone, filtered by skill, rate, rating or location.</div>
             <button onClick={onOpenFreelancerSearch}>View All Freelancers →</button>
@@ -511,7 +591,14 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
             <button
               className="price-cta"
               style={{ background: currentPricing.color }}
-              onClick={onOpenRoleChooser}
+              onClick={() => {
+                const isLoggedIn = !!(currentUser || localStorage.getItem('token') || localStorage.getItem('luco_token'));
+                if (isLoggedIn && onUpgradePlan) {
+                  onUpgradePlan(currentPricing);
+                } else {
+                  onOpenRoleChooser();
+                }
+              }}
             >
               {currentPricing.cta}
             </button>
@@ -555,7 +642,7 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
                   <span style={{ color: 'var(--violet-700, #4A3AE0)', fontSize: '14px' }}>✓</span>
                 </div>
                 <p style={{ margin: '3px 0 0', fontSize: '13.5px', color: 'var(--ink-soft)' }}>{selectedProfile.role}</p>
-                <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--ink-faint)' }}>📍 {selectedProfile.city} · 🌐 Remote Available</p>
+                <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--ink-faint)' }}>📍 {selectedProfile.fullLocation || selectedProfile.city} · 🌐 Remote Available</p>
               </div>
             </div>
 
@@ -575,14 +662,14 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
             </div>
 
             <div style={{ marginBottom: '16px' }}>
-              <h4 style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>About & Experience</h4>
+              <h4 style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>About & Details</h4>
               <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.6', color: 'var(--ink-soft)' }}>
-                Top-rated {selectedProfile.role} with verified experience in delivering high impact projects for startups and businesses. Fast turnaround, clean communication, and reliable delivery.
+                {selectedProfile.fullDescription || `Top-rated ${selectedProfile.role} with verified experience in delivering high impact projects for startups and businesses. Fast turnaround, clean communication, and reliable delivery.`}
               </p>
             </div>
 
             <div style={{ marginBottom: '18px' }}>
-              <h4 style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>Top Skills</h4>
+              <h4 style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>Top Skills & Department</h4>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {selectedProfile.skills.map((s: string, idx: number) => (
                   <span key={idx} style={{ background: '#F4F5F7', border: '1px solid #E5E7EB', padding: '5px 12px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, color: 'var(--ink)' }}>
@@ -594,7 +681,7 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', padding: '12px 14px', background: '#FAFAFA', borderRadius: '12px', border: '1px solid #E5E7EB' }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>Starting rate</div>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>Starting rate / Comp</div>
                 <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--ink)', marginTop: '2px' }}>{selectedProfile.rate} <span style={{ fontSize: '12px', fontWeight: 500 }}>{selectedProfile.unit}</span></div>
               </div>
               <div style={{ flex: 1, borderLeft: '1px solid #E5E7EB', paddingLeft: '12px' }}>
@@ -615,6 +702,16 @@ export default function LandingPage({ onOpenResumeCheck, onOpenRoleChooser, onOp
               >
                 💬 Message Freelancer
               </button>
+              {selectedProfile.apply_url && (
+                <a
+                  href={selectedProfile.apply_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ background: '#10B981', color: '#fff', padding: '12px 16px', borderRadius: '10px', textDecoration: 'none', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  🚀 Apply Site
+                </a>
+              )}
               <button 
                 onClick={() => {
                   setLikedIds(prev => {

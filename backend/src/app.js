@@ -7,6 +7,7 @@ import planRoutes from './routes/planRoutes.js';
 import careerPathRoutes from './routes/careerPathRoutes.js';
 import resumeSkillRoutes from './routes/resumeSkillRoutes.js';
 import resumeAnalysisRoutes from './routes/resumeAnalysisRoutes.js';
+import scraperRoutes from './routes/scraperRoutes.js';
 import { errorHandler } from './middleware/auth.js';
 
 const app = express();
@@ -28,6 +29,7 @@ app.use('/api/plans', planRoutes);
 app.use('/api/paths', careerPathRoutes);
 app.use('/api/skills', resumeSkillRoutes);
 app.use('/api/resume', resumeAnalysisRoutes);
+app.use('/api/scraper', scraperRoutes);
 
 app.use(errorHandler);
 

@@ -66,7 +66,9 @@ import {
   Plus,
   Edit2,
   Check,
+  Globe,
 } from 'lucide-react';
+import AdminScraperView from './AdminScraperView';
 
 interface AdminPortalProps {
   onBackToSite: () => void;
@@ -90,7 +92,7 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Dashboard & Users list states
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'candidates' | 'recruiters' | 'plans' | 'paths'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'candidates' | 'recruiters' | 'plans' | 'paths' | 'scraper'>('dashboard');
   const [users, setUsers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({
     totalCandidates: 0,
@@ -1172,6 +1174,25 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
               <span>Career Paths</span>
             </div>
             <span className="admin-nav-count">{careerPaths.length}</span>
+          </button>
+
+          <div className="admin-menu-section-label" style={{ marginTop: 14 }}>Automation</div>
+
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'scraper' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('scraper');
+              setIsMobileSidebarOpen(false);
+            }}
+          >
+            <div className="admin-nav-left">
+              <span className="admin-nav-icon-badge" style={{ background: 'var(--lavender-50)', color: 'var(--violet-700)' }}>
+                <Globe size={15} />
+              </span>
+              <span>Job Scraper v2</span>
+            </div>
+            <span className="admin-nav-count" style={{ background: '#EAFBF1', color: '#16A34A', fontSize: 10, fontWeight: 700 }}>LIVE</span>
           </button>
         </nav>
 
@@ -2425,6 +2446,13 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
                   </div>
                 )
               )}
+            </div>
+          ) : activeTab === 'scraper' ? (
+            /* ========================================================
+               VIEW: UNIVERSAL JOB SCRAPING ENGINE V2
+               ======================================================== */
+            <div className="admin-plans-container" style={{ padding: '0 4px' }}>
+              <AdminScraperView />
             </div>
           ) : (
             /* ========================================================
