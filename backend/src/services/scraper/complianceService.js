@@ -6,7 +6,7 @@
 const robotsCache = new Map(); // domain -> { rules, crawlDelay, timestamp }
 
 export const ComplianceService = {
-  USER_AGENT: 'LucoHireBot/1.0 (+https://lucohire.com/bot; bot@lucohire.com)',
+  USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 (LucoHireBot/2.0; +https://lucohire.com/bot; bot@lucohire.com)',
 
   /**
    * SSRF Protection: Blocks requests to localhost, internal IPs, cloud metadata endpoints
@@ -49,7 +49,7 @@ export const ComplianceService = {
 
     const robotsUrl = `https://${domain}/robots.txt`;
     if (!this.isSafeUrl(robotsUrl)) {
-      return { allowed: false, crawlDelay: 0, reason: 'Unsafe domain' };
+      return { allowed: false, crawlDelay: 0, disallows: [], sitemaps: [], reason: 'Unsafe domain' };
     }
 
     try {
@@ -64,7 +64,7 @@ export const ComplianceService = {
 
       if (!res.ok) {
         // If 404 or no robots.txt, scraping standard says it's generally allowed
-        const ruleObj = { allowed: true, crawlDelay: 1, disallows: [], timestamp: Date.now() };
+        const ruleObj = { allowed: true, crawlDelay: 1, disallows: [], sitemaps: [], timestamp: Date.now() };
         robotsCache.set(domain, ruleObj);
         return ruleObj;
       }
@@ -72,6 +72,7 @@ export const ComplianceService = {
       const text = await res.text();
       const lines = text.split('\n').map(l => l.trim());
       const disallows = [];
+      const sitemaps = [];
       let crawlDelay = 1;
       let appliesToUs = false;
 
@@ -85,16 +86,27 @@ export const ComplianceService = {
         } else if (appliesToUs && /^Crawl-delay:\s*/i.test(line)) {
           const delay = parseInt(line.replace(/^Crawl-delay:\s*/i, ''), 10);
           if (!isNaN(delay)) crawlDelay = Math.max(delay, 1);
+        } else if (/^Sitemap:\s*/i.test(line)) {
+          const sm = line.replace(/^Sitemap:\s*/i, '').trim();
+          if (sm && this.isSafeUrl(sm)) sitemaps.push(sm);
         }
       }
 
-      const ruleObj = { allowed: true, crawlDelay, disallows, timestamp: Date.now() };
+      const ruleObj = { allowed: true, crawlDelay, disallows, sitemaps, timestamp: Date.now() };
       robotsCache.set(domain, ruleObj);
       return ruleObj;
     } catch (err) {
       // Network error or timeout: allow with conservative delay
-      return { allowed: true, crawlDelay: 2, disallows: [], timestamp: Date.now() };
+      return { allowed: true, crawlDelay: 2, disallows: [], sitemaps: [], timestamp: Date.now() };
     }
+  },
+
+  /**
+   * Retrieves any sitemaps discovered from robots.txt
+   */
+  async getRobotsSitemaps(domain) {
+    const rules = await this.getRobotsRules(domain);
+    return rules.sitemaps || [];
   },
 
   /**

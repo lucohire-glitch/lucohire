@@ -89,17 +89,25 @@ export default function AdminScraperView() {
 
   const handleAddCompany = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCompanyName.trim()) return;
-    setIsSavingCompany(true);
     const compName = newCompanyName.trim();
+    const compWeb = newCompanyWebsite.trim();
+    const compMail = newCompanyEmail.trim();
+
+    if (!compName && !compWeb && !compMail) {
+      showToast('Please provide at least a company name, website, or email');
+      return;
+    }
+
+    setIsSavingCompany(true);
     try {
       const res = await addScraperCompany({
-        name: compName,
-        website: newCompanyWebsite.trim(),
-        contactEmail: newCompanyEmail.trim(),
+        name: compName || compWeb || compMail,
+        website: compWeb,
+        contactEmail: compMail,
       });
       if (res && res.success) {
-        showToast(`Company "${compName}" added! Scanning...`);
+        const addedName = res.company?.name || compName || 'Company';
+        showToast(`Company "${addedName}" added! Scanning active openings...`);
         setIsAddModalOpen(false);
         const compId = res.company?.id;
         setNewCompanyName('');
@@ -1030,21 +1038,20 @@ export default function AdminScraperView() {
             boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
           }}>
             <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 8px', color: 'var(--ink, #1C1733)' }}>
-              Add Company to Scraper
+              Add / Scan Company
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--ink-soft, #75708F)', margin: '0 0 18px' }}>
-              The engine will automatically discover its website, careers page, contact email, and active jobs.
+              Enter any combination of <b>Name</b>, <b>Website</b>, or <b>Email</b>. The engine automatically connects to the company's real career portal (Workday, Greenhouse, Lever, Ashby, XML Sitemaps) and scans live jobs.
             </p>
 
             <form onSubmit={handleAddCompany} style={{ display: 'grid', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px', color: '#1C1733' }}>
-                  Company Name *
+                  Company Name
                 </label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. Stripe, Notion, Siemens"
+                  placeholder="e.g. Accenture, Stripe, Siemens"
                   value={newCompanyName}
                   onChange={(e) => setNewCompanyName(e.target.value)}
                   style={{
@@ -1060,11 +1067,11 @@ export default function AdminScraperView() {
 
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px', color: '#1C1733' }}>
-                  Official Website (Optional)
+                  Company Website (or Career URL)
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. stripe.com (will auto-find if empty)"
+                  placeholder="e.g. accenture.com (auto-discovered if empty)"
                   value={newCompanyWebsite}
                   onChange={(e) => setNewCompanyWebsite(e.target.value)}
                   style={{
@@ -1080,11 +1087,11 @@ export default function AdminScraperView() {
 
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px', color: '#1C1733' }}>
-                  Contact Email (Optional)
+                  Careers / Contact Email
                 </label>
                 <input
                   type="email"
-                  placeholder="e.g. careers@company.com (will auto-extract if empty)"
+                  placeholder="e.g. careers@accenture.com (auto-extracted if empty)"
                   value={newCompanyEmail}
                   onChange={(e) => setNewCompanyEmail(e.target.value)}
                   style={{

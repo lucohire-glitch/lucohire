@@ -1,19 +1,30 @@
 import { ScraperModel } from '../models/scraperModel.js';
 import { ScraperEngine } from '../services/scraper/scraperEngine.js';
+import { DiscoveryService } from '../services/scraper/discoveryService.js';
 
 export const ScraperController = {
   // Add single company
   async addCompany(req, res) {
     const { name, website, careerUrl, contactEmail, country } = req.body;
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: 'Company name is required' });
-    }
-    const company = await ScraperModel.createOrFindCompany({
+    
+    // Normalize input from company name, website, or email
+    const norm = DiscoveryService.normalizeCompanyInput({
       name,
       website,
       careerUrl,
       contactEmail,
-      country,
+    });
+
+    if (!norm.name || norm.name === 'Unnamed Company') {
+      return res.status(400).json({ error: 'Please provide at least a company name, official website, or email' });
+    }
+
+    const company = await ScraperModel.createOrFindCompany({
+      name: norm.name,
+      website: norm.website,
+      careerUrl: norm.careerUrl,
+      contactEmail: norm.contactEmail,
+      country: country || '',
     });
     return res.status(201).json({ success: true, company });
   },
