@@ -659,12 +659,12 @@ export default function AdminScraperView() {
         </div>
 
         <div style={{ background: '#FFFFFF', border: '1px solid #ECEAF9', borderRadius: '14px', padding: '16px' }}>
-          <div style={{ fontSize: '12px', color: 'var(--ink-soft, #75708F)', fontWeight: 600 }}>Live Extracted Jobs</div>
+          <div style={{ fontSize: '12px', color: 'var(--ink-soft, #75708F)', fontWeight: 600 }}>Total Live Openings</div>
           <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--violet-700, #4A3AE0)', marginTop: '4px' }}>
-            {jobs.filter(j => j.is_published && j.status === 'ACTIVE').length}
+            {companies.reduce((sum, c) => sum + (c.latest_reported_count || c.active_jobs_count || 0), 0).toLocaleString()}
           </div>
           <div style={{ fontSize: '11px', color: 'var(--ink-soft, #75708F)', marginTop: '4px' }}>
-            Total scraped: {jobs.length}
+            {jobs.length} jobs indexed &amp; verified
           </div>
         </div>
 
@@ -759,7 +759,7 @@ export default function AdminScraperView() {
                 <th style={{ padding: '12px 16px' }}>ATS / Extraction</th>
                 <th style={{ padding: '12px 16px' }}>Public Contact Email</th>
                 <th style={{ padding: '12px 16px' }}>Access Status</th>
-                <th style={{ padding: '12px 16px' }}>Active Jobs</th>
+                <th style={{ padding: '12px 16px' }}>Official Portal Jobs</th>
                 <th style={{ padding: '12px 16px' }}>Actions</th>
               </tr>
             </thead>
@@ -822,10 +822,12 @@ export default function AdminScraperView() {
                       </span>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--ink, #1C1733)' }}>
-                        {c.active_jobs_count || 0} jobs
+                      <div style={{ fontWeight: 700, color: 'var(--ink, #1C1733)', fontSize: '13.5px' }}>
+                        {c.latest_reported_count
+                          ? `${c.latest_reported_count.toLocaleString()} jobs`
+                          : `${c.active_jobs_count || 0} jobs`}
                       </div>
-                      {((c.latest_snapshot_data?.duplicates_count > 0) || (c.latest_reported_count && c.latest_reported_count > (c.active_jobs_count || 0))) && (
+                      {Boolean(c.latest_snapshot_data?.duplicates_count && c.latest_snapshot_data.duplicates_count > 0) && (
                         <button
                           type="button"
                           onClick={() => {
@@ -849,7 +851,7 @@ export default function AdminScraperView() {
                           title="Click to view duplicate listings audit report"
                         >
                           <AlertTriangle size={11} color="#B45309" />
-                          {c.latest_snapshot_data?.duplicates_count || (c.latest_reported_count - (c.active_jobs_count || 0))} Duplicates on portal
+                          {c.latest_snapshot_data.duplicates_count} Duplicates on portal
                         </button>
                       )}
                     </td>
