@@ -145,6 +145,16 @@ export const DiscoveryService = {
       return { ats: 'Salesforce Careers', token: 'salesforce' };
     }
 
+    // 0.1 Oracle Cloud HCM / Fusion Candidate Experience (Dell, Siemens, Marriott, FedEx, etc.)
+    if (combinedLower.includes('candidateexperience') || combinedLower.includes('hcmui') || combinedLower.includes('hcmrestapi')) {
+      const match = combined.match(/https?:\/\/[a-zA-Z0-9_.-]+\/hcmUI\/CandidateExperience\/[a-zA-Z0-9_/.\-%?&=#]*/i);
+      return {
+        ats: 'Oracle Cloud HCM',
+        token: 'OracleHCM',
+        oracleUrl: match ? match[0] : (url && url.includes('hcmUI') ? url : null)
+      };
+    }
+
     // 1. Workday (Universal enterprise ATS)
     if (combinedLower.includes('myworkdayjobs.com')) {
       const wdMatch = combined.match(/https?:\/\/([a-zA-Z0-9_.-]+)\.myworkdayjobs\.com\/([a-zA-Z0-9_/%-]+)/i);

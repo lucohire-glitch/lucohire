@@ -209,8 +209,94 @@ export const ATSAdapters = {
   },
 
   /**
+   * Adapter: Oracle Cloud HCM / Fusion Candidate Experience
+   * Used universally by Dell, Siemens, Marriott, FedEx, Hilton, JPMorgan, etc.
+   */
+  async extractOracleHCM(candidateExperienceUrl, companyName, options = {}) {
+    let host = '';
+    let siteNumber = 'CX_1001';
+
+    try {
+      const u = new URL(candidateExperienceUrl);
+      host = u.hostname;
+      const match = candidateExperienceUrl.match(/siteNumber=([A-Za-z0-9_]+)/i);
+      if (match) siteNumber = match[1];
+    } catch {
+      throw new Error(`Invalid Oracle HCM URL: ${candidateExperienceUrl}`);
+    }
+
+    if (siteNumber === 'CX_1001') {
+      try {
+        const pageRes = await ComplianceService.safeFetch(candidateExperienceUrl, { timeout: 8000 });
+        if (pageRes.ok) {
+          const html = await pageRes.text();
+          const sm = html.match(/siteNumber=([A-Za-z0-9_]+)/i);
+          if (sm) siteNumber = sm[1];
+        }
+      } catch {}
+    }
+
+    const keyword = (options.keyword || options.title || options.search || '').trim();
+    const location = (options.location || '').trim();
+
+    let finderQuery = `finder=findReqs;siteNumber=${siteNumber}`;
+    if (keyword) finderQuery += `,keyword=${encodeURIComponent(keyword)}`;
+    if (location) finderQuery += `,location=${encodeURIComponent(location)}`;
+
+    const apiUrl = `https://${host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&${finderQuery}&expand=requisitionList&limit=50&offset=0`;
+    const res = await ComplianceService.safeFetch(apiUrl, {
+      headers: { 'Accept': 'application/json' },
+      timeout: 12000,
+    });
+
+    if (!res.ok) {
+      throw new Error(`Oracle HCM API responded with ${res.status}`);
+    }
+
+    const data = await res.json();
+    const searchItem = data.items?.[0] || {};
+    const totalReported = searchItem.TotalJobsCount || 0;
+    const rawJobs = searchItem.requisitionList || [];
+
+    return {
+      extractionMethod: 'Oracle Cloud HCM API',
+      reportedCount: totalReported,
+      jobs: rawJobs.map(j => {
+        const reqId = j.Id || String(Math.random().toString(36).substring(7));
+        const loc = j.PrimaryLocation || 'Multiple Locations';
+        const jobUrl = `https://${host}/hcmUI/CandidateExperience/en/sites/careers/job/${reqId}`;
+        return {
+          external_job_id: reqId,
+          title: j.Title || 'Open Position',
+          location: loc,
+          locations: [loc],
+          work_mode: (j.WorkplaceType || '').toLowerCase().includes('remote') || loc.toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+          employment_type: j.WorkerType || j.ContractType || 'Full-time',
+          department: j.JobFamily || j.JobFunction || j.BusinessUnit || 'General',
+          experience: '',
+          salary: '',
+          skills: [],
+          description: j.ShortDescriptionStr || `Official opening at ${companyName} for ${j.Title}. Requisition ID: ${reqId}.`,
+          original_job_url: jobUrl,
+          apply_url: jobUrl,
+          ats_provider: 'Oracle Cloud HCM',
+          confidence_score: 97,
+        };
+      }),
+      strategyMemory: {
+        s: 'Oracle Cloud HCM',
+        host,
+        siteNumber,
+        totalFound: totalReported,
+        v: '1.0.0',
+        chk: new Date().toISOString(),
+      }
+    };
+  },
+
+  /**
    * Adapter: Workday CXS (Public Universal API)
-   * Used by Accenture, IBM, Adobe, Target, Walmart, Nvidia, HP, Dell, etc.
+   * Used by Accenture, IBM, Adobe, Target, Walmart, Nvidia, HP, etc.
    */
   async extractWorkday(workdayUrl, companyName, maxPages = 5, options = {}) {
     if (!workdayUrl || !workdayUrl.includes('myworkdayjobs.com')) {

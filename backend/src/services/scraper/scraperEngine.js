@@ -193,6 +193,21 @@ export const ScraperEngine = {
         }
       }
 
+      // Tier 0.6: Oracle Cloud HCM / Candidate Experience (Dell, Siemens, FedEx, Marriott, etc.)
+      if (!extractionSuccess && (detectedInfo.oracleUrl || (careerUrl && careerUrl.includes('CandidateExperience')) || atsLower.includes('oracle') || company.name.toLowerCase().includes('dell'))) {
+        try {
+          const oracleTarget = detectedInfo.oracleUrl || careerUrl || 'https://enterpriseplatform.dell.com/hcmUI/CandidateExperience/en/sites/careers';
+          extractedResult = await ATSAdapters.extractOracleHCM(oracleTarget, company.name, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = 'Oracle Cloud HCM';
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'Oracle Cloud HCM' });
+          }
+        } catch (err) {
+          console.warn(`Oracle HCM error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
       // 1. Try Workday
       if (!extractionSuccess && targetWorkday && targetWorkday.includes('myworkdayjobs.com')) {
         try {
