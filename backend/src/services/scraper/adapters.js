@@ -285,23 +285,28 @@ export const ATSAdapters = {
         totalReported = firstData?.data?.count || pos0.length;
         allPositions.push(...pos0);
 
-        // Fetch all active jobs up to total reported (all 845 HP jobs in parallel)
-        const maxJobsToFetch = Math.min(totalReported, 1000);
+        // Fetch all active jobs up to total reported without artificial limit
+        const maxJobsToFetch = totalReported;
         const offsets = [];
         for (let offset = 10; offset < maxJobsToFetch; offset += 10) {
           offsets.push(offset);
         }
 
         if (offsets.length > 0) {
-          const results = await Promise.allSettled(
-            offsets.map(offset => {
-              const u = `https://${host}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=${offset}&sort_by=timestamp${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
-              return ComplianceService.safeFetch(u, { headers: { 'Accept': 'application/json' }, timeout: 8000 }).then(r => r.json());
-            })
-          );
-          for (const r of results) {
-            if (r.status === 'fulfilled' && r.value?.data?.positions) {
-              allPositions.push(...r.value.data.positions);
+          // Fetch in polite concurrent batches of 25 to respect compliance and keep speed fast
+          const BATCH_SIZE = 25;
+          for (let b = 0; b < offsets.length; b += BATCH_SIZE) {
+            const batch = offsets.slice(b, b + BATCH_SIZE);
+            const results = await Promise.allSettled(
+              batch.map(offset => {
+                const u = `https://${host}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=${offset}&sort_by=timestamp${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
+                return ComplianceService.safeFetch(u, { headers: { 'Accept': 'application/json' }, timeout: 8000 }).then(r => r.json());
+              })
+            );
+            for (const r of results) {
+              if (r.status === 'fulfilled' && r.value?.data?.positions) {
+                allPositions.push(...r.value.data.positions);
+              }
             }
           }
         }
@@ -334,10 +339,11 @@ export const ATSAdapters = {
       }
     }
 
-    // Fetch live full job descriptions directly from Eightfold position_details endpoint
+    // Fetch live full job descriptions directly from Eightfold position_details endpoint for top positions
     const detailsMap = new Map();
-    const DETAIL_CHUNK_SIZE = 35;
-    for (let i = 0; i < allPositions.length; i += DETAIL_CHUNK_SIZE) {
+    const DETAIL_CHUNK_SIZE = 25;
+    const maxDetailFetches = Math.min(allPositions.length, 100);
+    for (let i = 0; i < maxDetailFetches; i += DETAIL_CHUNK_SIZE) {
       const chunk = allPositions.slice(i, i + DETAIL_CHUNK_SIZE);
       const detailResults = await Promise.allSettled(
         chunk.map(pos => {

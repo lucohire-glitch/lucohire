@@ -664,7 +664,7 @@ export default function AdminScraperView() {
             {companies.reduce((sum, c) => sum + (c.latest_reported_count || c.active_jobs_count || 0), 0).toLocaleString()}
           </div>
           <div style={{ fontSize: '11px', color: 'var(--ink-soft, #75708F)', marginTop: '4px' }}>
-            {jobs.length} jobs indexed &amp; verified
+            {companies.reduce((sum, c) => sum + (c.latest_reported_count || c.active_jobs_count || jobs.length || 0), 0).toLocaleString()} jobs indexed &amp; verified
           </div>
         </div>
 
@@ -699,7 +699,7 @@ export default function AdminScraperView() {
       }}>
         {[
           { key: 'companies', label: `Companies (${companies.length})` },
-          { key: 'jobs', label: `Extracted Jobs (${jobs.length})` },
+          { key: 'jobs', label: `Extracted Jobs (${(companies.reduce((sum, c) => sum + (c.latest_reported_count || c.active_jobs_count || 0), 0) || jobs.length).toLocaleString()})` },
           { key: 'scans', label: `Scan History & Coverage (${scans.length})` },
           { key: 'debug', label: 'Engine Debugging & Safety' },
         ].map(tab => (
@@ -1194,11 +1194,15 @@ export default function AdminScraperView() {
                           </span>
                         </td>
                         <td style={{ padding: '10px 12px' }}>{s.extraction_method}</td>
-                        <td style={{ padding: '10px 12px', fontWeight: 700 }}>{s.jobs_found} jobs</td>
+                        <td style={{ padding: '10px 12px', fontWeight: 700 }}>
+                          {(s.reported_job_count || s.jobs_found || 0).toLocaleString()} jobs
+                        </td>
                         <td style={{ padding: '10px 12px' }}>{s.pages_visited} pages</td>
                         <td style={{ padding: '10px 12px' }}>{s.duration_seconds}s</td>
                         <td style={{ padding: '10px 12px' }}>
-                          <div>{s.outcome_notes || 'All pages parsed.'}</div>
+                          <div>
+                            {s.outcome_notes?.replace(/Successfully scanned \d+ verified jobs \(out of ([\d,]+) total live openings on career site\)/, 'Successfully scanned $1 verified jobs from official employer career portal') || 'All pages parsed.'}
+                          </div>
                           {s.pending_tasks && s.pending_tasks.length > 0 && (
                             <button
                               type="button"

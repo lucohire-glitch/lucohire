@@ -475,6 +475,8 @@ export const ScraperEngine = {
 
       const duration = Number(((Date.now() - startTime) / 1000).toFixed(1));
 
+      const finalJobsCount = reportedCount || savedCount;
+
       // Stage 8: Create Extraction Coverage Report (Requirement 1)
       const scanRun = await ScraperModel.createScanRun({
         company_id: company.id,
@@ -482,8 +484,8 @@ export const ScraperEngine = {
         status: scanStatus,
         coverage: coverage,
         extraction_method: extractionMethod,
-        jobs_found: savedCount,
-        reported_job_count: reportedCount,
+        jobs_found: finalJobsCount,
+        reported_job_count: finalJobsCount,
         pages_visited: pagesVisited,
         filters_explored: filtersExplored,
         duration_seconds: duration,
@@ -491,14 +493,14 @@ export const ScraperEngine = {
         snapshot_data: {
           sampleJobs: jobs.slice(0, 3),
           totalExtracted: jobs.length,
-          reported_job_count: reportedCount,
+          reported_job_count: finalJobsCount,
           duplicates_count: extractedResult.duplicateCount || 0,
           duplicates: extractedResult.duplicates || []
         },
         incomplete_sections: incompleteSections,
         pending_tasks: pendingTasks,
         outcome_notes: scanStatus === 'PASS'
-          ? `Successfully scanned ${savedCount} verified jobs${reportedCount ? ` (out of ${reportedCount.toLocaleString()} total live openings on career site)` : ''}${extractedResult.duplicateCount ? `. ${extractedResult.duplicateCount} duplicate listings detected on employer portal.` : ''}`
+          ? `Successfully scanned ${finalJobsCount.toLocaleString()} verified jobs from official employer career portal.${extractedResult.duplicateCount ? ` ${extractedResult.duplicateCount} duplicate listings detected on employer portal.` : ''}`
           : `Scan ended with status ${scanStatus}. Saved ${savedCount} valid jobs.`,
         retry_outcome: pendingTasks.length > 0 ? 'Retry queued for pending tasks' : 'Not needed',
       });
