@@ -72,6 +72,7 @@ export const ComplianceService = {
       const text = await res.text();
       const lines = text.split('\n').map(l => l.trim());
       const disallows = [];
+      const allows = [];
       const sitemaps = [];
       let crawlDelay = 1;
       let appliesToUs = false;
@@ -83,6 +84,9 @@ export const ComplianceService = {
         } else if (appliesToUs && /^Disallow:\s*/i.test(line)) {
           const path = line.replace(/^Disallow:\s*/i, '').trim();
           if (path) disallows.push(path);
+        } else if (appliesToUs && /^Allow:\s*/i.test(line)) {
+          const path = line.replace(/^Allow:\s*/i, '').trim();
+          if (path) allows.push(path);
         } else if (appliesToUs && /^Crawl-delay:\s*/i.test(line)) {
           const delay = parseInt(line.replace(/^Crawl-delay:\s*/i, ''), 10);
           if (!isNaN(delay)) crawlDelay = Math.max(delay, 1);
@@ -92,12 +96,12 @@ export const ComplianceService = {
         }
       }
 
-      const ruleObj = { allowed: true, crawlDelay, disallows, sitemaps, timestamp: Date.now() };
+      const ruleObj = { allowed: true, crawlDelay, disallows, allows, sitemaps, timestamp: Date.now() };
       robotsCache.set(domain, ruleObj);
       return ruleObj;
     } catch (err) {
       // Network error or timeout: allow with conservative delay
-      return { allowed: true, crawlDelay: 2, disallows: [], sitemaps: [], timestamp: Date.now() };
+      return { allowed: true, crawlDelay: 2, disallows: [], allows: [], sitemaps: [], timestamp: Date.now() };
     }
   },
 
@@ -111,17 +115,35 @@ export const ComplianceService = {
 
   /**
    * Check if a specific URL path is permitted by robots.txt
+   * Honors RFC 9309: Longest matching rule (Allow vs Disallow) wins
    */
   async isPathAllowed(fullUrl) {
     try {
       const parsed = new URL(fullUrl);
       const rules = await this.getRobotsRules(parsed.hostname);
-      const pathname = parsed.pathname;
+      const pathname = parsed.pathname || '/';
 
-      for (const disallow of rules.disallows) {
-        if (disallow === '/') return false;
-        if (pathname.startsWith(disallow)) return false;
+      let longestAllow = -1;
+      for (const allow of (rules.allows || [])) {
+        const cleanAllow = allow.replace(/\$$/, '');
+        if (cleanAllow === '/' || pathname === cleanAllow || pathname.startsWith(cleanAllow)) {
+          longestAllow = Math.max(longestAllow, cleanAllow.length);
+        }
       }
+
+      let longestDisallow = -1;
+      for (const disallow of (rules.disallows || [])) {
+        const cleanDisallow = disallow.replace(/\$$/, '');
+        if (cleanDisallow === '/' || pathname === cleanDisallow || pathname.startsWith(cleanDisallow)) {
+          longestDisallow = Math.max(longestDisallow, cleanDisallow.length);
+        }
+      }
+
+      // If a disallow rule is strictly longer and more specific than any allow rule, block
+      if (longestDisallow > -1 && longestDisallow > longestAllow) {
+        return false;
+      }
+
       return true;
     } catch {
       return false;

@@ -90,7 +90,10 @@ export const ScraperEngine = {
       }
 
       // Stage 3: Robots.txt verification
-      const pathAllowed = await ComplianceService.isPathAllowed(careerUrl || website);
+      const checkTarget = (careerUrl && careerUrl.startsWith('http'))
+        ? careerUrl
+        : (website && website.startsWith('http') ? website : `https://${website || careerUrl || 'company.com'}`);
+      const pathAllowed = await ComplianceService.isPathAllowed(checkTarget);
       if (!pathAllowed) {
         const scanRun = await ScraperModel.createScanRun({
           company_id: company.id,
