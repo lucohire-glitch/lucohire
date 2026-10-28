@@ -209,6 +209,111 @@ export const ATSAdapters = {
   },
 
   /**
+   * Adapter: Eightfold AI (PCSX API)
+   * Used universally by HP (apply.hp.com), Micron, Vodafone, Dexcom, Amdocs, Starbucks, etc.
+   */
+  async extractEightfold(portalUrl, companyName, options = {}) {
+    let host = 'apply.hp.com';
+    let domain = 'hp.com';
+
+    try {
+      const u = new URL(portalUrl);
+      host = u.hostname;
+      const paramDomain = u.searchParams.get('domain');
+      if (paramDomain) {
+        domain = paramDomain;
+      } else {
+        domain = host.replace(/^apply\./, '').replace(/^jobs\./, '').replace(/^careers\./, '');
+      }
+    } catch {}
+
+    const keyword = (options.keyword || options.title || options.search || '').trim();
+    const location = (options.location || '').trim();
+
+    let allPositions = [];
+    let totalReported = 0;
+    const pageSize = 100;
+    const maxPages = 10; // Up to 1,000 jobs
+
+    for (let page = 0; page < maxPages; page++) {
+      const start = page * pageSize;
+      let apiUrl = `https://${host}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=${start}&num=${pageSize}&sort_by=timestamp`;
+      if (keyword) apiUrl += `&query=${encodeURIComponent(keyword)}`;
+      if (location) apiUrl += `&location=${encodeURIComponent(location)}`;
+
+      try {
+        const res = await ComplianceService.safeFetch(apiUrl, {
+          headers: { 'Accept': 'application/json' },
+          timeout: 10000,
+        });
+
+        if (!res.ok) break;
+        const data = await res.json();
+        const positions = data?.data?.positions || [];
+        totalReported = data?.data?.count || positions.length;
+
+        if (positions.length === 0) break;
+        allPositions.push(...positions);
+
+        if (allPositions.length >= totalReported || positions.length < pageSize) break;
+      } catch {
+        break;
+      }
+    }
+
+    if (allPositions.length === 0) {
+      throw new Error(`No positions returned from Eightfold API for ${companyName}`);
+    }
+
+    const dedupe = new Map();
+    for (const pos of allPositions) {
+      const id = String(pos.id || pos.atsJobId || pos.displayJobId || pos.name);
+      if (!dedupe.has(id)) {
+        dedupe.set(id, pos);
+      }
+    }
+
+    const uniquePositions = Array.from(dedupe.values());
+
+    return {
+      extractionMethod: 'API (Eightfold AI)',
+      reportedCount: totalReported || uniquePositions.length,
+      jobs: uniquePositions.map(pos => {
+        const title = pos.name || 'Position';
+        const locs = (pos.locations && pos.locations.length > 0)
+          ? pos.locations.join(', ')
+          : (pos.standardizedLocations && pos.standardizedLocations.length > 0
+              ? pos.standardizedLocations.join(', ')
+              : 'Not Specified');
+        const jobUrl = pos.positionUrl
+          ? (pos.positionUrl.startsWith('http') ? pos.positionUrl : `https://${host}${pos.positionUrl}`)
+          : portalUrl;
+
+        return {
+          title,
+          location: locs,
+          employment_type: pos.workLocationOption || 'Full-time',
+          department: pos.department || 'General',
+          experience: '',
+          salary: '',
+          skills: [],
+          description: `Official opening at ${companyName} for ${title}. Requisition ID: ${pos.displayJobId || pos.id}. Department: ${pos.department || 'General'}. Location: ${locs}.`,
+          original_job_url: jobUrl,
+          apply_url: jobUrl,
+          ats_provider: 'Eightfold AI',
+          confidence_score: 98,
+        };
+      }),
+      strategyMemory: {
+        s: 'Eightfold PCSX API',
+        totalFound: totalReported,
+        v: '1.0.0',
+        chk: new Date().toISOString(),
+      }
+    };
+  },
+
+  /**
    * Adapter: Oracle Cloud HCM / Fusion Candidate Experience
    * Used universally by Dell, Siemens, Marriott, FedEx, Hilton, JPMorgan, etc.
    */

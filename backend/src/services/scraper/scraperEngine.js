@@ -179,6 +179,27 @@ export const ScraperEngine = {
         }
       }
 
+      // Tier 0.4: Eightfold AI (HP apply.hp.com, Micron, Vodafone, Dexcom, Amdocs, Starbucks, etc. - 800+ jobs)
+      if (!extractionSuccess && (
+        atsLower.includes('eightfold') ||
+        detectedInfo.eightfoldUrl ||
+        (careerUrl && (careerUrl.includes('eightfold.ai') || careerUrl.includes('apply.hp.com') || careerUrl.includes('/careers/job/') || careerUrl.includes('/pcsx/'))) ||
+        (website && (website.includes('hp.com') || website.includes('eightfold.ai'))) ||
+        company.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'hp'
+      )) {
+        try {
+          const efPortal = (careerUrl && careerUrl.includes('apply.')) ? careerUrl : (normInput.domain ? `https://apply.${normInput.domain}/careers` : 'https://apply.hp.com/careers');
+          extractedResult = await ATSAdapters.extractEightfold(efPortal, company.name, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = 'Eightfold AI';
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'Eightfold AI', career_url: efPortal });
+          }
+        } catch (err) {
+          console.warn(`Eightfold error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
       // Tier 0.5: Direct Salesforce Official Career Feed (1,577+ jobs)
       if (!extractionSuccess && (company.name.toLowerCase().includes('salesforce') || (careerUrl && careerUrl.includes('salesforce.com')) || (website && website.includes('salesforce.com')))) {
         try {
@@ -309,8 +330,8 @@ export const ScraperEngine = {
           } catch {}
         }
 
-        // Probe Greenhouse
-        if (!extractionSuccess) {
+        // Probe Greenhouse (Skip for 2-letter tokens like 'hp' to avoid false positives)
+        if (!extractionSuccess && atsToken && atsToken.length > 2) {
           try {
             const ghRes = await ATSAdapters.extractGreenhouse(atsToken, company.name);
             if (ghRes.jobs && ghRes.jobs.length > 0) {
@@ -322,8 +343,8 @@ export const ScraperEngine = {
           } catch {}
         }
 
-        // Probe Lever
-        if (!extractionSuccess) {
+        // Probe Lever (Skip for 2-letter tokens)
+        if (!extractionSuccess && atsToken && atsToken.length > 2) {
           try {
             const leverRes = await ATSAdapters.extractLever(atsToken, company.name);
             if (leverRes.jobs && leverRes.jobs.length > 0) {

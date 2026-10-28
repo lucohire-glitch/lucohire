@@ -229,6 +229,11 @@ export const DiscoveryService = {
       return { ats: 'Recruitee', token: match ? match[1] : null };
     }
 
+    // 9. Eightfold AI (apply.hp.com, *.eightfold.ai, pcsx)
+    if (combinedLower.includes('eightfold.ai') || combinedLower.includes('apply.hp.com') || combinedLower.includes('/pcsx/') || combinedLower.includes('_ef_group_id') || (combinedLower.includes('apply.') && combinedLower.includes('/careers'))) {
+      return { ats: 'Eightfold AI', token: null, eightfoldUrl: url };
+    }
+
     return { ats: 'Custom website', token: null };
   },
 
@@ -277,6 +282,9 @@ export const DiscoveryService = {
 
         // Check 1: External ATS URLs (instant match regardless of anchor text)
         const isAtsUrl =
+          href.includes('eightfold.ai') ||
+          href.includes('apply.hp.com') ||
+          (href.includes('apply.') && href.includes('/careers')) ||
           href.includes('greenhouse.io') ||
           href.includes('lever.co') ||
           href.includes('myworkdayjobs.com') ||
@@ -285,6 +293,8 @@ export const DiscoveryService = {
           href.includes('workable.com') ||
           href.includes('bamboohr.com') ||
           href.includes('recruitee.com') ||
+          href.includes('candidateexperience') ||
+          href.includes('hcmui') ||
           href.includes('breezy.hr');
 
         if (isAtsUrl) {
