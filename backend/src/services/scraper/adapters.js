@@ -1,6 +1,41 @@
 import * as cheerio from 'cheerio';
 import { ComplianceService } from './complianceService.js';
 
+/**
+ * Clean and convert raw HTML job descriptions into human-readable markdown
+ * preserving bullet points, paragraphs, and headings without missing any details.
+ */
+export function cleanHtmlToMarkdown(html) {
+  if (!html || typeof html !== 'string') return '';
+  return html
+    .replace(/<li[^>]*>/gi, '\n• ')
+    .replace(/<\/li>/gi, '')
+    .replace(/<p[^>]*>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi, '\n\n**$1**\n')
+    .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
+    .replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
+    .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&rsquo;/g, "'")
+    .replace(/&lsquo;/g, "'")
+    .replace(/&rdquo;/g, '"')
+    .replace(/&ldquo;/g, '"')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&bull;/g, '• ')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export const ATSAdapters = {
   /**
    * Adapter: Accenture Career Portal API (Elasticsearch)
@@ -93,7 +128,7 @@ export const ATSAdapters = {
             experience: item.yearsOfExperience || '',
             salary: '',
             skills: item.mustHaveSkills || [],
-            description: item.jobDescription || item.jobOverview || '',
+            description: cleanHtmlToMarkdown(item.jobDescription || item.jobOverview || item.longDescription || '') || `Official verified opening at Accenture for ${title}. Location: ${loc}. Requisition ID: ${guid}.`,
             original_job_url: fullJobUrl,
             apply_url: fullJobUrl,
             ats_provider: 'Accenture Careers',
@@ -296,6 +331,27 @@ export const ATSAdapters = {
       }
     }
 
+    // Fetch live full job descriptions directly from Eightfold position_details endpoint
+    const detailsMap = new Map();
+    const DETAIL_CHUNK_SIZE = 35;
+    for (let i = 0; i < allPositions.length; i += DETAIL_CHUNK_SIZE) {
+      const chunk = allPositions.slice(i, i + DETAIL_CHUNK_SIZE);
+      const detailResults = await Promise.allSettled(
+        chunk.map(pos => {
+          const u = `https://${host}/api/pcsx/position_details?position_id=${pos.id}`;
+          return ComplianceService.safeFetch(u, {
+            headers: { 'Accept': 'application/json' },
+            timeout: 6000
+          }).then(r => r.json());
+        })
+      );
+      detailResults.forEach((res, idx) => {
+        if (res.status === 'fulfilled' && res.value?.data) {
+          detailsMap.set(chunk[idx].id, res.value.data);
+        }
+      });
+    }
+
     return {
       extractionMethod: 'API (Eightfold AI)',
       reportedCount: totalReported || allPositions.length,
@@ -315,6 +371,25 @@ export const ATSAdapters = {
           ? (pos.positionUrl.startsWith('http') ? pos.positionUrl : `https://${host}${pos.positionUrl}`)
           : portalUrl;
 
+        const detail = detailsMap.get(pos.id);
+        let richDescription = '';
+        if (detail?.jobDescription) {
+          richDescription = cleanHtmlToMarkdown(detail.jobDescription);
+        }
+        if (Array.isArray(detail?.positionExtraDetails?.customContent)) {
+          for (const cc of detail.positionExtraDetails.customContent) {
+            if (cc.title && cc.body) {
+              const cleanBody = cleanHtmlToMarkdown(cc.body);
+              if (cleanBody) {
+                richDescription += `\n\n### ${cc.title}\n${cleanBody}`;
+              }
+            }
+          }
+        }
+        if (!richDescription || richDescription.length < 30) {
+          richDescription = `Official verified opening at ${companyName} for ${title}.\n\n• Requisition ID: ${pos.displayJobId || pos.id}\n• Department: ${pos.department || 'General'}\n• Location: ${locs}\n• Work Mode: ${pos.workLocationOption || 'Full-time'}\n\nPlease visit the official career portal for full details & application: ${jobUrl}`;
+        }
+
         return {
           external_job_id: uniqueJobId,
           title,
@@ -325,7 +400,7 @@ export const ATSAdapters = {
           experience: '',
           salary: '',
           skills: [],
-          description: `Official opening at ${companyName} for ${title}. Requisition ID: ${pos.displayJobId || pos.id}. Department: ${pos.department || 'General'}. Location: ${locs}.`,
+          description: richDescription,
           original_job_url: jobUrl,
           apply_url: jobUrl,
           ats_provider: 'Eightfold AI',
@@ -409,7 +484,7 @@ export const ATSAdapters = {
           experience: '',
           salary: '',
           skills: [],
-          description: j.ShortDescriptionStr || `Official opening at ${companyName} for ${j.Title}. Requisition ID: ${reqId}.`,
+          description: cleanHtmlToMarkdown(j.ExternalDescriptionStr || j.JobDescription || j.ShortDescriptionStr || '') || `Official opening at ${companyName} for ${j.Title}. Requisition ID: ${reqId}. Location: ${loc}.`,
           original_job_url: jobUrl,
           apply_url: jobUrl,
           ats_provider: 'Oracle Cloud HCM',
@@ -485,7 +560,21 @@ export const ATSAdapters = {
         const postings = data.jobPostings || [];
         if (postings.length === 0) break;
 
-        for (const item of postings) {
+        // Fetch full rich job details from Workday detail endpoint
+        const detailResults = await Promise.allSettled(
+          postings.map(item => {
+            if (!item.externalPath) return Promise.resolve(null);
+            const detailUrl = `https://${host}/wday/cxs/${tenant}/${site}${item.externalPath}`;
+            return ComplianceService.safeFetch(detailUrl, {
+              headers: { 'Accept': 'application/json' },
+              timeout: 6000
+            }).then(r => r.json());
+          })
+        );
+
+        for (let i = 0; i < postings.length; i++) {
+          const item = postings[i];
+          const detail = detailResults[i]?.status === 'fulfilled' ? detailResults[i].value : null;
           const reqId = item.bulletFields?.[0] || item.externalPath || Math.random().toString(36).substring(7);
           const location = item.locationsText || item.bulletFields?.[1] || 'Multiple Locations';
           const title = item.title || 'Untitled Role';
@@ -493,18 +582,23 @@ export const ATSAdapters = {
           const applyUrl = `https://${host}/en-US/${site}${item.externalPath}/apply`;
           const isRemote = (title + ' ' + location).toLowerCase().includes('remote');
 
+          const rawDesc = detail?.jobPostingInfo?.jobDescription;
+          const cleanDesc = rawDesc
+            ? cleanHtmlToMarkdown(rawDesc)
+            : `Official opening at ${companyName} for ${title}.\n\nRequisition ID: ${reqId}\nLocation: ${location}\nPosted: ${item.postedOn || 'Recent'}\n\nPlease visit official career portal for full details: ${jobViewUrl}`;
+
           allJobs.push({
             external_job_id: String(reqId),
             title,
             location,
             locations: [location],
             work_mode: isRemote ? 'Remote' : 'On-site',
-            employment_type: item.timeType || 'Full-time',
+            employment_type: detail?.jobPostingInfo?.timeType || item.timeType || 'Full-time',
             department: item.bulletFields?.[2] || 'General',
             experience: '',
             salary: '',
             skills: [],
-            description: `Workday job requisition: ${reqId}. Posted: ${item.postedOn || 'Recent'}.`,
+            description: cleanDesc,
             original_job_url: jobViewUrl,
             apply_url: applyUrl,
             ats_provider: 'Workday',
@@ -567,7 +661,7 @@ export const ATSAdapters = {
         experience: '',
         salary: '',
         skills: [],
-        description: j.content || '',
+        description: cleanHtmlToMarkdown(j.content || '') || `Official verified opening at ${companyName || 'the employer'} for ${j.title}. Location: ${j.location?.name || 'Remote'}.`,
         original_job_url: j.absolute_url,
         apply_url: j.absolute_url,
         ats_provider: 'Greenhouse',
@@ -601,6 +695,40 @@ export const ATSAdapters = {
     for (const j of list) {
       const titleKey = (j.text || 'Untitled Role').trim().toLowerCase();
       const loc = j.categories?.location || 'Remote';
+
+      let fullDesc = '';
+      if (j.descriptionPlain) {
+        fullDesc += `### Role Overview\n${j.descriptionPlain.trim()}\n\n`;
+      } else if (j.description) {
+        fullDesc += `### Role Overview\n${cleanHtmlToMarkdown(j.description)}\n\n`;
+      }
+
+      if (Array.isArray(j.lists) && j.lists.length > 0) {
+        for (const list of j.lists) {
+          if (!list || !list.text) continue;
+          const cleanListContent = cleanHtmlToMarkdown(list.content);
+          if (cleanListContent) {
+            fullDesc += `### ${list.text}\n${cleanListContent}\n\n`;
+          }
+        }
+      }
+
+      if (j.additionalPlain) {
+        fullDesc += `### Additional Information & Benefits\n${j.additionalPlain.trim()}`;
+      } else if (j.additional) {
+        fullDesc += `### Additional Information & Benefits\n${cleanHtmlToMarkdown(j.additional)}`;
+      }
+
+      if (!fullDesc) {
+        fullDesc = `Official verified opening at ${companyName || 'the employer'} for ${j.text || 'this role'}. Location: ${loc}.`;
+      }
+
+      const skills = [
+        j.categories?.team,
+        j.categories?.department,
+        j.categories?.commitment
+      ].filter(Boolean);
+
       if (!grouped.has(titleKey)) {
         grouped.set(titleKey, {
           external_job_id: String(j.id),
@@ -612,8 +740,8 @@ export const ATSAdapters = {
           department: j.categories?.team || j.categories?.department || 'General',
           experience: '',
           salary: '',
-          skills: [],
-          description: j.descriptionPlain || '',
+          skills,
+          description: fullDesc.trim(),
           original_job_url: j.hostedUrl,
           apply_url: j.applyUrl || j.hostedUrl,
           ats_provider: 'Lever',
@@ -689,6 +817,8 @@ export const ATSAdapters = {
             departmentName
             employmentType
             isRemote
+            descriptionPlain
+            descriptionHtml
           }
         }
       }`
@@ -721,7 +851,7 @@ export const ATSAdapters = {
         experience: '',
         salary: '',
         skills: [],
-        description: '',
+        description: j.descriptionPlain ? j.descriptionPlain.trim() : (cleanHtmlToMarkdown(j.descriptionHtml) || `Official verified opening at ${companyName || 'the employer'} for ${j.title}. Location: ${j.locationName || 'Remote'}.`),
         original_job_url: `https://jobs.ashbyhq.com/${siteToken}/${j.id}`,
         apply_url: `https://jobs.ashbyhq.com/${siteToken}/${j.id}/application`,
         ats_provider: 'Ashby',
@@ -748,26 +878,65 @@ export const ATSAdapters = {
     const data = await res.json();
     const postings = data.content || [];
 
+    // Fetch rich posting details in parallel batches of 20
+    const detailMap = new Map();
+    const CHUNK_SIZE = 20;
+    for (let i = 0; i < postings.length; i += CHUNK_SIZE) {
+      const chunk = postings.slice(i, i + CHUNK_SIZE);
+      const detailResults = await Promise.allSettled(
+        chunk.map(j => {
+          const detailUrl = `https://api.smartrecruiters.com/v1/companies/${token}/postings/${j.id}`;
+          return ComplianceService.safeFetch(detailUrl, { timeout: 6000 }).then(r => r.json());
+        })
+      );
+      detailResults.forEach((r, idx) => {
+        if (r.status === 'fulfilled' && r.value) {
+          detailMap.set(chunk[idx].id, r.value);
+        }
+      });
+    }
+
     return {
       extractionMethod: 'API (SmartRecruiters)',
       reportedCount: data.totalFound || postings.length,
-      jobs: postings.map(j => ({
-        external_job_id: String(j.id),
-        title: j.name || 'Untitled Role',
-        location: j.location?.city ? `${j.location.city}, ${j.location.country || ''}` : 'Multiple Locations',
-        locations: [j.location?.city || 'Multiple Locations'],
-        work_mode: j.location?.remote ? 'Remote' : 'On-site',
-        employment_type: j.typeOfEmployment?.label || 'Full-time',
-        department: j.department?.label || 'General',
-        experience: j.experienceLevel?.label || '',
-        salary: '',
-        skills: [],
-        description: '',
-        original_job_url: `https://jobs.smartrecruiters.com/${token}/${j.id}`,
-        apply_url: `https://jobs.smartrecruiters.com/${token}/${j.id}`,
-        ats_provider: 'SmartRecruiters',
-        confidence_score: 96,
-      })),
+      jobs: postings.map(j => {
+        const detail = detailMap.get(j.id);
+        const sections = detail?.jobAd?.sections;
+        let richDesc = '';
+        if (sections?.companyDescription?.text) {
+          richDesc += `### About Company\n${cleanHtmlToMarkdown(sections.companyDescription.text)}\n\n`;
+        }
+        if (sections?.jobDescription?.text) {
+          richDesc += `### Job Description\n${cleanHtmlToMarkdown(sections.jobDescription.text)}\n\n`;
+        }
+        if (sections?.qualifications?.text) {
+          richDesc += `### Qualifications & Requirements\n${cleanHtmlToMarkdown(sections.qualifications.text)}\n\n`;
+        }
+        if (sections?.additionalInformation?.text) {
+          richDesc += `### Additional Information\n${cleanHtmlToMarkdown(sections.additionalInformation.text)}\n\n`;
+        }
+        if (!richDesc) {
+          richDesc = `Official verified opening at ${companyName} for ${j.name || 'this role'}. Location: ${j.location?.city || 'Multiple Locations'}.`;
+        }
+
+        return {
+          external_job_id: String(j.id),
+          title: j.name || 'Untitled Role',
+          location: j.location?.city ? `${j.location.city}, ${j.location.country || ''}` : 'Multiple Locations',
+          locations: [j.location?.city || 'Multiple Locations'],
+          work_mode: j.location?.remote ? 'Remote' : 'On-site',
+          employment_type: j.typeOfEmployment?.label || 'Full-time',
+          department: j.department?.label || 'General',
+          experience: j.experienceLevel?.label || '',
+          salary: '',
+          skills: [],
+          description: richDesc.trim(),
+          original_job_url: `https://jobs.smartrecruiters.com/${token}/${j.id}`,
+          apply_url: `https://jobs.smartrecruiters.com/${token}/${j.id}`,
+          ats_provider: 'SmartRecruiters',
+          confidence_score: 96,
+        };
+      }),
       strategyMemory: {
         s: 'SmartRecruiters API',
         ep: apiUrl,

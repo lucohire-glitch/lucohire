@@ -273,12 +273,14 @@ export default function FreelancersView({
         cat = 'dev';
       }
 
-      const skills = [
-        j.company,
-        j.department ? j.department.split(' ')[0] : 'Engineering',
-        j.work_mode || 'Remote',
-        j.employment_type || 'Full-time'
-      ].filter(Boolean);
+      const skills = (j.skills && Array.isArray(j.skills) && j.skills.length > 0)
+        ? j.skills
+        : [
+            j.company,
+            j.department ? j.department.split(' ')[0] : 'Engineering',
+            j.work_mode || 'Remote',
+            j.employment_type || 'Full-time'
+          ].filter(Boolean);
 
       const portraits = ['women/68', 'men/52', 'women/54', 'men/32', 'women/44', 'men/75', 'women/33', 'men/46'];
       const img = portraits[idx % portraits.length];
@@ -305,7 +307,7 @@ export default function FreelancersView({
         apply_url: j.apply_url,
         company_website: j.company_website,
         fullLocation: j.location,
-        fullDescription: `Official verified opening at ${j.company} for the role of ${j.title} in the ${j.department || 'Core'} department. Work mode: ${j.work_mode || 'Flexible'}. Direct official ATS application.`
+        fullDescription: j.description || `Official verified opening at ${j.company} for the role of ${j.title} in the ${j.department || 'Core'} department. Work mode: ${j.work_mode || 'Flexible'}. Direct official ATS application.`
       };
     });
   }, [scrapedJobs]);
@@ -962,10 +964,22 @@ export default function FreelancersView({
             </div>
 
             <div style={{ marginBottom: '16px' }}>
-              <h4 style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>About & Details</h4>
-              <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.6', color: 'var(--ink-soft)' }}>
-                {selectedProfile.fullDescription || `Experienced ${selectedProfile.role} with a proven track record delivering high quality projects for startups and businesses. Specialized in fast turnarounds, clear communication, and production-ready deliverables.`}
-              </p>
+              <h4 style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>Job Description & Opening Details</h4>
+              <div style={{
+                margin: 0,
+                fontSize: '12.5px',
+                lineHeight: '1.65',
+                color: 'var(--ink-soft)',
+                whiteSpace: 'pre-wrap',
+                maxHeight: '260px',
+                overflowY: 'auto',
+                background: 'var(--tint, #F6F6F3)',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                border: '1px solid var(--line)'
+              }}>
+                {selectedProfile.fullDescription || `Experienced ${selectedProfile.role} with a proven track record delivering high quality projects for startups and businesses.`}
+              </div>
             </div>
 
             <div style={{ marginBottom: '18px' }}>

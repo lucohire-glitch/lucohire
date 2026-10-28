@@ -437,6 +437,11 @@ export interface ScrapedPublicJob {
   employment_type: string;
   department?: string;
   salary?: string;
+  experience?: string;
+  skills?: string[];
+  description?: string;
+  external_job_id?: string;
+  ats_provider?: string;
   apply_url: string;
   last_verified?: string;
   created_at?: string;

@@ -99,6 +99,8 @@ export default function AdminScraperView() {
   // Duplicate Listings Audit Modal
   const [duplicateModalCompany, setDuplicateModalCompany] = useState<any | null>(null);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  // Job Description Detail Modal
+  const [selectedJobModal, setSelectedJobModal] = useState<ScrapedJob | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1015,6 +1017,7 @@ export default function AdminScraperView() {
                 <tr style={{ background: '#F8F9FA', borderBottom: '1px solid #ECEAF9', color: 'var(--ink-soft, #75708F)' }}>
                 <th style={{ padding: '12px 16px' }}>Job Role &amp; Company</th>
                 <th style={{ padding: '12px 16px' }}>Location &amp; Mode</th>
+                <th style={{ padding: '12px 16px' }}>Live Description</th>
                 <th style={{ padding: '12px 16px' }}>Contact Email</th>
                 <th style={{ padding: '12px 16px' }}>Status</th>
                 <th style={{ padding: '12px 16px' }}>Original Apply Link</th>
@@ -1024,7 +1027,7 @@ export default function AdminScraperView() {
             <tbody>
               {paginatedJobs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#9AA0B4' }}>
+                  <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#9AA0B4' }}>
                     No jobs scraped yet. Click "Scan" on any company to start extracting jobs.
                   </td>
                 </tr>
@@ -1038,6 +1041,29 @@ export default function AdminScraperView() {
                     <td style={{ padding: '12px 16px' }}>
                       <div>{j.location || 'Multiple'}</div>
                       <span style={{ fontSize: '11px', color: '#75708F' }}>{j.work_mode}</span>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedJobModal(j)}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '8px',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          border: '1px solid #ECEAF9',
+                          background: '#F8F9FA',
+                          color: 'var(--violet-700, #4A3AE0)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                        title="View complete official job description and requirements"
+                      >
+                        <FileText size={12} color="var(--violet-700, #4A3AE0)" />
+                        <span>View Data</span>
+                      </button>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       {j.company_email ? (
@@ -1725,6 +1751,190 @@ export default function AdminScraperView() {
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Official Job Description Modal */}
+      {selectedJobModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(28, 23, 51, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '18px',
+            maxWidth: '750px',
+            width: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.25)',
+            border: '1px solid #ECEAF9',
+            overflow: 'hidden',
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid #ECEAF9',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              background: '#FAF9FE',
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--violet-700, #4A3AE0)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {selectedJobModal.company_name} · Scanned Official Career Portal Data
+                </div>
+                <h3 style={{ margin: '4px 0 0', fontSize: '18px', fontWeight: 800, color: '#1C1733' }}>
+                  {selectedJobModal.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedJobModal(null)}
+                style={{
+                  background: '#ECEAF9',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '15px',
+                  color: '#75708F',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Badges & Meta strip */}
+            <div style={{
+              padding: '12px 24px',
+              background: '#FFFFFF',
+              borderBottom: '1px solid #ECEAF9',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '8px',
+              alignItems: 'center',
+            }}>
+              <span style={{ fontSize: '11.5px', background: '#F1F0FA', padding: '3px 8px', borderRadius: '6px', fontWeight: 600, color: '#4A3AE0' }}>
+                📍 {selectedJobModal.location || 'Multiple'}
+              </span>
+              <span style={{ fontSize: '11.5px', background: '#F1F0FA', padding: '3px 8px', borderRadius: '6px', fontWeight: 600, color: '#1C1733' }}>
+                🏢 {selectedJobModal.work_mode || 'On-site'}
+              </span>
+              <span style={{ fontSize: '11.5px', background: '#F1F0FA', padding: '3px 8px', borderRadius: '6px', fontWeight: 600, color: '#1C1733' }}>
+                ⏱️ {selectedJobModal.employment_type || 'Full-time'}
+              </span>
+              {selectedJobModal.department && (
+                <span style={{ fontSize: '11.5px', background: '#F1F0FA', padding: '3px 8px', borderRadius: '6px', fontWeight: 600, color: '#1C1733' }}>
+                  📂 {selectedJobModal.department}
+                </span>
+              )}
+              {selectedJobModal.ats_provider && (
+                <span style={{ fontSize: '11.5px', background: '#EAFBF1', padding: '3px 8px', borderRadius: '6px', fontWeight: 700, color: '#16A34A' }}>
+                  ⚡ ATS: {selectedJobModal.ats_provider}
+                </span>
+              )}
+              <span style={{ fontSize: '11px', color: '#9AA0B4', marginLeft: 'auto' }}>
+                Status: <strong style={{ color: selectedJobModal.status === 'ACTIVE' ? '#16A34A' : '#C0392B' }}>{selectedJobModal.status}</strong>
+              </span>
+            </div>
+
+            {/* Body: Live Description */}
+            <div style={{
+              padding: '20px 24px',
+              overflowY: 'auto',
+              flex: 1,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#1C1733', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FileText size={14} color="var(--violet-700, #4A3AE0)" />
+                  Complete Scanned Job Description, Duties &amp; Qualifications
+                </h4>
+                <span style={{ fontSize: '11px', color: '#75708F', background: '#F8F9FA', padding: '2px 8px', borderRadius: '4px', border: '1px solid #ECEAF9' }}>
+                  {(selectedJobModal.description || '').length.toLocaleString()} characters captured
+                </span>
+              </div>
+
+              <div style={{
+                background: '#FBFBFE',
+                border: '1px solid #ECEAF9',
+                borderRadius: '12px',
+                padding: '16px 18px',
+                fontSize: '13px',
+                lineHeight: '1.7',
+                color: '#2D3748',
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'inherit',
+                maxHeight: '440px',
+                overflowY: 'auto',
+              }}>
+                {selectedJobModal.description || 'No detailed job description captured for this posting yet.'}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '14px 24px',
+              borderTop: '1px solid #ECEAF9',
+              background: '#FAF9FE',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <div style={{ fontSize: '11.5px', color: '#75708F' }}>
+                Verified on official portal: {selectedJobModal.last_verified_at ? new Date(selectedJobModal.last_verified_at).toLocaleDateString() : 'Active'}
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <a
+                  href={selectedJobModal.apply_url || selectedJobModal.original_job_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    background: 'var(--violet-700, #4A3AE0)',
+                    color: '#FFFFFF',
+                    textDecoration: 'none',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  Open Official Application Page <ExternalLink size={13} />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setSelectedJobModal(null)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    border: '1px solid #ECEAF9',
+                    background: '#FFFFFF',
+                    color: '#1C1733',
+                    cursor: 'pointer',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                  }}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
