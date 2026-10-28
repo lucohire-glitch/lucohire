@@ -247,8 +247,8 @@ export const ATSAdapters = {
         totalReported = firstData?.data?.count || pos0.length;
         allPositions.push(...pos0);
 
-        // Fetch up to 150-200 active jobs in parallel batches of 10
-        const maxJobsToFetch = Math.min(totalReported, 150);
+        // Fetch all active jobs up to total reported (all 845 HP jobs in parallel)
+        const maxJobsToFetch = Math.min(totalReported, 1000);
         const offsets = [];
         for (let offset = 10; offset < maxJobsToFetch; offset += 10) {
           offsets.push(offset);
