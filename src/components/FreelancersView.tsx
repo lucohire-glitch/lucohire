@@ -325,12 +325,17 @@ export default function FreelancersView({
 
   // Suggestions for search
   const suggestions = useMemo(() => {
-    const all = Array.from(new Set(allFreelancers.flatMap(d => [d.role, ...d.skills])));
+    const all = Array.from(new Set(allFreelancers.flatMap(d => [
+      d.name.includes('·') ? d.name.split('·')[0].trim() : '',
+      d.role.replace(/\s*\([^)]*\)/, '').trim(),
+      d.city,
+      ...d.skills
+    ]))).filter(Boolean);
     if (!q.trim()) {
-      return all.slice(0, 6);
+      return all.slice(0, 8);
     }
     const lower = q.trim().toLowerCase();
-    return all.filter(item => item.toLowerCase().includes(lower)).slice(0, 6);
+    return all.filter(item => item.toLowerCase().includes(lower)).slice(0, 8);
   }, [q, allFreelancers]);
 
   const budgetOk = (proj: number, b: string) => {
@@ -348,7 +353,7 @@ export default function FreelancersView({
 
     return allFreelancers.filter(d => {
       if (query) {
-        const hay = (d.name + ' ' + d.role + ' ' + d.city + ' ' + d.skills.join(' ')).toLowerCase();
+        const hay = (d.name + ' ' + d.role + ' ' + d.city + ' ' + (d.fullLocation || '') + ' ' + (d.fullDescription || '') + ' ' + d.skills.join(' ')).toLowerCase();
         if (!hay.includes(query)) return false;
       }
       if (cat !== 'all' && d.cat !== cat) return false;
@@ -524,7 +529,7 @@ export default function FreelancersView({
                   setShownCount(PAGE_SIZE);
                 }}
                 onFocus={() => setIsSuggestOpen(true)}
-                placeholder="Search by name, skill or role (e.g. Logo design, React developer)"
+                placeholder="Search company, job title, skill, or location (e.g. Accenture, React developer, Pune)..."
                 autoComplete="off"
               />
               {q && (

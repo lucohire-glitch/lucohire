@@ -270,7 +270,7 @@ export const ScraperModel = {
     return { updatedCount };
   },
 
-  async getAllJobs({ company_id, status, is_published, search, limit = 2000, offset = 0 } = {}) {
+  async getAllJobs({ company_id, company_name, title, location, status, is_published, search, limit = 2000, offset = 0 } = {}) {
     let whereClauses = [];
     let values = [];
     let idx = 1;
@@ -278,6 +278,19 @@ export const ScraperModel = {
     if (company_id) {
       whereClauses.push(`j.company_id = $${idx++}`);
       values.push(company_id);
+    }
+    if (company_name) {
+      whereClauses.push(`j.company_name ILIKE $${idx++}`);
+      values.push(`%${company_name}%`);
+    }
+    if (title) {
+      whereClauses.push(`j.title ILIKE $${idx++}`);
+      values.push(`%${title}%`);
+    }
+    if (location) {
+      whereClauses.push(`(j.location ILIKE $${idx} OR j.locations::text ILIKE $${idx})`);
+      values.push(`%${location}%`);
+      idx++;
     }
     if (status && status !== 'All') {
       whereClauses.push(`j.status = $${idx++}`);
@@ -288,7 +301,7 @@ export const ScraperModel = {
       values.push(is_published);
     }
     if (search) {
-      whereClauses.push(`(j.title ILIKE $${idx} OR j.company_name ILIKE $${idx} OR j.location ILIKE $${idx})`);
+      whereClauses.push(`(j.title ILIKE $${idx} OR j.company_name ILIKE $${idx} OR j.location ILIKE $${idx} OR j.skills::text ILIKE $${idx})`);
       values.push(`%${search}%`);
       idx++;
     }

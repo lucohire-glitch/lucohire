@@ -495,10 +495,11 @@ export const importScraperCsv = async (companies: Array<{ name: string; website?
   return data;
 };
 
-export const triggerCompanyScan = async (companyId: number) => {
+export const triggerCompanyScan = async (companyId: number, options: { keyword?: string; title?: string; location?: string } = {}) => {
   const res = await fetch(`${API_URL}/scraper/companies/${companyId}/scan`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Failed to scan company');
@@ -540,9 +541,12 @@ export const retryScraperPending = async (scanId: number) => {
   return data;
 };
 
-export const fetchScraperJobs = async (params: { company_id?: number; status?: string; search?: string } = {}) => {
+export const fetchScraperJobs = async (params: { company_id?: number; company_name?: string; title?: string; location?: string; status?: string; search?: string } = {}) => {
   const query = new URLSearchParams();
   if (params.company_id) query.append('company_id', String(params.company_id));
+  if (params.company_name) query.append('company_name', params.company_name);
+  if (params.title) query.append('title', params.title);
+  if (params.location) query.append('location', params.location);
   if (params.status) query.append('status', params.status);
   if (params.search) query.append('search', params.search);
 

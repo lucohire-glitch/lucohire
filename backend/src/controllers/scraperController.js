@@ -7,6 +7,21 @@ export const ScraperController = {
   async addCompany(req, res) {
     const { name, website, careerUrl, contactEmail, country } = req.body;
     
+    // 1. Guard against 3rd-party job portals / aggregators
+    const portalDetected =
+      DiscoveryService.isJobPortal(name) ||
+      DiscoveryService.isJobPortal(website) ||
+      DiscoveryService.isJobPortal(careerUrl) ||
+      DiscoveryService.isJobPortal(contactEmail);
+
+    if (portalDetected) {
+      return res.status(400).json({
+        success: false,
+        error: 'JOB_PORTAL_BLOCKED',
+        reason: `Scanning 3rd-party job portals ("${portalDetected}") is strictly blocked. LucoHire Engine only connects directly to official company career sites (e.g. accenture.com, stripe.com, adobe.com) to guarantee 100% active, verified, and unexpired employer jobs without intermediary spam. Please enter the direct hiring company name or official website.`
+      });
+    }
+
     // Normalize input from company name, website, or email
     const norm = DiscoveryService.normalizeCompanyInput({
       name,
@@ -37,7 +52,24 @@ export const ScraperController = {
     }
 
     const created = [];
+    const rejectedPortals = [];
+
     for (const item of companies) {
+      const portal =
+        DiscoveryService.isJobPortal(item.name) ||
+        DiscoveryService.isJobPortal(item.website) ||
+        DiscoveryService.isJobPortal(item.careerUrl) ||
+        DiscoveryService.isJobPortal(item.contactEmail);
+
+      if (portal) {
+        rejectedPortals.push({
+          input: item.name || item.website,
+          portal,
+          reason: `Rejected 3rd-party job aggregator "${portal}". Only direct employers allowed.`
+        });
+        continue;
+      }
+
       if (item.name && item.name.trim()) {
         const c = await ScraperModel.createOrFindCompany({
           name: item.name,
@@ -49,7 +81,12 @@ export const ScraperController = {
         created.push(c);
       }
     }
-    return res.json({ success: true, importedCount: created.length, companies: created });
+    return res.json({
+      success: true,
+      importedCount: created.length,
+      companies: created,
+      rejectedPortals
+    });
   },
 
   // Get all companies
@@ -87,8 +124,27 @@ export const ScraperController = {
   // Trigger scan for a company
   async scanCompany(req, res) {
     const { id } = req.params;
+    const { keyword, title, location } = req.body || {};
     try {
-      const result = await ScraperEngine.scanCompany(id);
+      const company = await ScraperModel.getCompanyById(id);
+      if (!company) {
+        return res.status(404).json({ error: 'Company not found' });
+      }
+
+      const portalDetected =
+        DiscoveryService.isJobPortal(company.name) ||
+        DiscoveryService.isJobPortal(company.website) ||
+        DiscoveryService.isJobPortal(company.career_url);
+
+      if (portalDetected) {
+        return res.status(400).json({
+          success: false,
+          error: 'JOB_PORTAL_BLOCKED',
+          reason: `Cannot scan "${company.name}": Detected as a 3rd-party job portal (${portalDetected}). Scanning job aggregators is prohibited to protect data freshness and direct application URLs.`
+        });
+      }
+
+      const result = await ScraperEngine.scanCompany(id, { keyword, title, location });
       return res.json({ success: true, ...result });
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -140,11 +196,14 @@ export const ScraperController = {
     return res.json({ success: true, message: 'Recovery scan completed', result });
   },
 
-  // Get jobs
+  // Get jobs (supports searching by company, title, location, or general search)
   async getJobs(req, res) {
-    const { company_id, status, is_published, search, limit, offset } = req.query;
+    const { company_id, company_name, title, location, status, is_published, search, limit, offset } = req.query;
     const { jobs, totalCount } = await ScraperModel.getAllJobs({
       company_id: company_id ? parseInt(company_id, 10) : null,
+      company_name: company_name || null,
+      title: title || null,
+      location: location || null,
       status: status || null,
       is_published: is_published !== undefined ? is_published === 'true' : null,
       search: search || null,

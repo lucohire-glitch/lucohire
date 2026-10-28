@@ -47,7 +47,7 @@ export const ScraperEngine = {
     let extractionMethod = memory.s || 'Auto-detect';
 
     try {
-      // Stage 2: Discovery if career_url or website missing or generic
+      // Stage 2: Discovery if career_url or website missing or does not point directly to an ATS
       let jobSitemap = '';
       const normInput = DiscoveryService.normalizeCompanyInput({
         name: company.name,
@@ -56,7 +56,16 @@ export const ScraperEngine = {
         careerUrl: company.career_url,
       });
 
-      if (!careerUrl || !website || atsProvider === 'Detecting...' || atsProvider === 'Custom website') {
+      const isKnownAtsUrl = careerUrl && (
+        careerUrl.includes('myworkdayjobs.com') ||
+        careerUrl.includes('greenhouse.io') ||
+        careerUrl.includes('lever.co') ||
+        careerUrl.includes('ashbyhq.com') ||
+        careerUrl.includes('smartrecruiters.com') ||
+        careerUrl.includes('workable.com')
+      );
+
+      if (!careerUrl || !website || !isKnownAtsUrl || atsProvider === 'Detecting...' || atsProvider === 'Custom website') {
         const queryTarget = normInput.website || `${normInput.domain}` || company.name;
         const discovery = await DiscoveryService.findCareerPage(queryTarget, company.name);
         if (discovery && discovery.careerUrl) {
@@ -101,108 +110,192 @@ export const ScraperEngine = {
 
       // Stage 4: Extraction based on ATS or Memory
       let extractedResult = { jobs: [], reportedCount: null, extractionMethod: 'HTML', strategyMemory: null };
+      let extractionSuccess = false;
 
       const atsLower = (atsProvider || '').toLowerCase();
       const detectedInfo = DiscoveryService.detectAts('', careerUrl);
       const atsToken = detectedInfo.token || company.name.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-      // 1. Workday
-      if (atsLower.includes('workday') || (careerUrl && careerUrl.includes('myworkdayjobs.com')) || detectedInfo.workdayUrl) {
-        const targetWorkday = detectedInfo.workdayUrl || careerUrl;
-        extractedResult = await ATSAdapters.extractWorkday(targetWorkday, company.name);
+      // Workday target candidate
+      let targetWorkday = null;
+      if (careerUrl && careerUrl.includes('myworkdayjobs.com')) {
+        targetWorkday = careerUrl;
+      } else if (detectedInfo.workdayUrl) {
+        targetWorkday = detectedInfo.workdayUrl;
       }
-      // 2. Greenhouse
-      else if (atsLower.includes('greenhouse')) {
-        extractedResult = await ATSAdapters.extractGreenhouse(atsToken, company.name);
-      }
-      // 3. Lever
-      else if (atsLower.includes('lever')) {
-        extractedResult = await ATSAdapters.extractLever(atsToken, company.name);
-      }
-      // 4. Ashby
-      else if (atsLower.includes('ashby')) {
-        extractedResult = await ATSAdapters.extractAshby(atsToken, company.name);
-      }
-      // 5. SmartRecruiters
-      else if (atsLower.includes('smartrecruiters')) {
-        extractedResult = await ATSAdapters.extractSmartRecruiters(atsToken, company.name);
-      }
-      // 6. Workable
-      else if (atsLower.includes('workable')) {
-        extractedResult = await ATSAdapters.extractWorkable(atsToken, company.name);
-      }
-      else {
-        // Multi-probe order:
-        let probed = false;
 
-        // Probe A: Workday check
-        if (!probed) {
+      // If Workday was detected but we only have a generic URL, fetch page to find the real Workday link
+      if (!targetWorkday && (atsLower.includes('workday') || atsLower.includes('accenture')) && (careerUrl || website)) {
+        try {
+          const res = await ComplianceService.safeFetch(careerUrl || website, { timeout: 8000 });
+          if (res.ok) {
+            const html = await res.text();
+            const wdMatch = html.match(/https?:\/\/([a-zA-Z0-9_.-]+)\.myworkdayjobs\.com\/([a-zA-Z0-9_/%-]+)/i);
+            if (wdMatch) {
+              targetWorkday = wdMatch[0].replace(/["';,].*$/, '').replace(/\/userHome.*$/, '');
+              careerUrl = targetWorkday;
+              await ScraperModel.updateCompany(company.id, { career_url: careerUrl, ats_provider: 'Workday' });
+            }
+          }
+        } catch {}
+      }
+
+      // Tier 0: Direct Accenture Live Career Search API (10,000+ jobs)
+      if (company.name.toLowerCase().includes('accenture') || (careerUrl && careerUrl.includes('accenture.com')) || (website && website.includes('accenture.com'))) {
+        try {
+          extractedResult = await ATSAdapters.extractAccentureElastic(careerUrl || website, company.name, 2, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = 'Accenture Careers';
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'Accenture Careers' });
+          }
+        } catch (err) {
+          console.warn('Accenture Elastic API failed, cascading to Workday/Sitemaps:', err.message);
+        }
+      }
+
+      // 1. Try Workday
+      if (!extractionSuccess && targetWorkday && targetWorkday.includes('myworkdayjobs.com')) {
+        try {
+          const res = await ATSAdapters.extractWorkday(targetWorkday, company.name, 5, options);
+          if (res.jobs && res.jobs.length > 0) {
+            extractedResult = res;
+            extractionSuccess = true;
+          }
+        } catch (err) {
+          console.warn(`Workday error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
+      // 2. Try Greenhouse
+      if (!extractionSuccess && (atsLower.includes('greenhouse') || (careerUrl && careerUrl.includes('greenhouse.io')))) {
+        try {
+          const res = await ATSAdapters.extractGreenhouse(atsToken, company.name);
+          if (res.jobs && res.jobs.length > 0) {
+            extractedResult = res;
+            extractionSuccess = true;
+          }
+        } catch (err) {
+          console.warn(`Greenhouse error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
+      // 3. Try Lever
+      if (!extractionSuccess && (atsLower.includes('lever') || (careerUrl && careerUrl.includes('lever.co')))) {
+        try {
+          const res = await ATSAdapters.extractLever(atsToken, company.name);
+          if (res.jobs && res.jobs.length > 0) {
+            extractedResult = res;
+            extractionSuccess = true;
+          }
+        } catch (err) {
+          console.warn(`Lever error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
+      // 4. Try Ashby
+      if (!extractionSuccess && (atsLower.includes('ashby') || (careerUrl && careerUrl.includes('ashbyhq.com')))) {
+        try {
+          const res = await ATSAdapters.extractAshby(atsToken, company.name);
+          if (res.jobs && res.jobs.length > 0) {
+            extractedResult = res;
+            extractionSuccess = true;
+          }
+        } catch (err) {
+          console.warn(`Ashby error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
+      // 5. Try SmartRecruiters
+      if (!extractionSuccess && (atsLower.includes('smartrecruiters') || (careerUrl && careerUrl.includes('smartrecruiters.com')))) {
+        try {
+          const res = await ATSAdapters.extractSmartRecruiters(atsToken, company.name);
+          if (res.jobs && res.jobs.length > 0) {
+            extractedResult = res;
+            extractionSuccess = true;
+          }
+        } catch (err) {
+          console.warn(`SmartRecruiters error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
+      // 6. Try Workable
+      if (!extractionSuccess && (atsLower.includes('workable') || (careerUrl && careerUrl.includes('workable.com')))) {
+        try {
+          const res = await ATSAdapters.extractWorkable(atsToken, company.name);
+          if (res.jobs && res.jobs.length > 0) {
+            extractedResult = res;
+            extractionSuccess = true;
+          }
+        } catch (err) {
+          console.warn(`Workable error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
+      // 7. Multi-probe & Sitemaps & Generic Fallback
+      if (!extractionSuccess) {
+        // Probe Workday subdomains
+        const wdHosts = [
+          `https://${atsToken}.wd103.myworkdayjobs.com/${company.name.replace(/[^a-zA-Z0-9]/g, '')}`,
+          `https://${atsToken}.wd103.myworkdayjobs.com/AccentureCareers`,
+          `https://${atsToken}.myworkdayjobs.com/${company.name.replace(/[^a-zA-Z0-9]/g, '')}`,
+          `https://${atsToken}.wd3.myworkdayjobs.com/${company.name.replace(/[^a-zA-Z0-9]/g, '')}`,
+          `https://${atsToken}.wd1.myworkdayjobs.com/${company.name.replace(/[^a-zA-Z0-9]/g, '')}`
+        ];
+        for (const probeUrl of wdHosts) {
           try {
-            const probeWdUrl = `https://${atsToken}.myworkdayjobs.com/${company.name.replace(/[^a-zA-Z0-9]/g, '')}`;
-            const wdRes = await ATSAdapters.extractWorkday(probeWdUrl, company.name);
+            const wdRes = await ATSAdapters.extractWorkday(probeUrl, company.name);
             if (wdRes.jobs && wdRes.jobs.length > 0) {
               extractedResult = wdRes;
               atsProvider = 'Workday';
-              probed = true;
-              await ScraperModel.updateCompany(company.id, { ats_provider: 'Workday', career_url: probeWdUrl });
+              extractionSuccess = true;
+              await ScraperModel.updateCompany(company.id, { ats_provider: 'Workday', career_url: probeUrl });
+              break;
             }
           } catch {}
         }
 
-        // Probe B: Greenhouse
-        if (!probed) {
+        // Probe Greenhouse
+        if (!extractionSuccess) {
           try {
             const ghRes = await ATSAdapters.extractGreenhouse(atsToken, company.name);
             if (ghRes.jobs && ghRes.jobs.length > 0) {
               extractedResult = ghRes;
               atsProvider = 'Greenhouse';
-              probed = true;
+              extractionSuccess = true;
               await ScraperModel.updateCompany(company.id, { ats_provider: 'Greenhouse' });
             }
           } catch {}
         }
 
-        // Probe C: Lever
-        if (!probed) {
+        // Probe Lever
+        if (!extractionSuccess) {
           try {
             const leverRes = await ATSAdapters.extractLever(atsToken, company.name);
             if (leverRes.jobs && leverRes.jobs.length > 0) {
               extractedResult = leverRes;
               atsProvider = 'Lever';
-              probed = true;
+              extractionSuccess = true;
               await ScraperModel.updateCompany(company.id, { ats_provider: 'Lever' });
             }
           } catch {}
         }
 
-        // Probe D: SmartRecruiters
-        if (!probed) {
-          try {
-            const srRes = await ATSAdapters.extractSmartRecruiters(atsToken, company.name);
-            if (srRes.jobs && srRes.jobs.length > 0) {
-              extractedResult = srRes;
-              atsProvider = 'SmartRecruiters';
-              probed = true;
-              await ScraperModel.updateCompany(company.id, { ats_provider: 'SmartRecruiters' });
-            }
-          } catch {}
-        }
-
-        // Probe E: XML Job Sitemaps (Discovered from robots.txt, e.g. Accenture's 27,000 jobs)
-        if (!probed && jobSitemap) {
+        // Probe XML Job Sitemaps (Discovered from robots.txt, e.g. Accenture's 27,000 jobs)
+        if (!extractionSuccess && jobSitemap) {
           try {
             const smRes = await ATSAdapters.extractSitemapJobs(jobSitemap, company.name);
             if (smRes.jobs && smRes.jobs.length > 0) {
               extractedResult = smRes;
               atsProvider = 'Sitemap XML';
-              probed = true;
+              extractionSuccess = true;
               await ScraperModel.updateCompany(company.id, { ats_provider: 'Sitemap XML' });
             }
           } catch {}
         }
 
         // Fallback: Generic Website extraction (JSON-LD -> HTML)
-        if (!probed) {
+        if (!extractionSuccess) {
           extractedResult = await ATSAdapters.extractGeneric(careerUrl || website, company.name);
         }
       }

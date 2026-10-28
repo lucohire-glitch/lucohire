@@ -2,12 +2,50 @@ import * as cheerio from 'cheerio';
 import { ComplianceService } from './complianceService.js';
 
 export const DiscoveryService = {
-  // Known 3rd party aggregators to exclude as company primary websites
+  // Known 3rd party aggregators to strictly block from being scanned as direct companies
   AGGREGATOR_DOMAINS: [
     'indeed.com', 'naukri.com', 'linkedin.com', 'glassdoor.com', 'monster.com',
     'foundit.in', 'shine.com', 'simplyhired.com', 'ziprecruiter.com', 'dice.com',
-    'timesjobs.com', 'freshersworld.com', 'upwork.com', 'fiverr.com'
+    'timesjobs.com', 'freshersworld.com', 'upwork.com', 'fiverr.com', 'internshala.com',
+    'instahyre.com', 'cutshort.io', 'freelancer.com', 'careerbuilder.com'
   ],
+
+  /**
+   * Checks if an input name, website, or URL belongs to a 3rd-party job portal.
+   * Returns portal name if detected, or null if legitimate company.
+   */
+  isJobPortal(input = '') {
+    if (!input) return null;
+    const str = String(input).toLowerCase().trim();
+    const portalPatterns = [
+      { name: 'Naukri (naukri.com)', match: 'naukri' },
+      { name: 'Indeed (indeed.com)', match: 'indeed' },
+      { name: 'LinkedIn Jobs (linkedin.com)', match: 'linkedin' },
+      { name: 'Glassdoor (glassdoor.com)', match: 'glassdoor' },
+      { name: 'Monster / FoundIt (foundit.in)', match: 'foundit' },
+      { name: 'Monster (monster.com)', match: 'monster' },
+      { name: 'Shine (shine.com)', match: 'shine.com' },
+      { name: 'ZipRecruiter (ziprecruiter.com)', match: 'ziprecruiter' },
+      { name: 'SimplyHired (simplyhired.com)', match: 'simplyhired' },
+      { name: 'Dice (dice.com)', match: 'dice.com' },
+      { name: 'TimesJobs (timesjobs.com)', match: 'timesjobs' },
+      { name: 'FreshersWorld (freshersworld.com)', match: 'freshersworld' },
+      { name: 'Internshala (internshala.com)', match: 'internshala' },
+      { name: 'Instahyre (instahyre.com)', match: 'instahyre' },
+      { name: 'Cutshort (cutshort.io)', match: 'cutshort' },
+      { name: 'CareerBuilder (careerbuilder.com)', match: 'careerbuilder' },
+      { name: 'Upwork (upwork.com)', match: 'upwork' },
+      { name: 'Fiverr (fiverr.com)', match: 'fiverr' },
+      { name: 'Freelancer (freelancer.com)', match: 'freelancer' },
+    ];
+
+    for (const p of portalPatterns) {
+      if (str.includes(p.match)) {
+        return p.name;
+      }
+    }
+    return null;
+  },
 
   /**
    * Normalizes company name, website, and contact email from any combination of inputs.
@@ -208,18 +246,24 @@ export const DiscoveryService = {
       } catch {}
     }
 
-    // Step 2: Check common career paths directly
+    // Step 2: Check common career & hiring paths directly
     const commonPaths = [
       '/careers/jobsearch',
       '/careers',
       '/jobs',
       '/job-search',
+      '/join-us',
+      '/join',
+      '/hiring',
+      '/we-are-hiring',
+      '/work-with-us',
       '/openings',
       '/positions',
-      '/join-us',
-      '/about/careers',
-      '/work-with-us',
+      '/opportunities',
       '/vacancies',
+      '/about/careers',
+      '/about-us/careers',
+      '/company/careers',
     ];
 
     for (const path of commonPaths) {
@@ -231,7 +275,6 @@ export const DiscoveryService = {
           const html = await res.text();
           const atsInfo = this.detectAts(html, finalUrl);
 
-          // If Workday or known ATS was detected inside HTML/data attributes, prioritize its URL
           let targetCareerUrl = finalUrl;
           if (atsInfo.workdayUrl) {
             targetCareerUrl = atsInfo.workdayUrl;
@@ -250,37 +293,87 @@ export const DiscoveryService = {
       } catch {}
     }
 
-    // Step 3: Inspect homepage for career links
+    // Helper: scans any loaded HTML page for hiring / career links across header, footer, menus & ATS URLs
+    const findHiringLinkInHtml = (htmlContent, baseUrl) => {
+      const $ = cheerio.load(htmlContent);
+      let found = null;
+
+      $('a').each((_, el) => {
+        const href = ($(el).attr('href') || '').trim();
+        const text = $(el).text().toLowerCase().replace(/\s+/g, ' ').trim();
+        const ariaLabel = ($(el).attr('aria-label') || '').toLowerCase();
+        const titleAttr = ($(el).attr('title') || '').toLowerCase();
+        const combinedLabels = `${text} ${ariaLabel} ${titleAttr}`;
+
+        if (!href || href.startsWith('javascript:') || href.startsWith('#')) return;
+
+        // Check 1: External ATS URLs (instant match regardless of anchor text)
+        const isAtsUrl =
+          href.includes('greenhouse.io') ||
+          href.includes('lever.co') ||
+          href.includes('myworkdayjobs.com') ||
+          href.includes('ashbyhq.com') ||
+          href.includes('smartrecruiters.com') ||
+          href.includes('workable.com') ||
+          href.includes('bamboohr.com') ||
+          href.includes('recruitee.com') ||
+          href.includes('breezy.hr');
+
+        if (isAtsUrl) {
+          found = href;
+          return false;
+        }
+
+        // Check 2: Hiring / Career text triggers
+        const textTriggers = [
+          'career', 'careers',
+          'job', 'jobs',
+          'hiring', "we're hiring", 'we are hiring', 'now hiring',
+          'work with us', 'work at', 'work for us',
+          'join our team', 'join us',
+          'open positions', 'openings', 'current openings',
+          'opportunities', 'vacancies', 'positions',
+          'explore roles', 'life at', 'talent'
+        ];
+        const hasTextTrigger = textTriggers.some(t => combinedLabels.includes(t));
+
+        // Check 3: Hiring URL path triggers
+        const hrefLower = href.toLowerCase();
+        const hasHrefTrigger =
+          hrefLower.includes('/career') ||
+          hrefLower.includes('/job') ||
+          hrefLower.includes('/join') ||
+          hrefLower.includes('/hiring') ||
+          hrefLower.includes('/opening') ||
+          hrefLower.includes('/position') ||
+          hrefLower.includes('/vacancy') ||
+          hrefLower.includes('/opportunity');
+
+        if (hasTextTrigger || hasHrefTrigger) {
+          found = href;
+          return false;
+        }
+      });
+
+      if (found) {
+        try {
+          return new URL(found, baseUrl).href;
+        } catch {}
+      }
+      return null;
+    };
+
+    // Step 3: Inspect homepage for career links anywhere (navigation, footer, submenus, buttons)
     try {
       const homeRes = await ComplianceService.safeFetch(origin, { timeout: 8000 });
       if (homeRes.ok) {
         const homeHtml = await homeRes.text();
-        const $ = cheerio.load(homeHtml);
-        let foundHref = null;
+        const discoveredUrl = findHiringLinkInHtml(homeHtml, origin);
 
-        $('a').each((_, el) => {
-          const href = $(el).attr('href');
-          const text = $(el).text().toLowerCase().trim();
-          if (
-            href &&
-            (text.includes('career') ||
-             text.includes('job') ||
-             text.includes('work with us') ||
-             text.includes('join our team') ||
-             text.includes('openings') ||
-             href.includes('/career') ||
-             href.includes('/job'))
-          ) {
-            foundHref = href;
-            return false; // break
-          }
-        });
-
-        if (foundHref) {
-          const fullCareerUrl = new URL(foundHref, origin).href;
-          const atsInfo = this.detectAts(homeHtml, fullCareerUrl);
+        if (discoveredUrl) {
+          const atsInfo = this.detectAts(homeHtml, discoveredUrl);
           return {
-            careerUrl: atsInfo.workdayUrl || fullCareerUrl,
+            careerUrl: atsInfo.workdayUrl || discoveredUrl,
             ats: atsInfo.ats,
             atsToken: atsInfo.token,
             atsData: atsInfo,
@@ -288,6 +381,30 @@ export const DiscoveryService = {
             allSitemaps,
             html: homeHtml,
           };
+        }
+
+        // Step 4: If not directly on homepage, check company secondary pages (About, Company, Team)
+        const secondaryPages = ['/about', '/about-us', '/company', '/team'];
+        for (const sub of secondaryPages) {
+          try {
+            const subRes = await ComplianceService.safeFetch(`${origin}${sub}`, { timeout: 6000 });
+            if (subRes.ok) {
+              const subHtml = await subRes.text();
+              const subDiscovered = findHiringLinkInHtml(subHtml, `${origin}${sub}`);
+              if (subDiscovered) {
+                const subAts = this.detectAts(subHtml, subDiscovered);
+                return {
+                  careerUrl: subAts.workdayUrl || subDiscovered,
+                  ats: subAts.ats,
+                  atsToken: subAts.token,
+                  atsData: subAts,
+                  jobSitemap,
+                  allSitemaps,
+                  html: subHtml,
+                };
+              }
+            }
+          } catch {}
         }
       }
     } catch {}

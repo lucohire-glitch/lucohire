@@ -3,10 +3,136 @@ import { ComplianceService } from './complianceService.js';
 
 export const ATSAdapters = {
   /**
+   * Adapter: Accenture Career Portal API (Elasticsearch)
+   * Connects directly to Accenture's live career search portal for 10,000+ jobs
+   */
+  async extractAccentureElastic(careerUrl = '', companyName = 'Accenture', maxPages = 2, options = {}) {
+    if (careerUrl && typeof careerUrl === 'object') {
+      options = careerUrl;
+      careerUrl = options.careerUrl || '';
+    }
+    let countrySite = 'in-en';
+    let jobCountry = 'India';
+
+    if (careerUrl && typeof careerUrl === 'string') {
+      const match = careerUrl.match(/\/([a-z]{2}-[a-z]{2})\b/i);
+      if (match) {
+        countrySite = match[1].toLowerCase();
+        if (countrySite.startsWith('in')) jobCountry = 'India';
+        else if (countrySite.startsWith('us')) jobCountry = 'USA';
+        else if (countrySite.startsWith('gb')) jobCountry = 'United Kingdom';
+        else if (countrySite.startsWith('ca')) jobCountry = 'Canada';
+        else if (countrySite.startsWith('au')) jobCountry = 'Australia';
+      }
+    }
+
+    const keyword = (options.keyword || options.title || options.search || '').trim();
+    const targetLocation = (options.location || '').trim().toLowerCase();
+
+    const apiUrl = 'https://www.accenture.com/api/accenture/elastic/findjobs';
+    const limit = 50;
+    const allJobs = [];
+    let totalReported = 10000;
+
+    for (let p = 0; p < maxPages; p++) {
+      try {
+        const form = new FormData();
+        form.append('startIndex', String(p * limit));
+        form.append('maxResultSize', String(limit));
+        form.append('jobKeyword', keyword);
+        form.append('jobCountry', jobCountry);
+        form.append('jobLanguage', 'en');
+        form.append('countrySite', countrySite);
+        form.append('sortBy', '1'); // 1 = Newest
+        form.append('searchType', 'vectorSearch');
+        form.append('enableQueryBoost', 'true');
+        form.append('minScore', '0.6');
+        form.append('getFeedbackJudgmentEnabled', 'true');
+        form.append('useCleanEmbedding', 'true');
+        form.append('score', 'true');
+        form.append('totalHits', 'true');
+        form.append('debugQuery', 'false');
+        form.append('jobFilters', '[]');
+
+        const res = await ComplianceService.safeFetch(apiUrl, {
+          method: 'POST',
+          body: form,
+          timeout: 10000,
+        });
+
+        if (!res.ok) break;
+        const data = await res.json();
+        if (data.totalHits?.total) {
+          totalReported = data.totalHits.total;
+        }
+
+        const items = data.data || [];
+        if (items.length === 0) break;
+
+        for (const item of items) {
+          const loc = item.feedCity || item.location?.[0] || 'Multiple Locations';
+          // If location filter provided, match location
+          if (targetLocation && !loc.toLowerCase().includes(targetLocation) && !JSON.stringify(item.location || []).toLowerCase().includes(targetLocation)) {
+            continue;
+          }
+
+          const title = item.title || 'Custom Software Engineer';
+          const guid = item.guid || Math.random().toString(36).substring(7);
+          const fullJobUrl = `https://www.accenture.com/${countrySite}/careers/jobdetails?id=${guid}`;
+          const isRemote = (item.remoteType || '').toLowerCase().includes('remote') ||
+                           title.toLowerCase().includes('remote');
+
+          allJobs.push({
+            external_job_id: guid,
+            title,
+            location: loc,
+            locations: item.location || [loc],
+            work_mode: isRemote ? 'Remote' : 'On-site',
+            employment_type: 'Full-time',
+            department: item.orgUnitLevel2 || item.areaOfInterest?.[0] || 'Technology',
+            experience: item.yearsOfExperience || '',
+            salary: '',
+            skills: item.mustHaveSkills || [],
+            description: item.jobDescription || item.jobOverview || '',
+            original_job_url: fullJobUrl,
+            apply_url: fullJobUrl,
+            ats_provider: 'Accenture Careers',
+            confidence_score: 99,
+          });
+        }
+      } catch (err) {
+        console.error('Accenture Elastic API page fetch error:', err.message);
+        break;
+      }
+    }
+
+    if (allJobs.length === 0) {
+      throw new Error('Accenture Elastic API returned 0 postings');
+    }
+
+    return {
+      extractionMethod: 'Accenture Career API',
+      reportedCount: totalReported,
+      jobs: allJobs,
+      strategyMemory: {
+        s: 'Accenture Elasticsearch API',
+        ep: apiUrl,
+        countrySite,
+        totalFound: totalReported,
+        v: '1.0.0',
+        chk: new Date().toISOString(),
+      }
+    };
+  },
+
+  /**
    * Adapter: Workday CXS (Public Universal API)
    * Used by Accenture, IBM, Adobe, Target, Walmart, Nvidia, HP, Dell, etc.
    */
-  async extractWorkday(workdayUrl, companyName, maxPages = 5) {
+  async extractWorkday(workdayUrl, companyName, maxPages = 5, options = {}) {
+    if (!workdayUrl || !workdayUrl.includes('myworkdayjobs.com')) {
+      throw new Error(`Invalid Workday URL: must be a *.myworkdayjobs.com domain, got: ${workdayUrl}`);
+    }
     let cleanUrl = workdayUrl.replace(/["';,].*$/, '').replace(/\/userHome.*$/, '');
     let host = '';
     let site = '';
@@ -15,11 +141,14 @@ export const ATSAdapters = {
     try {
       const u = new URL(cleanUrl);
       host = u.hostname;
+      if (!host.includes('myworkdayjobs.com')) {
+        throw new Error(`Hostname ${host} is not a Workday domain`);
+      }
       const parts = u.pathname.split('/').filter(Boolean);
       site = parts[0] || 'Careers';
       tenant = host.split('.')[0];
     } catch (e) {
-      throw new Error(`Invalid Workday URL: ${workdayUrl}`);
+      throw new Error(`Invalid Workday URL: ${workdayUrl} (${e.message})`);
     }
 
     const apiUrl = `https://${host}/wday/cxs/${tenant}/${site}/jobs`;
@@ -27,6 +156,7 @@ export const ATSAdapters = {
     let offset = 0;
     let totalReported = null;
     const allJobs = [];
+    const searchText = (options.keyword || options.title || options.search || options.location || '').trim();
 
     for (let p = 0; p < maxPages; p++) {
       try {
@@ -39,7 +169,7 @@ export const ATSAdapters = {
             appliedFacets: {},
             limit,
             offset,
-            searchText: '',
+            searchText,
           }),
           timeout: 10000,
         });
@@ -197,10 +327,14 @@ export const ATSAdapters = {
    * Adapter: Ashby (Public Posting API)
    */
   async extractAshby(siteToken, companyName) {
+    const cleanToken = (siteToken || '')
+      .replace(/^https?:\/\/jobs\.ashbyhq\.com\//i, '')
+      .replace(/\/.*$/, '')
+      .trim();
     const apiUrl = 'https://jobs.ashbyhq.com/api/non-user-graphql?op=ApiJobBoardWithTeams';
     const body = {
       operationName: 'ApiJobBoardWithTeams',
-      variables: { organizationHostedJobsPageName: siteToken },
+      variables: { organizationHostedJobsPageName: cleanToken },
       query: `query ApiJobBoardWithTeams($organizationHostedJobsPageName: String!) {
         jobBoard: jobBoardWithTeams(organizationHostedJobsPageName: $organizationHostedJobsPageName) {
           jobPostings {

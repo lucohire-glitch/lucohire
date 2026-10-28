@@ -35,6 +35,34 @@ import {
   ScraperScanRun,
 } from '../api';
 
+const checkJobPortal = (str: string): string | null => {
+  if (!str) return null;
+  const lower = str.toLowerCase().trim();
+  const portals = [
+    { name: 'Naukri (naukri.com)', match: 'naukri' },
+    { name: 'Indeed (indeed.com)', match: 'indeed' },
+    { name: 'LinkedIn Jobs (linkedin.com)', match: 'linkedin' },
+    { name: 'Glassdoor (glassdoor.com)', match: 'glassdoor' },
+    { name: 'FoundIt / Monster (foundit.in)', match: 'foundit' },
+    { name: 'Monster (monster.com)', match: 'monster' },
+    { name: 'Shine (shine.com)', match: 'shine.com' },
+    { name: 'ZipRecruiter (ziprecruiter.com)', match: 'ziprecruiter' },
+    { name: 'SimplyHired (simplyhired.com)', match: 'simplyhired' },
+    { name: 'TimesJobs (timesjobs.com)', match: 'timesjobs' },
+    { name: 'FreshersWorld (freshersworld.com)', match: 'freshersworld' },
+    { name: 'Internshala (internshala.com)', match: 'internshala' },
+    { name: 'Instahyre (instahyre.com)', match: 'instahyre' },
+    { name: 'Cutshort (cutshort.io)', match: 'cutshort' },
+    { name: 'Upwork (upwork.com)', match: 'upwork' },
+    { name: 'Fiverr (fiverr.com)', match: 'fiverr' },
+    { name: 'Freelancer (freelancer.com)', match: 'freelancer' },
+  ];
+  for (const p of portals) {
+    if (lower.includes(p.match)) return p.name;
+  }
+  return null;
+};
+
 export default function AdminScraperView() {
   const [activeSubTab, setActiveSubTab] = useState<'companies' | 'jobs' | 'scans' | 'debug'>('companies');
   const [companies, setCompanies] = useState<ScrapedCompany[]>([]);
@@ -48,7 +76,16 @@ export default function AdminScraperView() {
   const [newCompanyName, setNewCompanyName] = useState('');
   const [newCompanyWebsite, setNewCompanyWebsite] = useState('');
   const [newCompanyEmail, setNewCompanyEmail] = useState('');
+  const [newCompanyRole, setNewCompanyRole] = useState('');
+  const [newCompanyLocation, setNewCompanyLocation] = useState('');
   const [isSavingCompany, setIsSavingCompany] = useState(false);
+  const [portalValidationError, setPortalValidationError] = useState<string | null>(null);
+
+  // Dedicated filters for Extracted Jobs
+  const [jobTitleFilter, setJobTitleFilter] = useState('');
+  const [jobCompanyFilter, setJobCompanyFilter] = useState('');
+  const [jobLocationFilter, setJobLocationFilter] = useState('');
+  const [jobWorkModeFilter, setJobWorkModeFilter] = useState('All');
 
   // CSV Import Modal
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
@@ -89,12 +126,31 @@ export default function AdminScraperView() {
 
   const handleAddCompany = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPortalValidationError(null);
     const compName = newCompanyName.trim();
     const compWeb = newCompanyWebsite.trim();
     const compMail = newCompanyEmail.trim();
+    const targetRole = newCompanyRole.trim();
+    const targetLoc = newCompanyLocation.trim();
 
     if (!compName && !compWeb && !compMail) {
       showToast('Please provide at least a company name, website, or email');
+      return;
+    }
+
+    // Guard against 3rd-party job aggregators (Naukri, Indeed, LinkedIn, etc.)
+    const detectedPortal =
+      checkJobPortal(compName) ||
+      checkJobPortal(compWeb) ||
+      checkJobPortal(compMail);
+
+    if (detectedPortal) {
+      setPortalValidationError(
+        `Scanning 3rd-party job portals ("${detectedPortal}") is strictly blocked.\n\n` +
+        `• Why is this blocked? Aggregator portals (like Naukri, Indeed, Glassdoor, LinkedIn) contain duplicate, outdated, and expired postings with broken redirect links.\n\n` +
+        `• What should you do? Enter the direct company name or official website (e.g. accenture.com, stripe.com, adobe.com) to scan official, 100% verified employer jobs.`
+      );
+      showToast(`🚫 Job portal "${detectedPortal}" is blocked!`);
       return;
     }
 
@@ -109,16 +165,23 @@ export default function AdminScraperView() {
         const addedName = res.company?.name || compName || 'Company';
         showToast(`Company "${addedName}" added! Scanning active openings...`);
         setIsAddModalOpen(false);
+        setPortalValidationError(null);
         const compId = res.company?.id;
         setNewCompanyName('');
         setNewCompanyWebsite('');
         setNewCompanyEmail('');
+        setNewCompanyRole('');
+        setNewCompanyLocation('');
         await loadData();
         if (compId) {
-          handleScan(compId);
+          handleScan(compId, { keyword: targetRole, location: targetLoc });
         }
       } else {
-        showToast('Error: ' + (res?.error || 'Failed to add company'));
+        const errMsg = res?.reason || res?.error || 'Failed to add company';
+        if (res?.error === 'JOB_PORTAL_BLOCKED' || res?.reason) {
+          setPortalValidationError(errMsg);
+        }
+        showToast('Error: ' + errMsg);
       }
     } catch (err: any) {
       showToast('Error: ' + (err.message || 'Something went wrong'));
@@ -132,19 +195,36 @@ export default function AdminScraperView() {
     setIsImporting(true);
     try {
       const lines = csvText.trim().split('\n');
+      const rejectedPortals: string[] = [];
       const parsed = lines.map(line => {
         const parts = line.split(',').map(p => p.trim());
+        const name = parts[0] || '';
+        const website = parts[1] || '';
+        const portal = checkJobPortal(name) || checkJobPortal(website);
+        if (portal) {
+          rejectedPortals.push(`${name || website} (${portal})`);
+          return null;
+        }
         return {
-          name: parts[0] || '',
-          website: parts[1] || '',
+          name,
+          website,
           country: parts[2] || '',
           contactEmail: parts[3] || '',
         };
-      }).filter(c => c.name);
+      }).filter(Boolean) as any[];
+
+      if (rejectedPortals.length > 0) {
+        showToast(`⚠️ Blocked ${rejectedPortals.length} job aggregator(s): ${rejectedPortals.slice(0, 2).join(', ')}`);
+      }
+
+      if (parsed.length === 0) {
+        showToast('All rows in CSV were job portals and have been blocked.');
+        return;
+      }
 
       const res = await importScraperCsv(parsed);
       if (res.success) {
-        showToast(`Imported ${res.importedCount} companies from CSV!`);
+        showToast(`Imported ${res.importedCount} direct companies from CSV!`);
         setIsCsvModalOpen(false);
         setCsvText('');
         loadData();
@@ -156,11 +236,11 @@ export default function AdminScraperView() {
     }
   };
 
-  const handleScan = async (companyId: number) => {
+  const handleScan = async (companyId: number, options: { keyword?: string; title?: string; location?: string } = {}) => {
     setScanningCompanyId(companyId);
     showToast('Starting compliance & job scan...');
     try {
-      const res = await triggerCompanyScan(companyId);
+      const res = await triggerCompanyScan(companyId, options);
       if (res.success) {
         showToast(`Scan complete: ${res.jobsExtracted} jobs found (${res.status})`);
         loadData();
@@ -223,26 +303,49 @@ export default function AdminScraperView() {
   const [scansPage, setScansPage] = useState(1);
   const [scansPageSize, setScansPageSize] = useState(10);
 
-  // Reset page when search changes
+  // Reset page when search or filters change
   useEffect(() => {
     setCompPage(1);
     setJobsPage(1);
     setScansPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, jobTitleFilter, jobCompanyFilter, jobLocationFilter, jobWorkModeFilter]);
 
-  const filteredCompanies = companies.filter(c =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (c.website && c.website.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (c.ats_provider && c.ats_provider.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredCompanies = companies.filter(c => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const directMatch =
+      c.name.toLowerCase().includes(q) ||
+      (c.website && c.website.toLowerCase().includes(q)) ||
+      (c.ats_provider && c.ats_provider.toLowerCase().includes(q)) ||
+      (c.country && c.country.toLowerCase().includes(q));
+    if (directMatch) return true;
+
+    // Also match if any extracted job under this company matches the search query (job title, location, or department)
+    return jobs.some(j =>
+      j.company_id === c.id &&
+      (j.title.toLowerCase().includes(q) ||
+       (j.location && j.location.toLowerCase().includes(q)) ||
+       (j.department && j.department.toLowerCase().includes(q)))
+    );
+  });
   const totalCompPages = Math.ceil(filteredCompanies.length / compPageSize) || 1;
   const paginatedCompanies = filteredCompanies.slice((compPage - 1) * compPageSize, compPage * compPageSize);
 
-  const filteredJobs = jobs.filter(j =>
-    j.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    j.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (j.location && j.location.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredJobs = jobs.filter(j => {
+    const q = searchQuery.toLowerCase();
+    const matchesGeneral = !searchQuery ||
+      j.title.toLowerCase().includes(q) ||
+      j.company_name.toLowerCase().includes(q) ||
+      (j.location && j.location.toLowerCase().includes(q)) ||
+      (j.department && j.department.toLowerCase().includes(q));
+
+    const matchesTitle = !jobTitleFilter || j.title.toLowerCase().includes(jobTitleFilter.toLowerCase());
+    const matchesCompany = !jobCompanyFilter || j.company_name.toLowerCase().includes(jobCompanyFilter.toLowerCase());
+    const matchesLocation = !jobLocationFilter || (j.location && j.location.toLowerCase().includes(jobLocationFilter.toLowerCase()));
+    const matchesWorkMode = !jobWorkModeFilter || jobWorkModeFilter === 'All' || j.work_mode?.toLowerCase() === jobWorkModeFilter.toLowerCase();
+
+    return matchesGeneral && matchesTitle && matchesCompany && matchesLocation && matchesWorkMode;
+  });
   const totalJobsPages = Math.ceil(filteredJobs.length / jobsPageSize) || 1;
   const paginatedJobs = filteredJobs.slice((jobsPage - 1) * jobsPageSize, jobsPage * jobsPageSize);
 
@@ -746,10 +849,134 @@ export default function AdminScraperView() {
 
       {/* TAB 2: JOBS */}
       {activeSubTab === 'jobs' && (
-        <div style={{ background: '#FFFFFF', border: '1px solid #ECEAF9', borderRadius: '14px', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ background: '#F8F9FA', borderBottom: '1px solid #ECEAF9', color: 'var(--ink-soft, #75708F)' }}>
+        <div style={{ display: 'grid', gap: '12px' }}>
+          {/* Dedicated Filter Controls for Job Title, Company, Location & Work Mode */}
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '10px',
+            alignItems: 'center',
+            background: '#FFFFFF',
+            padding: '12px 16px',
+            border: '1px solid #ECEAF9',
+            borderRadius: '12px',
+          }}>
+            <div style={{ flex: '1 1 180px', minWidth: '150px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#75708F', marginBottom: '3px' }}>
+                Job Title
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Software Engineer..."
+                value={jobTitleFilter}
+                onChange={(e) => setJobTitleFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  border: '1px solid #ECEAF9',
+                  fontSize: '12.5px',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            <div style={{ flex: '1 1 160px', minWidth: '140px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#75708F', marginBottom: '3px' }}>
+                Company Name
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Accenture..."
+                value={jobCompanyFilter}
+                onChange={(e) => setJobCompanyFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  border: '1px solid #ECEAF9',
+                  fontSize: '12.5px',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            <div style={{ flex: '1 1 160px', minWidth: '140px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#75708F', marginBottom: '3px' }}>
+                Location / City
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Pune, Nagpur, Remote..."
+                value={jobLocationFilter}
+                onChange={(e) => setJobLocationFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  border: '1px solid #ECEAF9',
+                  fontSize: '12.5px',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            <div style={{ flex: '0 1 130px', minWidth: '110px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#75708F', marginBottom: '3px' }}>
+                Work Mode
+              </label>
+              <select
+                value={jobWorkModeFilter}
+                onChange={(e) => setJobWorkModeFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid #ECEAF9',
+                  fontSize: '12.5px',
+                  outline: 'none',
+                  background: '#FFFFFF',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="All">All Modes</option>
+                <option value="Remote">Remote</option>
+                <option value="On-site">On-site</option>
+                <option value="Hybrid">Hybrid</option>
+              </select>
+            </div>
+
+            {(jobTitleFilter || jobCompanyFilter || jobLocationFilter || jobWorkModeFilter !== 'All') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setJobTitleFilter('');
+                  setJobCompanyFilter('');
+                  setJobLocationFilter('');
+                  setJobWorkModeFilter('All');
+                }}
+                style={{
+                  alignSelf: 'flex-end',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid #ECEAF9',
+                  background: '#F8F9FA',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#C0392B',
+                  cursor: 'pointer',
+                  marginBottom: '1px',
+                }}
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+
+          <div style={{ background: '#FFFFFF', border: '1px solid #ECEAF9', borderRadius: '14px', overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ background: '#F8F9FA', borderBottom: '1px solid #ECEAF9', color: 'var(--ink-soft, #75708F)' }}>
                 <th style={{ padding: '12px 16px' }}>Job Role &amp; Company</th>
                 <th style={{ padding: '12px 16px' }}>Location &amp; Mode</th>
                 <th style={{ padding: '12px 16px' }}>Contact Email</th>
@@ -841,6 +1068,7 @@ export default function AdminScraperView() {
           </table>
           {renderPagination(jobsPage, totalJobsPages, filteredJobs.length, jobsPageSize, setJobsPage, setJobsPageSize)}
         </div>
+      </div>
       )}
 
       {/* TAB 3: SCANS & COVERAGE REPORT */}
@@ -1044,6 +1272,25 @@ export default function AdminScraperView() {
               Enter any combination of <b>Name</b>, <b>Website</b>, or <b>Email</b>. The engine automatically connects to the company's real career portal (Workday, Greenhouse, Lever, Ashby, XML Sitemaps) and scans live jobs.
             </p>
 
+            {portalValidationError && (
+              <div style={{
+                background: '#FEF2F2',
+                border: '1px solid #FCA5A5',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                marginBottom: '14px',
+                fontSize: '12px',
+                color: '#991B1B',
+                lineHeight: 1.5,
+              }}>
+                <div style={{ fontWeight: 800, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '14px' }}>🚫</span>
+                  <span>3rd-Party Job Portal Prohibited</span>
+                </div>
+                <div style={{ whiteSpace: 'pre-line' }}>{portalValidationError}</div>
+              </div>
+            )}
+
             <form onSubmit={handleAddCompany} style={{ display: 'grid', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px', color: '#1C1733' }}>
@@ -1053,16 +1300,24 @@ export default function AdminScraperView() {
                   type="text"
                   placeholder="e.g. Accenture, Stripe, Siemens"
                   value={newCompanyName}
-                  onChange={(e) => setNewCompanyName(e.target.value)}
+                  onChange={(e) => {
+                    setNewCompanyName(e.target.value);
+                    if (portalValidationError) setPortalValidationError(null);
+                  }}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
                     borderRadius: '10px',
-                    border: '1px solid #ECEAF9',
+                    border: checkJobPortal(newCompanyName) ? '1.5px solid #EF4444' : '1px solid #ECEAF9',
                     fontSize: '13px',
                     outline: 'none',
                   }}
                 />
+                {checkJobPortal(newCompanyName) && (
+                  <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>
+                    ⚠️ "{checkJobPortal(newCompanyName)}" is a 3rd-party job portal. Only direct company career sites allowed.
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1073,16 +1328,24 @@ export default function AdminScraperView() {
                   type="text"
                   placeholder="e.g. accenture.com (auto-discovered if empty)"
                   value={newCompanyWebsite}
-                  onChange={(e) => setNewCompanyWebsite(e.target.value)}
+                  onChange={(e) => {
+                    setNewCompanyWebsite(e.target.value);
+                    if (portalValidationError) setPortalValidationError(null);
+                  }}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
                     borderRadius: '10px',
-                    border: '1px solid #ECEAF9',
+                    border: checkJobPortal(newCompanyWebsite) ? '1.5px solid #EF4444' : '1px solid #ECEAF9',
                     fontSize: '13px',
                     outline: 'none',
                   }}
                 />
+                {checkJobPortal(newCompanyWebsite) && (
+                  <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>
+                    ⚠️ "{checkJobPortal(newCompanyWebsite)}" is a 3rd-party job portal. Only direct employer domains allowed.
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1093,7 +1356,10 @@ export default function AdminScraperView() {
                   type="email"
                   placeholder="e.g. careers@accenture.com (auto-extracted if empty)"
                   value={newCompanyEmail}
-                  onChange={(e) => setNewCompanyEmail(e.target.value)}
+                  onChange={(e) => {
+                    setNewCompanyEmail(e.target.value);
+                    if (portalValidationError) setPortalValidationError(null);
+                  }}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
@@ -1105,10 +1371,54 @@ export default function AdminScraperView() {
                 />
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px', color: '#1C1733' }}>
+                    Target Job Title (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Software Engineer, Developer"
+                    value={newCompanyRole}
+                    onChange={(e) => setNewCompanyRole(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid #ECEAF9',
+                      fontSize: '13px',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px', color: '#1C1733' }}>
+                    Target Location (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Pune, Nagpur, India"
+                    value={newCompanyLocation}
+                    onChange={(e) => setNewCompanyLocation(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid #ECEAF9',
+                      fontSize: '13px',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
                 <button
                   type="button"
-                  onClick={() => setIsAddModalOpen(false)}
+                  onClick={() => {
+                    setIsAddModalOpen(false);
+                    setPortalValidationError(null);
+                  }}
                   style={{
                     padding: '9px 16px',
                     borderRadius: '10px',
