@@ -257,6 +257,9 @@ export const ATSAdapters = {
       const paramDomain = u.searchParams.get('domain');
       if (paramDomain) {
         domain = paramDomain;
+      } else if (host.includes('.eightfold.ai')) {
+        const sub = host.split('.')[0];
+        domain = `${sub}.com`;
       } else {
         domain = host.replace(/^apply\./, '').replace(/^jobs\./, '').replace(/^careers\./, '');
       }

@@ -155,6 +155,13 @@ export const DiscoveryService = {
       };
     }
 
+    // 0.2 Eightfold AI (NVIDIA nvidia.eightfold.ai, HP apply.hp.com, Micron, Starbucks, etc.)
+    if (combinedLower.includes('eightfold.ai') || combinedLower.includes('apply.hp.com') || combinedLower.includes('/pcsx/') || combinedLower.includes('_ef_group_id') || (combinedLower.includes('apply.') && combinedLower.includes('/careers'))) {
+      const efMatch = combined.match(/https?:\/\/([a-zA-Z0-9_-]+)\.eightfold\.ai(?:\/careers)?/i);
+      const efUrl = efMatch ? efMatch[0] : (url && url.includes('eightfold.ai') ? url : null);
+      return { ats: 'Eightfold AI', token: efMatch ? efMatch[1] : null, eightfoldUrl: efUrl || url };
+    }
+
     // 1. Workday (Universal enterprise ATS)
     if (combinedLower.includes('myworkdayjobs.com')) {
       const wdMatch = combined.match(/https?:\/\/([a-zA-Z0-9_.-]+)\.myworkdayjobs\.com\/([a-zA-Z0-9_/%-]+)/i);
@@ -563,6 +570,8 @@ export const DiscoveryService = {
       e.includes('email.com') ||
       e.includes('wixpress.com') ||
       e.includes('sentry.io') ||
+      e.includes('eightfold.ai') ||
+      e.includes('vs-errors') ||
       e.endsWith('.png') ||
       e.endsWith('.jpg') ||
       e.endsWith('.svg')

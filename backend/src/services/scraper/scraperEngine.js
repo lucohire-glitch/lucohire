@@ -124,8 +124,9 @@ export const ScraperEngine = {
         targetWorkday = detectedInfo.workdayUrl;
       }
 
-      // If Workday not yet resolved, check dedicated subdomains (jobs.<domain>) and page HTML
-      if (!targetWorkday && (careerUrl || website || normInput.domain)) {
+      // If Workday not yet resolved, check dedicated subdomains (jobs.<domain>) and page HTML (skip for Eightfold AI companies like NVIDIA or HP)
+      const isKnownEightfoldCompany = company.name.toLowerCase().includes('nvidia') || company.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'hp';
+      if (!isKnownEightfoldCompany && !targetWorkday && (careerUrl || website || normInput.domain)) {
         try {
           // 1. Try dedicated subdomains: jobs.<domain> and careers.<domain>
           if (normInput.domain) {
@@ -179,19 +180,36 @@ export const ScraperEngine = {
         }
       }
 
-      // Tier 0.4: Eightfold AI (HP apply.hp.com, Micron, Vodafone, Dexcom, Amdocs, Starbucks, etc. - 800+ jobs)
-      if (!extractionSuccess && (
+      // Tier 0.4: Eightfold AI (NVIDIA nvidia.eightfold.ai, HP apply.hp.com, Micron, Vodafone, Dexcom, Amdocs, Starbucks, etc. - 2,685+ jobs)
+      const isEfCandidate =
         atsLower.includes('eightfold') ||
         detectedInfo.eightfoldUrl ||
+        company.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes('nvidia') ||
+        company.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'hp' ||
         (careerUrl && (careerUrl.includes('eightfold.ai') || careerUrl.includes('apply.hp.com') || careerUrl.includes('/careers/job/') || careerUrl.includes('/pcsx/'))) ||
-        (website && (website.includes('hp.com') || website.includes('eightfold.ai'))) ||
-        company.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'hp'
-      )) {
+        (website && (website.includes('eightfold.ai') || website.includes('hp.com')));
+
+      if (!extractionSuccess && isEfCandidate) {
         try {
-          const efPortal = (careerUrl && careerUrl.includes('apply.')) ? careerUrl : (normInput.domain ? `https://apply.${normInput.domain}/careers` : 'https://apply.hp.com/careers');
+          let efPortal = null;
+          if (careerUrl && careerUrl.includes('eightfold.ai')) {
+            efPortal = careerUrl;
+          } else if (detectedInfo.eightfoldUrl) {
+            efPortal = detectedInfo.eightfoldUrl;
+          } else if (company.name.toLowerCase().includes('nvidia') || (normInput.domain && normInput.domain.includes('nvidia'))) {
+            efPortal = 'https://nvidia.eightfold.ai/careers';
+          } else if (careerUrl && careerUrl.includes('apply.')) {
+            efPortal = careerUrl;
+          } else if (normInput.domain) {
+            efPortal = `https://${normInput.domain.split('.')[0]}.eightfold.ai/careers`;
+          } else {
+            efPortal = 'https://apply.hp.com/careers';
+          }
+
           extractedResult = await ATSAdapters.extractEightfold(efPortal, company.name, options);
           if (extractedResult.jobs && extractedResult.jobs.length > 0) {
             atsProvider = 'Eightfold AI';
+            careerUrl = efPortal;
             extractionSuccess = true;
             await ScraperModel.updateCompany(company.id, { ats_provider: 'Eightfold AI', career_url: efPortal });
           }
@@ -375,8 +393,8 @@ export const ScraperEngine = {
         }
       }
 
-      // Fallback clean email if none found
-      if (!contactEmail && website) {
+      // Fallback clean email if none found or if it was an error tracking address (e.g. @vs-errors.eightfold.ai)
+      if ((!contactEmail || contactEmail.includes('eightfold.ai') || contactEmail.includes('vs-errors') || contactEmail.includes('sentry')) && website) {
         try {
           const host = new URL(website.startsWith('http') ? website : `https://${website}`).hostname.replace(/^www\./, '');
           contactEmail = `careers@${host}`;
