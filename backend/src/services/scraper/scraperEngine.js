@@ -124,17 +124,42 @@ export const ScraperEngine = {
         targetWorkday = detectedInfo.workdayUrl;
       }
 
-      // If Workday was detected but we only have a generic URL, fetch page to find the real Workday link
-      if (!targetWorkday && (atsLower.includes('workday') || atsLower.includes('accenture')) && (careerUrl || website)) {
+      // If Workday not yet resolved, check dedicated subdomains (jobs.<domain>) and page HTML
+      if (!targetWorkday && (careerUrl || website || normInput.domain)) {
         try {
-          const res = await ComplianceService.safeFetch(careerUrl || website, { timeout: 8000 });
-          if (res.ok) {
-            const html = await res.text();
-            const wdMatch = html.match(/https?:\/\/([a-zA-Z0-9_.-]+)\.myworkdayjobs\.com\/([a-zA-Z0-9_/%-]+)/i);
-            if (wdMatch) {
-              targetWorkday = wdMatch[0].replace(/["';,].*$/, '').replace(/\/userHome.*$/, '');
-              careerUrl = targetWorkday;
-              await ScraperModel.updateCompany(company.id, { career_url: careerUrl, ats_provider: 'Workday' });
+          // 1. Try dedicated subdomains: jobs.<domain> and careers.<domain>
+          if (normInput.domain) {
+            const subdomains = [`https://jobs.${normInput.domain}`, `https://careers.${normInput.domain}`];
+            for (const sub of subdomains) {
+              try {
+                const subRes = await ComplianceService.safeFetch(sub, { timeout: 6000 });
+                if (subRes.ok) {
+                  const subHtml = await subRes.text();
+                  const subAts = DiscoveryService.detectAts(subHtml, subRes.url || sub);
+                  if (subAts.workdayUrl) {
+                    targetWorkday = subAts.workdayUrl;
+                    careerUrl = targetWorkday;
+                    atsProvider = 'Workday';
+                    await ScraperModel.updateCompany(company.id, { career_url: careerUrl, ats_provider: 'Workday' });
+                    break;
+                  }
+                }
+              } catch {}
+            }
+          }
+
+          // 2. If still not found, check the page HTML for Workday link
+          if (!targetWorkday && (careerUrl || website)) {
+            const res = await ComplianceService.safeFetch(careerUrl || website, { timeout: 8000 });
+            if (res.ok) {
+              const html = await res.text();
+              const wdMatch = html.match(/https?:\/\/([a-zA-Z0-9_.-]+)\.myworkdayjobs\.com\/([a-zA-Z0-9_/%-]+)/i);
+              if (wdMatch) {
+                targetWorkday = wdMatch[0].replace(/["';,].*$/, '').replace(/\/userHome.*$/, '');
+                careerUrl = targetWorkday;
+                atsProvider = 'Workday';
+                await ScraperModel.updateCompany(company.id, { career_url: careerUrl, ats_provider: 'Workday' });
+              }
             }
           }
         } catch {}

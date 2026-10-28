@@ -246,53 +246,6 @@ export const DiscoveryService = {
       } catch {}
     }
 
-    // Step 2: Check common career & hiring paths directly
-    const commonPaths = [
-      '/careers/jobsearch',
-      '/careers',
-      '/jobs',
-      '/job-search',
-      '/join-us',
-      '/join',
-      '/hiring',
-      '/we-are-hiring',
-      '/work-with-us',
-      '/openings',
-      '/positions',
-      '/opportunities',
-      '/vacancies',
-      '/about/careers',
-      '/about-us/careers',
-      '/company/careers',
-    ];
-
-    for (const path of commonPaths) {
-      try {
-        const testUrl = `${origin}${path}`;
-        const res = await ComplianceService.safeFetch(testUrl, { method: 'GET', timeout: 8000 });
-        if (res.ok) {
-          const finalUrl = res.url || testUrl;
-          const html = await res.text();
-          const atsInfo = this.detectAts(html, finalUrl);
-
-          let targetCareerUrl = finalUrl;
-          if (atsInfo.workdayUrl) {
-            targetCareerUrl = atsInfo.workdayUrl;
-          }
-
-          return {
-            careerUrl: targetCareerUrl,
-            ats: atsInfo.ats,
-            atsToken: atsInfo.token,
-            atsData: atsInfo,
-            jobSitemap,
-            allSitemaps,
-            html,
-          };
-        }
-      } catch {}
-    }
-
     // Helper: scans any loaded HTML page for hiring / career links across header, footer, menus & ATS URLs
     const findHiringLinkInHtml = (htmlContent, baseUrl) => {
       const $ = cheerio.load(htmlContent);
@@ -362,6 +315,127 @@ export const DiscoveryService = {
       }
       return null;
     };
+
+    // Step 1.5: Dedicated Career Subdomains Probe (e.g. jobs.nvidia.com, careers.adobe.com, jobs.apple.com)
+    if (domain) {
+      const subdomains = [
+        `https://jobs.${domain}`,
+        `https://careers.${domain}`,
+      ];
+
+      for (const subUrl of subdomains) {
+        try {
+          const subRes = await ComplianceService.safeFetch(subUrl, { method: 'GET', timeout: 8000 });
+          if (subRes.ok) {
+            const finalSubUrl = subRes.url || subUrl;
+            const subHtml = await subRes.text();
+            const atsInfo = this.detectAts(subHtml, finalSubUrl);
+
+            if (atsInfo.ats !== 'Custom website' || atsInfo.workdayUrl) {
+              return {
+                careerUrl: atsInfo.workdayUrl || finalSubUrl,
+                ats: atsInfo.ats,
+                atsToken: atsInfo.token,
+                atsData: atsInfo,
+                jobSitemap,
+                allSitemaps,
+                html: subHtml,
+              };
+            }
+
+            // Also check for ATS link on the subdomain page
+            const subHiring = findHiringLinkInHtml(subHtml, finalSubUrl);
+            if (subHiring) {
+              const linkAts = this.detectAts(subHtml, subHiring);
+              if (linkAts.ats !== 'Custom website' || linkAts.workdayUrl) {
+                return {
+                  careerUrl: linkAts.workdayUrl || subHiring,
+                  ats: linkAts.ats,
+                  atsToken: linkAts.token,
+                  atsData: linkAts,
+                  jobSitemap,
+                  allSitemaps,
+                  html: subHtml,
+                };
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+
+    // Step 2: Check common career & hiring paths directly
+    const commonPaths = [
+      '/careers/jobsearch',
+      '/careers',
+      '/jobs',
+      '/job-search',
+      '/join-us',
+      '/join',
+      '/hiring',
+      '/we-are-hiring',
+      '/work-with-us',
+      '/openings',
+      '/positions',
+      '/opportunities',
+      '/vacancies',
+      '/about/careers',
+      '/about-us/careers',
+      '/company/careers',
+    ];
+
+    for (const path of commonPaths) {
+      try {
+        const testUrl = `${origin}${path}`;
+        const res = await ComplianceService.safeFetch(testUrl, { method: 'GET', timeout: 8000 });
+        if (res.ok) {
+          const finalUrl = res.url || testUrl;
+          const html = await res.text();
+          let atsInfo = this.detectAts(html, finalUrl);
+
+          // If not detected directly on this page, look for deep links (e.g. jobs.nvidia.com on nvidia.com/careers)
+          if (atsInfo.ats === 'Custom website' && !atsInfo.workdayUrl) {
+            const deepLink = findHiringLinkInHtml(html, finalUrl);
+            if (deepLink && deepLink !== finalUrl) {
+              try {
+                const deepRes = await ComplianceService.safeFetch(deepLink, { method: 'GET', timeout: 8000 });
+                if (deepRes.ok) {
+                  const deepHtml = await deepRes.text();
+                  const deepAts = this.detectAts(deepHtml, deepRes.url || deepLink);
+                  if (deepAts.ats !== 'Custom website' || deepAts.workdayUrl) {
+                    atsInfo = deepAts;
+                    return {
+                      careerUrl: atsInfo.workdayUrl || deepRes.url || deepLink,
+                      ats: atsInfo.ats,
+                      atsToken: atsInfo.token,
+                      atsData: atsInfo,
+                      jobSitemap,
+                      allSitemaps,
+                      html: deepHtml,
+                    };
+                  }
+                }
+              } catch {}
+            }
+          }
+
+          let targetCareerUrl = finalUrl;
+          if (atsInfo.workdayUrl) {
+            targetCareerUrl = atsInfo.workdayUrl;
+          }
+
+          return {
+            careerUrl: targetCareerUrl,
+            ats: atsInfo.ats,
+            atsToken: atsInfo.token,
+            atsData: atsInfo,
+            jobSitemap,
+            allSitemaps,
+            html,
+          };
+        }
+      } catch {}
+    }
 
     // Step 3: Inspect homepage for career links anywhere (navigation, footer, submenus, buttons)
     try {
