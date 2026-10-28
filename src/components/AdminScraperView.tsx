@@ -95,6 +95,7 @@ export default function AdminScraperView() {
   // Selected company for inspection / debugging
   const [selectedCompany, setSelectedCompany] = useState<ScrapedCompany | null>(null);
   const [scanningCompanyId, setScanningCompanyId] = useState<number | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   // Duplicate Listings Audit Modal
   const [duplicateModalCompany, setDuplicateModalCompany] = useState<any | null>(null);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
