@@ -112,7 +112,9 @@ export const ScraperModel = {
       SELECT c.*, 
         (SELECT COUNT(*)::int FROM scraped_jobs j WHERE j.company_id = c.id AND j.is_published = true AND j.status = 'ACTIVE') AS active_jobs_count,
         (SELECT s.status FROM scraper_scan_runs s WHERE s.company_id = c.id ORDER BY s.created_at DESC LIMIT 1) AS latest_scan_status,
-        (SELECT s.coverage FROM scraper_scan_runs s WHERE s.company_id = c.id ORDER BY s.created_at DESC LIMIT 1) AS latest_scan_coverage
+        (SELECT s.coverage FROM scraper_scan_runs s WHERE s.company_id = c.id ORDER BY s.created_at DESC LIMIT 1) AS latest_scan_coverage,
+        (SELECT s.reported_job_count FROM scraper_scan_runs s WHERE s.company_id = c.id ORDER BY s.created_at DESC LIMIT 1) AS latest_reported_count,
+        (SELECT s.snapshot_data FROM scraper_scan_runs s WHERE s.company_id = c.id ORDER BY s.created_at DESC LIMIT 1) AS latest_snapshot_data
       FROM scraped_companies c
       ORDER BY c.created_at DESC
     `);

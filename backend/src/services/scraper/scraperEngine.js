@@ -467,12 +467,17 @@ export const ScraperEngine = {
         filters_explored: filtersExplored,
         duration_seconds: duration,
         failed_stage: failedStage,
-        http_status_summary: httpStatus,
-        snapshot_data: { sampleJobs: jobs.slice(0, 3), totalExtracted: jobs.length },
+        snapshot_data: {
+          sampleJobs: jobs.slice(0, 3),
+          totalExtracted: jobs.length,
+          reported_job_count: reportedCount,
+          duplicates_count: extractedResult.duplicateCount || 0,
+          duplicates: extractedResult.duplicates || []
+        },
         incomplete_sections: incompleteSections,
         pending_tasks: pendingTasks,
         outcome_notes: scanStatus === 'PASS'
-          ? `Successfully scanned ${savedCount} verified jobs${reportedCount ? ` (out of ${reportedCount.toLocaleString()} total live openings on career site)` : ''} using ${extractionMethod}.`
+          ? `Successfully scanned ${savedCount} verified jobs${reportedCount ? ` (out of ${reportedCount.toLocaleString()} total live openings on career site)` : ''}${extractedResult.duplicateCount ? `. ${extractedResult.duplicateCount} duplicate listings detected on employer portal.` : ''}`
           : `Scan ended with status ${scanStatus}. Saved ${savedCount} valid jobs.`,
         retry_outcome: pendingTasks.length > 0 ? 'Retry queued for pending tasks' : 'Not needed',
       });
@@ -481,6 +486,9 @@ export const ScraperEngine = {
         status: scanStatus,
         scanRun,
         jobsExtracted: savedCount,
+        reportedCount,
+        duplicates: extractedResult.duplicates || [],
+        duplicatesCount: extractedResult.duplicateCount || 0,
         coverage,
       };
 

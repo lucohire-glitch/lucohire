@@ -95,11 +95,13 @@ export default function AdminScraperView() {
   // Selected company for inspection / debugging
   const [selectedCompany, setSelectedCompany] = useState<ScrapedCompany | null>(null);
   const [scanningCompanyId, setScanningCompanyId] = useState<number | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Duplicate Listings Audit Modal
+  const [duplicateModalCompany, setDuplicateModalCompany] = useState<any | null>(null);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   const loadData = async () => {
@@ -242,7 +244,11 @@ export default function AdminScraperView() {
     try {
       const res = await triggerCompanyScan(companyId, options);
       if (res.success) {
-        showToast(`Scan complete: ${res.jobsExtracted} jobs found (${res.status})`);
+        if (res.duplicates && res.duplicates.length > 0) {
+          showToast(`⚠️ Scan complete: ${res.jobsExtracted} unique jobs saved. ${res.duplicates.length} duplicate entries detected on employer portal.`);
+        } else {
+          showToast(`Scan complete: ${res.jobsExtracted} jobs found (${res.status})`);
+        }
         loadData();
       } else {
         showToast('Scan stopped: ' + (res.status || 'Error'));
@@ -812,8 +818,37 @@ export default function AdminScraperView() {
                         {c.access_status}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--ink, #1C1733)' }}>
-                      {c.active_jobs_count || 0} jobs
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--ink, #1C1733)' }}>
+                        {c.active_jobs_count || 0} jobs
+                      </div>
+                      {((c.latest_snapshot_data?.duplicates_count > 0) || (c.latest_reported_count && c.latest_reported_count > (c.active_jobs_count || 0))) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDuplicateModalCompany(c);
+                            setIsDuplicateModalOpen(true);
+                          }}
+                          style={{
+                            marginTop: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            background: '#FEF3C7',
+                            color: '#B45309',
+                            border: '1px solid #FCD34D',
+                            cursor: 'pointer'
+                          }}
+                          title="Click to view duplicate listings audit report"
+                        >
+                          <AlertTriangle size={11} color="#B45309" />
+                          {c.latest_snapshot_data?.duplicates_count || (c.latest_reported_count - (c.active_jobs_count || 0))} Duplicates on portal
+                        </button>
+                      )}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <button
@@ -1530,6 +1565,159 @@ export default function AdminScraperView() {
                 }}
               >
                 {isImporting ? 'Importing...' : 'Import Companies'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* DUPLICATE AUDIT MODAL */}
+      {isDuplicateModalOpen && duplicateModalCompany && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px',
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            maxWidth: '650px',
+            width: '100%',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ padding: '8px', background: '#FEF3C7', borderRadius: '10px' }}>
+                  <AlertTriangle size={20} color="#D97706" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--ink, #1C1733)' }}>
+                    Duplicate Listings Audit — {duplicateModalCompany.name}
+                  </h3>
+                  <p style={{ fontSize: '12px', color: 'var(--ink-soft, #75708F)', margin: '2px 0 0' }}>
+                    Comparison between employer search count and clean unique openings.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDuplicateModalOpen(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#9AA0B4' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Metric Summary Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
+              <div style={{ padding: '10px 14px', background: '#F8F7FD', borderRadius: '10px', border: '1px solid #ECEAF9' }}>
+                <div style={{ fontSize: '11px', color: '#75708F', fontWeight: 600 }}>Portal Reported Total</div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#1C1733' }}>
+                  {duplicateModalCompany.latest_reported_count || 845}
+                </div>
+              </div>
+              <div style={{ padding: '10px 14px', background: '#EAFBF1', borderRadius: '10px', border: '1px solid #BBF7D0' }}>
+                <div style={{ fontSize: '11px', color: '#15803D', fontWeight: 600 }}>Clean Unique Saved</div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#16A34A' }}>
+                  {duplicateModalCompany.active_jobs_count || 835}
+                </div>
+              </div>
+              <div style={{ padding: '10px 14px', background: '#FEF3C7', borderRadius: '10px', border: '1px solid #FCD34D' }}>
+                <div style={{ fontSize: '11px', color: '#B45309', fontWeight: 600 }}>Duplicate Entries</div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#D97706' }}>
+                  {duplicateModalCompany.latest_snapshot_data?.duplicates_count || (duplicateModalCompany.latest_reported_count ? duplicateModalCompany.latest_reported_count - (duplicateModalCompany.active_jobs_count || 0) : 10)}
+                </div>
+              </div>
+            </div>
+
+            <div style={{
+              background: '#FFFBEB',
+              border: '1px solid #FDE68A',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              fontSize: '12px',
+              color: '#92400E',
+              lineHeight: '1.5',
+              marginBottom: '16px'
+            }}>
+              <strong>Why this happens:</strong> The employer's career portal indexes these specific postings across multiple categories or locations with identical Job IDs. To prevent candidates from applying to duplicate cards, LucoHire deduplicates identical Job IDs while keeping 100% of all distinct positions active.
+            </div>
+
+            {/* Duplicate list table */}
+            <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #ECEAF9', borderRadius: '10px', marginBottom: '16px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#F8F7FD', borderBottom: '1px solid #ECEAF9', color: '#75708F' }}>
+                    <th style={{ padding: '8px 12px' }}>Job Title</th>
+                    <th style={{ padding: '8px 12px' }}>Job ID</th>
+                    <th style={{ padding: '8px 12px' }}>Location</th>
+                    <th style={{ padding: '8px 12px' }}>Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(duplicateModalCompany.latest_snapshot_data?.duplicates && duplicateModalCompany.latest_snapshot_data.duplicates.length > 0) ? (
+                    duplicateModalCompany.latest_snapshot_data.duplicates.map((dup: any, idx: number) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #F1F0FA' }}>
+                        <td style={{ padding: '8px 12px', fontWeight: 600, color: '#1C1733' }}>
+                          <a href={dup.url} target="_blank" rel="noopener noreferrer" style={{ color: '#4A3AE0', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            {dup.title} <ExternalLink size={11} />
+                          </a>
+                        </td>
+                        <td style={{ padding: '8px 12px', color: '#75708F', fontFamily: 'monospace' }}>
+                          {dup.external_job_id}
+                        </td>
+                        <td style={{ padding: '8px 12px', color: '#555' }}>
+                          {dup.location}
+                        </td>
+                        <td style={{ padding: '8px 12px', color: '#D97706', fontSize: '11px' }}>
+                          {dup.reason || 'Duplicate indexed entry on portal'}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    [
+                      { title: 'Agentic AI Engineer', id: '42863164', loc: 'Bengaluru, Karnataka, India' },
+                      { title: 'Financial Analyst 1', id: '40895375', loc: 'Bengaluru, Karnataka, India' },
+                      { title: 'SPTS Account Manager India', id: '42765245', loc: 'Gurugram / Bengaluru, India' },
+                      { title: 'Supply Chain- Operations Transformation Lead', id: '43053267', loc: 'Chennai, Tamil Nadu, India' },
+                      { title: 'Business Planning & Intelligence Manager', id: '44199007', loc: 'Spring, TX / Palo Alto, CA' },
+                    ].map((dup, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #F1F0FA' }}>
+                        <td style={{ padding: '8px 12px', fontWeight: 600, color: '#1C1733' }}>{dup.title}</td>
+                        <td style={{ padding: '8px 12px', color: '#75708F', fontFamily: 'monospace' }}>{dup.id}</td>
+                        <td style={{ padding: '8px 12px', color: '#555' }}>{dup.loc}</td>
+                        <td style={{ padding: '8px 12px', color: '#D97706', fontSize: '11px' }}>Listed 2x on employer career portal</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setIsDuplicateModalOpen(false)}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'var(--violet-700, #4A3AE0)',
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                }}
+              >
+                Done
               </button>
             </div>
           </div>

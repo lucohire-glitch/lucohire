@@ -277,10 +277,32 @@ export const ATSAdapters = {
     }
 
     const dedupe = new Map();
+    const duplicateEntries = [];
+
     for (const pos of allPositions) {
       const id = String(pos.id || pos.atsJobId || pos.displayJobId || pos.name);
+      const locs = (pos.locations && pos.locations.length > 0)
+        ? pos.locations.join(', ')
+        : (pos.standardizedLocations && pos.standardizedLocations.length > 0
+            ? pos.standardizedLocations.join(', ')
+            : 'Not Specified');
+      const jobUrl = pos.positionUrl
+        ? (pos.positionUrl.startsWith('http') ? pos.positionUrl : `https://${host}${pos.positionUrl}`)
+        : portalUrl;
+
       if (!dedupe.has(id)) {
         dedupe.set(id, pos);
+      } else {
+        const existingPos = dedupe.get(id);
+        duplicateEntries.push({
+          title: pos.name || existingPos.name || 'Position',
+          external_job_id: id,
+          location: locs,
+          department: pos.department || 'General',
+          work_mode: pos.workLocationOption || 'Full-time',
+          url: jobUrl,
+          reason: 'Duplicate listing indexed multiple times on employer portal'
+        });
       }
     }
 
@@ -288,7 +310,9 @@ export const ATSAdapters = {
 
     return {
       extractionMethod: 'API (Eightfold AI)',
-      reportedCount: totalReported || uniquePositions.length,
+      reportedCount: totalReported || (uniquePositions.length + duplicateEntries.length),
+      duplicateCount: duplicateEntries.length,
+      duplicates: duplicateEntries,
       jobs: uniquePositions.map(pos => {
         const title = pos.name || 'Position';
         const locs = (pos.locations && pos.locations.length > 0)
