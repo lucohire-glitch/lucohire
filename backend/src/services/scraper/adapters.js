@@ -232,33 +232,44 @@ export const ATSAdapters = {
 
     let allPositions = [];
     let totalReported = 0;
-    const pageSize = 100;
-    const maxPages = 10; // Up to 1,000 jobs
 
-    for (let page = 0; page < maxPages; page++) {
-      const start = page * pageSize;
-      let apiUrl = `https://${host}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=${start}&num=${pageSize}&sort_by=timestamp`;
-      if (keyword) apiUrl += `&query=${encodeURIComponent(keyword)}`;
-      if (location) apiUrl += `&location=${encodeURIComponent(location)}`;
+    // Fetch first page to get count and first 10 jobs
+    const firstUrl = `https://${host}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=0&sort_by=timestamp${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
+    try {
+      const firstRes = await ComplianceService.safeFetch(firstUrl, {
+        headers: { 'Accept': 'application/json' },
+        timeout: 10000,
+      });
 
-      try {
-        const res = await ComplianceService.safeFetch(apiUrl, {
-          headers: { 'Accept': 'application/json' },
-          timeout: 10000,
-        });
+      if (firstRes.ok) {
+        const firstData = await firstRes.json();
+        const pos0 = firstData?.data?.positions || [];
+        totalReported = firstData?.data?.count || pos0.length;
+        allPositions.push(...pos0);
 
-        if (!res.ok) break;
-        const data = await res.json();
-        const positions = data?.data?.positions || [];
-        totalReported = data?.data?.count || positions.length;
+        // Fetch up to 150-200 active jobs in parallel batches of 10
+        const maxJobsToFetch = Math.min(totalReported, 150);
+        const offsets = [];
+        for (let offset = 10; offset < maxJobsToFetch; offset += 10) {
+          offsets.push(offset);
+        }
 
-        if (positions.length === 0) break;
-        allPositions.push(...positions);
-
-        if (allPositions.length >= totalReported || positions.length < pageSize) break;
-      } catch {
-        break;
+        if (offsets.length > 0) {
+          const results = await Promise.allSettled(
+            offsets.map(offset => {
+              const u = `https://${host}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=${offset}&sort_by=timestamp${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
+              return ComplianceService.safeFetch(u, { headers: { 'Accept': 'application/json' }, timeout: 8000 }).then(r => r.json());
+            })
+          );
+          for (const r of results) {
+            if (r.status === 'fulfilled' && r.value?.data?.positions) {
+              allPositions.push(...r.value.data.positions);
+            }
+          }
+        }
       }
+    } catch (e) {
+      console.warn('Eightfold fetch error:', e.message);
     }
 
     if (allPositions.length === 0) {
