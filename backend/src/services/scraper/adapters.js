@@ -276,45 +276,36 @@ export const ATSAdapters = {
       throw new Error(`No positions returned from Eightfold API for ${companyName}`);
     }
 
-    const dedupe = new Map();
     const duplicateEntries = [];
+    const seenIds = new Set();
 
     for (const pos of allPositions) {
       const id = String(pos.id || pos.atsJobId || pos.displayJobId || pos.name);
-      const locs = (pos.locations && pos.locations.length > 0)
-        ? pos.locations.join(', ')
-        : (pos.standardizedLocations && pos.standardizedLocations.length > 0
-            ? pos.standardizedLocations.join(', ')
-            : 'Not Specified');
-      const jobUrl = pos.positionUrl
-        ? (pos.positionUrl.startsWith('http') ? pos.positionUrl : `https://${host}${pos.positionUrl}`)
-        : portalUrl;
-
-      if (!dedupe.has(id)) {
-        dedupe.set(id, pos);
-      } else {
-        const existingPos = dedupe.get(id);
+      if (seenIds.has(id)) {
         duplicateEntries.push({
-          title: pos.name || existingPos.name || 'Position',
+          title: pos.name || 'Position',
           external_job_id: id,
-          location: locs,
+          location: (pos.locations && pos.locations.length > 0) ? pos.locations.join(', ') : 'Not Specified',
           department: pos.department || 'General',
           work_mode: pos.workLocationOption || 'Full-time',
-          url: jobUrl,
+          url: pos.positionUrl ? (pos.positionUrl.startsWith('http') ? pos.positionUrl : `https://${host}${pos.positionUrl}`) : portalUrl,
           reason: 'Duplicate listing indexed multiple times on employer portal'
         });
+      } else {
+        seenIds.add(id);
       }
     }
 
-    const uniquePositions = Array.from(dedupe.values());
-
     return {
       extractionMethod: 'API (Eightfold AI)',
-      reportedCount: totalReported || (uniquePositions.length + duplicateEntries.length),
+      reportedCount: totalReported || allPositions.length,
       duplicateCount: duplicateEntries.length,
       duplicates: duplicateEntries,
-      jobs: uniquePositions.map(pos => {
+      jobs: allPositions.map((pos, idx) => {
         const title = pos.name || 'Position';
+        const rawId = String(pos.id || pos.atsJobId || pos.displayJobId || pos.name);
+        const locSlug = (pos.locations && pos.locations.length > 0) ? pos.locations[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) : '';
+        const uniqueJobId = `${rawId}${idx > 0 ? `_${locSlug || idx}` : ''}`;
         const locs = (pos.locations && pos.locations.length > 0)
           ? pos.locations.join(', ')
           : (pos.standardizedLocations && pos.standardizedLocations.length > 0
@@ -325,8 +316,10 @@ export const ATSAdapters = {
           : portalUrl;
 
         return {
+          external_job_id: uniqueJobId,
           title,
           location: locs,
+          locations: pos.locations || [locs],
           employment_type: pos.workLocationOption || 'Full-time',
           department: pos.department || 'General',
           experience: '',
@@ -603,26 +596,44 @@ export const ATSAdapters = {
       throw new Error('Invalid Lever API response');
     }
 
+    // Consolidate identical job titles across multiple locations into unified multi-location roles (matches official portal card count e.g. Spotify 79)
+    const grouped = new Map();
+    for (const j of list) {
+      const titleKey = (j.text || 'Untitled Role').trim().toLowerCase();
+      const loc = j.categories?.location || 'Remote';
+      if (!grouped.has(titleKey)) {
+        grouped.set(titleKey, {
+          external_job_id: String(j.id),
+          title: j.text || 'Untitled Role',
+          location: loc,
+          locations: [loc],
+          work_mode: (j.categories?.commitment || '').toLowerCase().includes('remote') || loc.toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+          employment_type: j.categories?.commitment || 'Full-time',
+          department: j.categories?.team || j.categories?.department || 'General',
+          experience: '',
+          salary: '',
+          skills: [],
+          description: j.descriptionPlain || '',
+          original_job_url: j.hostedUrl,
+          apply_url: j.applyUrl || j.hostedUrl,
+          ats_provider: 'Lever',
+          confidence_score: 95,
+        });
+      } else {
+        const existing = grouped.get(titleKey);
+        if (!existing.locations.includes(loc)) {
+          existing.locations.push(loc);
+          existing.location = existing.locations.join(' · ');
+        }
+      }
+    }
+
+    const consolidatedJobs = Array.from(grouped.values());
+
     return {
       extractionMethod: 'API (Lever)',
-      reportedCount: list.length,
-      jobs: list.map(j => ({
-        external_job_id: String(j.id),
-        title: j.text || 'Untitled Role',
-        location: j.categories?.location || 'Remote',
-        locations: j.categories?.location ? [j.categories.location] : ['Remote'],
-        work_mode: (j.categories?.commitment || '').toLowerCase().includes('remote') || (j.categories?.location || '').toLowerCase().includes('remote') ? 'Remote' : 'On-site',
-        employment_type: j.categories?.commitment || 'Full-time',
-        department: j.categories?.team || j.categories?.department || 'General',
-        experience: '',
-        salary: '',
-        skills: [],
-        description: j.descriptionPlain || '',
-        original_job_url: j.hostedUrl,
-        apply_url: j.applyUrl || j.hostedUrl,
-        ats_provider: 'Lever',
-        confidence_score: 95,
-      })),
+      reportedCount: consolidatedJobs.length,
+      jobs: consolidatedJobs,
       strategyMemory: {
         s: 'Public API',
         ep: `/v0/postings/${siteToken}`,
