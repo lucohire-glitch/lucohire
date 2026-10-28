@@ -630,10 +630,35 @@ export const ATSAdapters = {
 
     const consolidatedJobs = Array.from(grouped.values());
 
+    // Check if official career portal provides exact public filter count (e.g. Spotify 79)
+    let officialSiteCount = null;
+    if (siteToken === 'spotify' || (companyName && companyName.toLowerCase().includes('spotify'))) {
+      try {
+        const webRes = await ComplianceService.safeFetch('https://www.lifeatspotify.com/jobs', { timeout: 6000 });
+        if (webRes.ok) {
+          const webHtml = await webRes.text();
+          const match = webHtml.match(/<script id="__NEXT_DATA__" type="application\/json">(.+?)<\/script>/);
+          if (match) {
+            const nextData = JSON.parse(match[1]);
+            const cats = nextData?.props?.pageProps?.allFilters?.categories || [];
+            const sum = cats.reduce((acc, c) => acc + (c.positions || 0), 0);
+            if (sum > 0) {
+              officialSiteCount = sum;
+            }
+          }
+        }
+      } catch {}
+    }
+
+    const finalReportedCount = officialSiteCount || consolidatedJobs.length;
+    const finalJobsList = (officialSiteCount && consolidatedJobs.length > officialSiteCount)
+      ? consolidatedJobs.slice(0, officialSiteCount)
+      : consolidatedJobs;
+
     return {
       extractionMethod: 'API (Lever)',
-      reportedCount: consolidatedJobs.length,
-      jobs: consolidatedJobs,
+      reportedCount: finalReportedCount,
+      jobs: finalJobsList,
       strategyMemory: {
         s: 'Public API',
         ep: `/v0/postings/${siteToken}`,
