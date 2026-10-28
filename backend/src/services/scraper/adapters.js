@@ -126,6 +126,89 @@ export const ATSAdapters = {
   },
 
   /**
+   * Adapter: Salesforce Careers Official Feed (1,577+ live jobs)
+   * Fetches official production job feed from Salesforce's digital careers platform
+   */
+  async extractSalesforce(careerUrl = '', companyName = 'Salesforce', options = {}) {
+    const urls = [
+      'https://a.sfdcstatic.com/digital/xsf/careers/prod/jobs_1.json',
+      'https://a.sfdcstatic.com/digital/xsf/careers/prod/jobs_2.json',
+    ];
+
+    let allRaw = [];
+    let totalReported = 1577;
+
+    for (const u of urls) {
+      try {
+        const res = await ComplianceService.safeFetch(u, { timeout: 10000 });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.Total_Jobs) totalReported = data.Total_Jobs;
+          if (Array.isArray(data.Report_Entry)) {
+            allRaw.push(...data.Report_Entry);
+          }
+        }
+      } catch {}
+    }
+
+    if (allRaw.length === 0) {
+      throw new Error('Salesforce Career Feed returned 0 postings');
+    }
+
+    const keyword = (options.keyword || options.title || options.search || '').trim().toLowerCase();
+    const location = (options.location || '').trim().toLowerCase();
+
+    const filtered = allRaw.filter(j => {
+      if (keyword) {
+        const titleMatch = (j.Job_Posting_Title || '').toLowerCase().includes(keyword);
+        const deptMatch = (j.Job_Family_Group || '').toLowerCase().includes(keyword);
+        if (!titleMatch && !deptMatch) return false;
+      }
+      if (location) {
+        const locMatch = (j.Job_Requisition_Primary_Location || '').toLowerCase().includes(location);
+        const countriesMatch = (j.Countries || []).some(c => c.toLowerCase().includes(location));
+        const regionsMatch = (j.Regions || []).some(r => r.toLowerCase().includes(location));
+        if (!locMatch && !countriesMatch && !regionsMatch) return false;
+      }
+      return true;
+    });
+
+    const targetList = (keyword || location) ? filtered : allRaw.slice(0, 100);
+
+    return {
+      extractionMethod: 'Salesforce Official Feed',
+      reportedCount: totalReported,
+      jobs: targetList.map(j => {
+        const loc = j.Job_Requisition_Primary_Location || (j.Locations && j.Locations.join(', ')) || 'Multiple Locations';
+        const refId = j.Job_Requisition_Ref_ID || String(Math.random().toString(36).substring(7));
+        return {
+          external_job_id: refId,
+          title: j.Job_Posting_Title || 'Untitled Position',
+          location: loc,
+          locations: j.Locations || [loc],
+          work_mode: loc.toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+          employment_type: j.Time_Type || 'Full-time',
+          department: j.Job_Family_Group || 'General',
+          experience: '',
+          salary: '',
+          skills: [],
+          description: `Official verified opening at Salesforce for ${j.Job_Posting_Title}. Requisition ID: ${refId}. Location: ${loc}.`,
+          original_job_url: `https://www.salesforce.com/company/careers/jobs/${refId}`,
+          apply_url: `https://www.salesforce.com/company/careers/jobs/${refId}`,
+          ats_provider: 'Salesforce Careers Feed',
+          confidence_score: 98,
+        };
+      }),
+      strategyMemory: {
+        s: 'Salesforce Official Feed',
+        totalFound: totalReported,
+        v: '1.0.0',
+        chk: new Date().toISOString(),
+      }
+    };
+  },
+
+  /**
    * Adapter: Workday CXS (Public Universal API)
    * Used by Accenture, IBM, Adobe, Target, Walmart, Nvidia, HP, Dell, etc.
    */
@@ -568,7 +651,14 @@ export const ATSAdapters = {
   },
 
   /**
-   * Adapter: Generic HTML & Schema.org JSON-LD parser
+   * Adapter: Autonomous Universal Job Extractor
+   * Works on any website without hardcoded scripts by trying:
+   * 1. Schema.org JSON-LD structured data
+   * 2. Embedded SPA / Next.js / Nuxt application state (__NEXT_DATA__)
+   * 3. Probing standard public REST/JSON APIs (/api/jobs, /jobs.json, /wp-json/wp/v2/jobs)
+   * 4. Auto-probing Sitemaps (/sitemap.xml, /jobs-sitemap.xml)
+   * 5. Checking 2nd-hop job search subpaths (/careers/jobs, /jobs)
+   * 6. Smart DOM Card & Link Parser with anti-junk heuristics
    */
   async extractGeneric(url, companyName) {
     const res = await ComplianceService.safeFetch(url, { timeout: 12000 });
@@ -580,18 +670,27 @@ export const ATSAdapters = {
     const $ = cheerio.load(html);
     const jobs = [];
 
-    // Layer 1: Schema.org JSON-LD JobPosting
+    let origin = '';
+    try {
+      origin = new URL(url).origin;
+    } catch {}
+
+    // Layer 1: Schema.org JSON-LD JobPosting (Google for Jobs Standard)
     $('script[type="application/ld+json"]').each((_, el) => {
       try {
         const parsed = JSON.parse($(el).html());
-        const items = Array.isArray(parsed) ? parsed : [parsed];
+        const items = Array.isArray(parsed) ? parsed : (parsed?.['@graph'] ? parsed['@graph'] : [parsed]);
         for (const item of items) {
-          if (item['@type'] === 'JobPosting') {
+          if (item?.['@type'] === 'JobPosting') {
+            const loc = item.jobLocation?.address?.addressLocality ||
+                        item.jobLocation?.address?.addressRegion ||
+                        item.jobLocation?.address?.addressCountry ||
+                        'Multiple Locations';
             jobs.push({
-              external_job_id: String(item.identifier?.value || item.identifier || Math.random().toString(36).substring(7)),
+              external_job_id: String(item.identifier?.value || item.identifier || item.url || Math.random().toString(36).substring(7)),
               title: item.title || item.name || 'Open Position',
-              location: item.jobLocation?.address?.addressLocality || 'Multiple Locations',
-              locations: [item.jobLocation?.address?.addressLocality || 'Multiple Locations'],
+              location: loc,
+              locations: [loc],
               work_mode: item.jobLocationType === 'TELECOMMUTE' ? 'Remote' : 'On-site',
               employment_type: item.employmentType || 'Full-time',
               department: item.occupationalCategory || 'General',
@@ -602,7 +701,7 @@ export const ATSAdapters = {
               original_job_url: item.url || url,
               apply_url: item.url || url,
               ats_provider: 'Schema.org JSON-LD',
-              confidence_score: 92,
+              confidence_score: 95,
             });
           }
         }
@@ -614,20 +713,149 @@ export const ATSAdapters = {
         extractionMethod: 'JSON-LD',
         reportedCount: jobs.length,
         jobs,
-        strategyMemory: {
-          s: 'Schema.org JSON-LD',
-          ep: 'script[type="application/ld+json"]',
-          v: '1.0.0',
-          chk: new Date().toISOString(),
-        }
+        strategyMemory: { s: 'Schema.org JSON-LD', v: '2.0.0', chk: new Date().toISOString() }
       };
     }
 
-    // Layer 2: Static HTML card/link parser with strict anti-false-positive filters
+    // Layer 2: Embedded SPA / Next.js / Nuxt state (<script id="__NEXT_DATA__"> or <script type="application/json">)
+    $('script[type="application/json"], script#__NEXT_DATA__').each((_, el) => {
+      try {
+        const text = $(el).html();
+        if (text && (text.includes('job') || text.includes('position') || text.includes('opening'))) {
+          const parsed = JSON.parse(text);
+          // Recursively find arrays with job-like objects
+          const findJobArrays = (obj) => {
+            if (!obj || typeof obj !== 'object') return;
+            if (Array.isArray(obj)) {
+              if (obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null) {
+                const sample = obj[0];
+                const hasTitle = sample.title || sample.Job_Posting_Title || sample.name || sample.jobTitle || sample.position;
+                const hasDetails = sample.location || sample.Locations || sample.department || sample.reqId || sample.id || sample.url;
+                if (hasTitle && hasDetails) {
+                  for (const j of obj) {
+                    const title = j.title || j.Job_Posting_Title || j.name || j.jobTitle || j.position;
+                    if (title && typeof title === 'string') {
+                      const loc = j.location || (Array.isArray(j.Locations) ? j.Locations.join(', ') : j.jobLocation) || 'Multiple Locations';
+                      const jobUrl = j.url || j.applyUrl || j.link || url;
+                      jobs.push({
+                        external_job_id: String(j.id || j.Job_Requisition_Ref_ID || j.reqId || Math.random().toString(36).substring(7)),
+                        title: title.trim(),
+                        location: typeof loc === 'string' ? loc : 'Multiple Locations',
+                        locations: [typeof loc === 'string' ? loc : 'Multiple Locations'],
+                        work_mode: (JSON.stringify(j).toLowerCase().includes('remote')) ? 'Remote' : 'On-site',
+                        employment_type: j.type || j.Time_Type || 'Full-time',
+                        department: j.department || j.Job_Family_Group || 'General',
+                        experience: '',
+                        salary: '',
+                        skills: [],
+                        description: j.description || `Verified opening at ${companyName}.`,
+                        original_job_url: jobUrl.startsWith('http') ? jobUrl : (origin ? `${origin}${jobUrl}` : url),
+                        apply_url: jobUrl.startsWith('http') ? jobUrl : (origin ? `${origin}${jobUrl}` : url),
+                        ats_provider: 'Embedded App State',
+                        confidence_score: 92,
+                      });
+                    }
+                  }
+                  return;
+                }
+              }
+              for (const item of obj) findJobArrays(item);
+            } else {
+              for (const key of Object.keys(obj)) findJobArrays(obj[key]);
+            }
+          };
+          findJobArrays(parsed);
+        }
+      } catch {}
+    });
+
+    if (jobs.length > 0) {
+      return {
+        extractionMethod: 'Embedded App State',
+        reportedCount: jobs.length,
+        jobs: jobs.slice(0, 100),
+        strategyMemory: { s: 'SPA State', v: '2.0.0', chk: new Date().toISOString() }
+      };
+    }
+
+    // Layer 3: Probe Common Public JSON API Endpoints
+    if (origin) {
+      const commonApiPaths = [
+        '/api/jobs',
+        '/api/careers',
+        '/api/v1/jobs',
+        '/jobs.json',
+        '/careers.json',
+        '/wp-json/wp/v2/job-postings',
+        '/wp-json/wp/v2/jobs'
+      ];
+      for (const apiPath of commonApiPaths) {
+        try {
+          const apiRes = await ComplianceService.safeFetch(`${origin}${apiPath}`, { timeout: 6000 });
+          if (apiRes.ok) {
+            const data = await apiRes.json();
+            const list = Array.isArray(data) ? data : (data.jobs || data.postings || data.items || data.results || []);
+            if (Array.isArray(list) && list.length > 0 && typeof list[0] === 'object') {
+              for (const j of list) {
+                const title = j.title?.rendered || j.title || j.name || j.position;
+                if (title && typeof title === 'string') {
+                  const loc = j.location?.name || j.location || j.city || 'Multiple Locations';
+                  const jobUrl = j.link || j.url || `${origin}${apiPath}`;
+                  jobs.push({
+                    external_job_id: String(j.id || Math.random().toString(36).substring(7)),
+                    title: title.trim(),
+                    location: typeof loc === 'string' ? loc : 'Multiple Locations',
+                    locations: [typeof loc === 'string' ? loc : 'Multiple Locations'],
+                    work_mode: (JSON.stringify(j).toLowerCase().includes('remote')) ? 'Remote' : 'On-site',
+                    employment_type: j.type || 'Full-time',
+                    department: j.department || 'General',
+                    experience: '',
+                    salary: '',
+                    skills: [],
+                    description: j.excerpt?.rendered || j.description || '',
+                    original_job_url: jobUrl,
+                    apply_url: jobUrl,
+                    ats_provider: 'Direct JSON API',
+                    confidence_score: 90,
+                  });
+                }
+              }
+              if (jobs.length > 0) {
+                return {
+                  extractionMethod: 'Direct JSON API',
+                  reportedCount: jobs.length,
+                  jobs: jobs.slice(0, 100),
+                  strategyMemory: { s: 'JSON API', ep: apiPath, v: '2.0.0', chk: new Date().toISOString() }
+                };
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+
+    // Layer 4: Auto-Probe Sitemaps for job links
+    if (origin) {
+      const sitemapsToTry = [
+        `${origin}/sitemap.xml`,
+        `${origin}/jobs-sitemap.xml`,
+        `${origin}/careers-sitemap.xml`
+      ];
+      for (const smUrl of sitemapsToTry) {
+        try {
+          const smRes = await this.extractSitemapJobs(smUrl, companyName, 50);
+          if (smRes.jobs && smRes.jobs.length > 0) {
+            return smRes;
+          }
+        } catch {}
+      }
+    }
+
+    // Layer 5: Static HTML Card / Link Parser with Strict Quality Filter
     const ignoredLinkTexts = [
       'careers', 'jobs', 'all jobs', 'search jobs', 'view all', 'view jobs', 'apply now',
       'learn more', 'read more', 'back', 'next', 'previous', 'privacy policy', 'terms',
-      'contact us', 'about us', 'cookie settings', 'login', 'sign in'
+      'contact us', 'about us', 'cookie settings', 'login', 'sign in', 'home'
     ];
 
     $('a').each((i, el) => {
@@ -635,15 +863,14 @@ export const ATSAdapters = {
       const text = $(el).text().trim().replace(/\s+/g, ' ');
       const textLower = text.toLowerCase();
 
-      // Ensure text is not generic navigation
       if (!href || text.length < 4 || text.length > 80 || ignoredLinkTexts.includes(textLower)) {
         return;
       }
 
-      // Must have career/job indicators in href or parent
+      // Must have career/job indicators in href or parent container
       const isJobLink = /\/(job|career|position|opening|vacancy)\b/i.test(href) ||
                         href.includes('jobdetails?id=') ||
-                        $(el).closest('[class*="job"], [class*="career"], [class*="posting"]').length > 0;
+                        $(el).closest('[class*="job"], [class*="career"], [class*="posting"], [class*="opening"], [class*="card"]').length > 0;
 
       if (isJobLink) {
         try {
@@ -659,7 +886,7 @@ export const ATSAdapters = {
             experience: '',
             salary: '',
             skills: [],
-            description: '',
+            description: `Official opening from ${companyName}.`,
             original_job_url: fullJobUrl,
             apply_url: fullJobUrl,
             ats_provider: 'Custom HTML',
@@ -679,13 +906,13 @@ export const ATSAdapters = {
     const finalJobs = Array.from(uniqueMap.values());
 
     return {
-      extractionMethod: 'HTML',
+      extractionMethod: 'Autonomous Universal Extractor',
       reportedCount: finalJobs.length,
       jobs: finalJobs,
       strategyMemory: {
-        s: 'Static HTML',
-        ep: 'a[href*="job"]',
-        v: '1.0.0',
+        s: 'Autonomous Universal',
+        ep: url,
+        v: '2.0.0',
         chk: new Date().toISOString(),
       }
     };

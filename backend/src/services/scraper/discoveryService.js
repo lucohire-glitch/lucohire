@@ -140,6 +140,11 @@ export const DiscoveryService = {
     const combined = (url + ' ' + html);
     const combinedLower = combined.toLowerCase();
 
+    // 0. Salesforce Careers Platform
+    if (combinedLower.includes('salesforce.com/company/careers') || combinedLower.includes('careers.salesforce.com') || (url && url.includes('salesforce.com'))) {
+      return { ats: 'Salesforce Careers', token: 'salesforce' };
+    }
+
     // 1. Workday (Universal enterprise ATS)
     if (combinedLower.includes('myworkdayjobs.com')) {
       const wdMatch = combined.match(/https?:\/\/([a-zA-Z0-9_.-]+)\.myworkdayjobs\.com\/([a-zA-Z0-9_/%-]+)/i);
@@ -367,6 +372,9 @@ export const DiscoveryService = {
     // Step 2: Check common career & hiring paths directly
     const commonPaths = [
       '/careers/jobsearch',
+      '/careers/jobs',
+      '/company/careers/jobs',
+      '/careers/search',
       '/careers',
       '/jobs',
       '/job-search',

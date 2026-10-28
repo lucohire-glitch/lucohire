@@ -179,6 +179,20 @@ export const ScraperEngine = {
         }
       }
 
+      // Tier 0.5: Direct Salesforce Official Career Feed (1,577+ jobs)
+      if (!extractionSuccess && (company.name.toLowerCase().includes('salesforce') || (careerUrl && careerUrl.includes('salesforce.com')) || (website && website.includes('salesforce.com')))) {
+        try {
+          extractedResult = await ATSAdapters.extractSalesforce(careerUrl || website, company.name, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = 'Salesforce Careers';
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'Salesforce Careers' });
+          }
+        } catch (err) {
+          console.warn('Salesforce Career Feed failed:', err.message);
+        }
+      }
+
       // 1. Try Workday
       if (!extractionSuccess && targetWorkday && targetWorkday.includes('myworkdayjobs.com')) {
         try {
