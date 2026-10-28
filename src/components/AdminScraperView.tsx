@@ -1690,6 +1690,11 @@ export default function AdminScraperView() {
                       { title: 'SPTS Account Manager India', id: '42765245', loc: 'Gurugram / Bengaluru, India' },
                       { title: 'Supply Chain- Operations Transformation Lead', id: '43053267', loc: 'Chennai, Tamil Nadu, India' },
                       { title: 'Business Planning & Intelligence Manager', id: '44199007', loc: 'Spring, TX / Palo Alto, CA' },
+                      { title: 'Product Commodity Strategy Manager, Consumer Notebooks', id: '42473443', loc: 'Taipei, Taiwan' },
+                      { title: 'Financial Analyst-Statutory Audit', id: '43071210', loc: 'Bengaluru, Karnataka, India' },
+                      { title: 'Inside Sales Representative (ISR)', id: '44496155', loc: 'Rio Rancho, New Mexico, US' },
+                      { title: 'Technical Solutions Consultant', id: '44502212', loc: 'Palo Alto, California, US' },
+                      { title: 'Partner Business Manager (PBM) Power Elite', id: '44495939', loc: 'All Cities, Massachusetts, US' },
                     ].map((dup, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid #F1F0FA' }}>
                         <td style={{ padding: '8px 12px', fontWeight: 600, color: '#1C1733' }}>{dup.title}</td>
