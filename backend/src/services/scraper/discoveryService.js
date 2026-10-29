@@ -651,6 +651,8 @@ export const DiscoveryService = {
       e.includes('sentry.io') ||
       e.includes('eightfold.ai') ||
       e.includes('vs-errors') ||
+      e.startsWith('accommodation') ||
+      e.startsWith('accessibility') ||
       e.endsWith('.png') ||
       e.endsWith('.jpg') ||
       e.endsWith('.svg')
