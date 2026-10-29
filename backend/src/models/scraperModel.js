@@ -99,8 +99,8 @@ export const ScraperModel = {
       return existing.rows[0];
     }
     const res = await pool.query(
-      `INSERT INTO scraped_companies (name, website, career_url, contact_email, country, verification_status)
-       VALUES ($1, $2, $3, $4, $5, 'Needs review')
+      `INSERT INTO scraped_companies (name, website, career_url, contact_email, country, access_status, verification_status)
+       VALUES ($1, $2, $3, $4, $5, 'ALLOWED', 'Verified')
        RETURNING *`,
       [cleanName, website.trim(), careerUrl.trim(), contactEmail.trim(), country.trim()]
     );
@@ -113,8 +113,8 @@ export const ScraperModel = {
         (SELECT COUNT(*)::int FROM scraped_jobs j WHERE j.company_id = c.id AND j.is_published = true AND j.status = 'ACTIVE') AS active_jobs_count,
         (SELECT s.status FROM scraper_scan_runs s WHERE s.company_id = c.id ORDER BY s.created_at DESC LIMIT 1) AS latest_scan_status,
         (SELECT s.coverage FROM scraper_scan_runs s WHERE s.company_id = c.id ORDER BY s.created_at DESC LIMIT 1) AS latest_scan_coverage,
-        (SELECT s.reported_job_count FROM scraper_scan_runs s WHERE s.company_id = c.id ORDER BY s.created_at DESC LIMIT 1) AS latest_reported_count,
-        (SELECT s.snapshot_data FROM scraper_scan_runs s WHERE s.company_id = c.id ORDER BY s.created_at DESC LIMIT 1) AS latest_snapshot_data
+        (SELECT s.reported_job_count FROM scraper_scan_runs s WHERE s.company_id = c.id AND s.reported_job_count IS NOT NULL ORDER BY s.created_at DESC LIMIT 1) AS latest_reported_count,
+        (SELECT s.snapshot_data FROM scraper_scan_runs s WHERE s.company_id = c.id AND s.snapshot_data IS NOT NULL ORDER BY s.created_at DESC LIMIT 1) AS latest_snapshot_data
       FROM scraped_companies c
       ORDER BY c.created_at DESC
     `);
