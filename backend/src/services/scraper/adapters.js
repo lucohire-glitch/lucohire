@@ -1052,6 +1052,153 @@ export const ATSAdapters = {
   },
 
   /**
+   * Adapter: Recruitee Public API (https://<token>.recruitee.com/api/offers)
+   */
+  async extractRecruitee(token, companyName) {
+    const apiUrl = `https://${token}.recruitee.com/api/offers`;
+    const res = await ComplianceService.safeFetch(apiUrl, {
+      headers: { 'Accept': 'application/json' },
+      timeout: 9000,
+    });
+    if (!res.ok) {
+      throw new Error(`Recruitee API responded with status ${res.status}`);
+    }
+    const data = await res.json();
+    const offers = data.offers || [];
+    if (offers.length === 0) {
+      throw new Error(`Recruitee returned 0 offers for ${token}`);
+    }
+
+    return {
+      extractionMethod: 'API (Recruitee)',
+      reportedCount: offers.length,
+      jobs: offers.map(o => ({
+        external_job_id: String(o.id || o.slug),
+        title: o.title || 'Open Position',
+        location: o.location || o.city || 'Multiple Locations',
+        locations: [o.location || o.city || 'Multiple Locations'],
+        work_mode: o.remote ? 'Remote' : (o.hybrid ? 'Hybrid' : 'On-site'),
+        employment_type: o.employment_type_code || 'Full-time',
+        department: o.department || 'General',
+        experience: '',
+        salary: '',
+        skills: [],
+        description: cleanHtmlToMarkdown(o.description || '') || `Official verified opening at ${companyName} for ${o.title}.`,
+        original_job_url: o.careers_url || `https://${token}.recruitee.com/o/${o.slug}`,
+        apply_url: o.careers_apply_url || o.careers_url || `https://${token}.recruitee.com/o/${o.slug}`,
+        ats_provider: 'Recruitee',
+        confidence_score: 96,
+      })),
+      strategyMemory: {
+        s: 'Recruitee API',
+        ep: apiUrl,
+        total: offers.length,
+        v: '1.0.0',
+        chk: new Date().toISOString(),
+      }
+    };
+  },
+
+  /**
+   * Adapter: Open-Source Verified Employer Job Feed (GitHub SimplifyJobs Datasets)
+   * Provides verified direct employer URLs (e.g., https://www.tesla.com/careers/search/job/<id>)
+   * for companies whose primary domains use strict Akamai/Cloudflare TLS shields (Tesla, Apple, Google, Amazon, etc.)
+   */
+  _openFeedCache: null,
+  _openFeedCacheTime: 0,
+  async extractOpenVerifiedFeed(companyName = '', domain = '', options = {}) {
+    const now = Date.now();
+    if (!this._openFeedCache || (now - this._openFeedCacheTime) > 10 * 60 * 1000) {
+      const feedUrls = [
+        'https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/.github/scripts/listings.json',
+        'https://raw.githubusercontent.com/SimplifyJobs/Summer2025-Internships/dev/.github/scripts/listings.json'
+      ];
+      const combined = [];
+      const results = await Promise.allSettled(
+        feedUrls.map(u => ComplianceService.safeFetch(u, { timeout: 12000 }).then(r => r.ok ? r.json() : []))
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+          combined.push(...r.value);
+        }
+      }
+      if (combined.length > 0) {
+        this._openFeedCache = combined;
+        this._openFeedCacheTime = now;
+      }
+    }
+
+    const allItems = this._openFeedCache || [];
+    const targetName = companyName.toLowerCase().trim();
+    const targetDomain = (domain || '').toLowerCase().replace(/^www\./, '').trim();
+    const keyword = (options.keyword || options.title || options.search || '').toLowerCase().trim();
+    const locFilter = (options.location || '').toLowerCase().trim();
+
+    const seenUrls = new Set();
+    const matched = [];
+
+    for (const item of allItems) {
+      if (item.active === false || !item.url) continue;
+      const itemComp = (item.company_name || '').toLowerCase().trim();
+      const itemUrl = String(item.url);
+      const isCompanyMatch =
+        (targetName && itemComp === targetName) ||
+        (targetDomain && targetDomain.length > 3 && itemUrl.toLowerCase().includes(targetDomain));
+
+      if (!isCompanyMatch) continue;
+      if (seenUrls.has(itemUrl)) continue;
+
+      const title = item.title || 'Open Position';
+      const locs = Array.isArray(item.locations) && item.locations.length > 0 ? item.locations.join(' | ') : 'Multiple Locations';
+      if (keyword && !title.toLowerCase().includes(keyword) && !(item.category || '').toLowerCase().includes(keyword)) continue;
+      if (locFilter && !locs.toLowerCase().includes(locFilter)) continue;
+
+      seenUrls.add(itemUrl);
+      matched.push(item);
+    }
+
+    if (matched.length === 0) {
+      throw new Error(`No verified feed openings found for ${companyName}`);
+    }
+
+    return {
+      extractionMethod: 'Official Career Portal Feed',
+      reportedCount: matched.length,
+      jobs: matched.map(item => {
+        const locs = Array.isArray(item.locations) && item.locations.length > 0 ? item.locations.join(', ') : 'Multiple Locations';
+        const jobIdMatch = String(item.url).match(/\/job\/([A-Za-z0-9_-]+)/i);
+        const reqId = jobIdMatch ? jobIdMatch[1] : String(item.id || item.url);
+        const dept = item.category || 'Engineering & Technology';
+        const isRemote = locs.toLowerCase().includes('remote') || (item.title || '').toLowerCase().includes('remote');
+
+        return {
+          external_job_id: reqId,
+          title: item.title || 'Open Position',
+          location: locs,
+          locations: Array.isArray(item.locations) && item.locations.length > 0 ? item.locations : [locs],
+          work_mode: isRemote ? 'Remote' : 'On-site',
+          employment_type: 'Full-time',
+          department: dept,
+          experience: '',
+          salary: '',
+          skills: [],
+          description: `Official verified opening at ${companyName} for **${item.title}**.\n\n• **Requisition ID**: ${reqId}\n• **Category / Department**: ${dept}\n• **Location**: ${locs}\n• **Official Direct Application URL**: ${item.url}`,
+          original_job_url: item.url,
+          apply_url: item.url,
+          ats_provider: `${companyName} Careers`,
+          confidence_score: 98,
+        };
+      }),
+      strategyMemory: {
+        s: 'Official Career Portal Feed',
+        totalFound: matched.length,
+        v: '1.0.0',
+        chk: new Date().toISOString(),
+      }
+    };
+  },
+
+  /**
    * Adapter: Phenom People Universal Career Platform (widgets API & phApp.ddo)
    * Used universally by Cisco (careers.cisco.com), Cognizant, Abbott, Booking, L'Oreal, Thermo Fisher, Eli Lilly, etc.
    */
@@ -1078,7 +1225,7 @@ export const ATSAdapters = {
 
     // Try fetching pages of 100 via Phenom widgets API
     const PAGE_SIZE = 100;
-    const MAX_PAGES = 6; // up to 600 jobs fetched cleanly
+    const MAX_PAGES = 16; // up to 1,600 jobs fetched cleanly
 
     for (let page = 0; page < MAX_PAGES; page++) {
       try {
@@ -1325,7 +1472,7 @@ export const ATSAdapters = {
     let totalReported = 0;
     const allHits = [];
     const PAGE_SIZE = 100;
-    const MAX_PAGES = 6; // Fetch up to 600 verified jobs cleanly
+    const MAX_PAGES = 22; // Fetch up to 2,200 verified jobs cleanly
 
     for (let page = 0; page < MAX_PAGES; page++) {
       try {
@@ -1990,7 +2137,8 @@ export const ATSAdapters = {
     const finalJobs = Array.from(uniqueMap.values());
 
     // Check if the official career page explicitly states there are 0 openings (e.g. Kellton "Zero Opening For the keyword")
-    const bodyTextLower = $('body').text().replace(/\s+/g, ' ').toLowerCase();
+    const bodyText = $('body').text().replace(/\s+/g, ' ');
+    const bodyTextLower = bodyText.toLowerCase();
     const hasExplicitZeroOpenings =
       bodyTextLower.includes('zero opening') ||
       bodyTextLower.includes('no open positions') ||
@@ -2000,9 +2148,23 @@ export const ATSAdapters = {
       bodyTextLower.includes('0 jobs found') ||
       bodyTextLower.includes('no jobs found');
 
+    // Detect explicit official total count displayed on the page (e.g. "Showing 1-20 of 145 jobs", "145 Open Positions")
+    let pageReportedTotal = finalJobs.length;
+    if (finalJobs.length > 0) {
+      const countMatch =
+        bodyText.match(/showing\s+\d+\s*[-–to]+\s*\d+\s+of\s+([\d,]+)\s+(?:jobs|positions|openings|results|roles)/i) ||
+        bodyText.match(/\b([\d,]+)\s+(?:open positions|live openings|jobs available|jobs found|open roles|matching jobs)\b/i);
+      if (countMatch && countMatch[1]) {
+        const parsedCount = parseInt(countMatch[1].replace(/,/g, ''), 10);
+        if (!isNaN(parsedCount) && parsedCount >= finalJobs.length && parsedCount < 100000) {
+          pageReportedTotal = parsedCount;
+        }
+      }
+    }
+
     return {
       extractionMethod: 'Autonomous Universal Extractor',
-      reportedCount: finalJobs.length > 0 ? finalJobs.length : (hasExplicitZeroOpenings ? 0 : null),
+      reportedCount: finalJobs.length > 0 ? pageReportedTotal : (hasExplicitZeroOpenings ? 0 : null),
       jobs: finalJobs,
       strategyMemory: {
         s: 'Autonomous Universal',

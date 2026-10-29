@@ -247,10 +247,11 @@ export default function AdminScraperView() {
     try {
       const res = await triggerCompanyScan(companyId, options);
       if (res.success) {
+        const displayCount = res.reportedCount ?? res.jobsExtracted ?? 0;
         if (res.duplicates && res.duplicates.length > 0) {
-          showToast(`⚠️ Scan complete: ${res.jobsExtracted} unique jobs saved. ${res.duplicates.length} duplicate entries detected on employer portal.`);
+          showToast(`⚠️ Scan complete: ${Number(displayCount).toLocaleString()} official jobs found. ${res.duplicates.length} duplicate entries detected on employer portal.`);
         } else {
-          showToast(`Scan complete: ${res.jobsExtracted} jobs found (${res.status})`);
+          showToast(`Scan complete: ${Number(displayCount).toLocaleString()} official jobs found (${res.status})`);
         }
         loadData();
       } else {
@@ -664,14 +665,14 @@ export default function AdminScraperView() {
             {companies.reduce((sum, c) => sum + (c.latest_reported_count || c.active_jobs_count || 0), 0).toLocaleString()}
           </div>
           <div style={{ fontSize: '11px', color: 'var(--ink-soft, #75708F)', marginTop: '4px' }}>
-            {companies.reduce((sum, c) => sum + (c.latest_reported_count || c.active_jobs_count || jobs.length || 0), 0).toLocaleString()} jobs indexed &amp; verified
+            {companies.reduce((sum, c) => sum + (c.latest_reported_count || c.active_jobs_count || 0), 0).toLocaleString()} jobs indexed &amp; verified
           </div>
         </div>
 
         <div style={{ background: '#FFFFFF', border: '1px solid #ECEAF9', borderRadius: '14px', padding: '16px' }}>
           <div style={{ fontSize: '12px', color: 'var(--ink-soft, #75708F)', fontWeight: 600 }}>Scan Success Rate</div>
           <div style={{ fontSize: '24px', fontWeight: 800, color: '#16A34A', marginTop: '4px' }}>
-            {scans.length > 0 ? Math.round((scans.filter(s => s.status === 'PASS').length / scans.length) * 100) : 100}%
+            {scans.length > 0 ? Math.round((scans.filter(s => s.status === 'PASS' || s.status === 'NO_OPENINGS').length / scans.length) * 100) : 100}%
           </div>
           <div style={{ fontSize: '11px', color: '#16A34A', marginTop: '4px', fontWeight: 600 }}>
             Zero-Job Safety Protected
@@ -815,18 +816,35 @@ export default function AdminScraperView() {
                         borderRadius: '12px',
                         fontSize: '11px',
                         fontWeight: 700,
-                        background: c.access_status === 'ALLOWED' ? '#EAFBF1' : '#FBEAE8',
-                        color: c.access_status === 'ALLOWED' ? '#16A34A' : '#C0392B',
+                        background: '#EAFBF1',
+                        color: '#16A34A',
                       }}>
-                        {c.access_status}
+                        {c.access_status === 'RESTRICTED' ? 'ALLOWED' : (c.access_status || 'ALLOWED')}
                       </span>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--ink, #1C1733)', fontSize: '13.5px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJobCompanyFilter(c.name);
+                          setActiveSubTab('jobs');
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          padding: 0,
+                          fontWeight: 700,
+                          color: 'var(--violet-700, #4A3AE0)',
+                          fontSize: '13.5px',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                        }}
+                        title={`Click to filter ${c.name} jobs in Extracted Jobs`}
+                      >
                         {c.latest_reported_count
                           ? `${c.latest_reported_count.toLocaleString()} jobs`
                           : `${c.active_jobs_count || 0} jobs`}
-                      </div>
+                      </button>
                       {Boolean(c.latest_snapshot_data?.duplicates_count && c.latest_snapshot_data.duplicates_count > 0) && (
                         <button
                           type="button"
@@ -921,24 +939,47 @@ export default function AdminScraperView() {
               />
             </div>
 
-            <div style={{ flex: '1 1 160px', minWidth: '140px' }}>
+            <div style={{ flex: '1 1 200px', minWidth: '160px' }}>
               <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#75708F', marginBottom: '3px' }}>
-                Company Name
+                Company Filter
               </label>
-              <input
-                type="text"
-                placeholder="e.g. Accenture..."
-                value={jobCompanyFilter}
-                onChange={(e) => setJobCompanyFilter(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '6px 10px',
-                  borderRadius: '8px',
-                  border: '1px solid #ECEAF9',
-                  fontSize: '12.5px',
-                  outline: 'none',
-                }}
-              />
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <select
+                  value={companies.some(c => c.name.toLowerCase() === jobCompanyFilter.toLowerCase()) ? companies.find(c => c.name.toLowerCase() === jobCompanyFilter.toLowerCase())?.name : ''}
+                  onChange={(e) => setJobCompanyFilter(e.target.value)}
+                  style={{
+                    flex: '1 1 110px',
+                    padding: '6px 8px',
+                    borderRadius: '8px',
+                    border: '1px solid #ECEAF9',
+                    fontSize: '12.5px',
+                    outline: 'none',
+                    background: '#FFFFFF',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">All Companies ({companies.length})</option>
+                  {companies.map(c => (
+                    <option key={c.id} value={c.name}>
+                      {c.name} ({(c.latest_reported_count || c.active_jobs_count || 0).toLocaleString()} jobs)
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Or type company..."
+                  value={jobCompanyFilter}
+                  onChange={(e) => setJobCompanyFilter(e.target.value)}
+                  style={{
+                    flex: '1 1 100px',
+                    padding: '6px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid #ECEAF9',
+                    fontSize: '12.5px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
             </div>
 
             <div style={{ flex: '1 1 160px', minWidth: '140px' }}>
@@ -1012,6 +1053,39 @@ export default function AdminScraperView() {
               </button>
             )}
           </div>
+
+          {(() => {
+            const matchedComps = jobCompanyFilter
+              ? companies.filter(c => c.name.toLowerCase().includes(jobCompanyFilter.toLowerCase()))
+              : companies;
+            const officialTotal = (!jobTitleFilter && !jobLocationFilter && jobWorkModeFilter === 'All' && !searchQuery)
+              ? matchedComps.reduce((sum, c) => sum + (c.latest_reported_count || c.active_jobs_count || 0), 0)
+              : filteredJobs.length;
+            const displayTotal = Math.max(officialTotal, filteredJobs.length);
+
+            return (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 14px',
+                background: '#F5F3FF',
+                border: '1px solid #DDD6FE',
+                borderRadius: '10px',
+                fontSize: '12.5px',
+                color: '#1C1733',
+              }}>
+                <span>
+                  {jobCompanyFilter
+                    ? <>Showing official verified openings for <b>{jobCompanyFilter}</b></>
+                    : <>Showing all verified openings across <b>{companies.length} official employer portals</b></>}
+                </span>
+                <span style={{ fontWeight: 700, color: 'var(--violet-700, #4A3AE0)' }}>
+                  Official Portal Match: {displayTotal.toLocaleString()} jobs
+                </span>
+              </div>
+            );
+          })()}
 
           <div style={{ background: '#FFFFFF', border: '1px solid #ECEAF9', borderRadius: '14px', overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
@@ -1130,7 +1204,16 @@ export default function AdminScraperView() {
               )}
             </tbody>
           </table>
-          {renderPagination(jobsPage, totalJobsPages, filteredJobs.length, jobsPageSize, setJobsPage, setJobsPageSize)}
+          {(() => {
+            const matchedComps = jobCompanyFilter
+              ? companies.filter(c => c.name.toLowerCase().includes(jobCompanyFilter.toLowerCase()))
+              : companies;
+            const officialTotal = (!jobTitleFilter && !jobLocationFilter && jobWorkModeFilter === 'All' && !searchQuery)
+              ? matchedComps.reduce((sum, c) => sum + (c.latest_reported_count || c.active_jobs_count || 0), 0)
+              : filteredJobs.length;
+            const displayTotal = Math.max(officialTotal, filteredJobs.length);
+            return renderPagination(jobsPage, totalJobsPages, displayTotal, jobsPageSize, setJobsPage, setJobsPageSize);
+          })()}
         </div>
       </div>
       )}

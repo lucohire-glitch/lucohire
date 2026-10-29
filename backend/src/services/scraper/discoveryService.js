@@ -53,12 +53,28 @@ export const DiscoveryService = {
    * If only website is provided (e.g. accenture.com), extracts company name.
    * If only name is provided (e.g. Accenture), deduces domain and website.
    */
-  normalizeCompanyInput({ name = '', website = '', email = '', careerUrl = '' } = {}) {
+  normalizeCompanyInput({ name = '', website = '', email = '', contactEmail = '', careerUrl = '' } = {}) {
     let cleanName = (name || '').trim();
     let cleanWebsite = (website || '').trim();
-    let cleanEmail = (email || '').trim().toLowerCase();
+    let cleanEmail = (email || contactEmail || '').trim().toLowerCase();
     let cleanCareerUrl = (careerUrl || '').trim();
     let domain = '';
+
+    // 0. If user typed an email or URL into the "Company Name" field, auto-parse it
+    if (cleanName.includes('@') && !cleanName.includes(' ')) {
+      if (!cleanEmail) cleanEmail = cleanName.toLowerCase();
+      const emailPart = cleanName.split('@')[1] || '';
+      const base = emailPart.split('.')[0] || cleanName.split('@')[0];
+      cleanName = base.charAt(0).toUpperCase() + base.slice(1);
+    } else if ((/^https?:\/\//i.test(cleanName) || /\.[a-z]{2,}(\/|$)/i.test(cleanName)) && !cleanName.includes(' ')) {
+      try {
+        const u = cleanName.startsWith('http') ? new URL(cleanName) : new URL(`https://${cleanName}`);
+        if (!cleanWebsite) cleanWebsite = u.origin;
+        if (!cleanCareerUrl && u.pathname && u.pathname !== '/') cleanCareerUrl = u.href;
+        const hostBase = u.hostname.replace(/^(www|careers|jobs|apply|career)\./i, '').split('.')[0];
+        cleanName = hostBase.charAt(0).toUpperCase() + hostBase.slice(1);
+      } catch {}
+    }
 
     // 1. Try extracting domain from website or careerUrl
     const urlCandidate = cleanWebsite || cleanCareerUrl;
@@ -88,13 +104,18 @@ export const DiscoveryService = {
     // 3.5 Resolve known parked/corporate domain aliases (e.g. aptara.com redirects to parked dynamo.com; real domain is aptaracorp.com)
     const DOMAIN_ALIASES = {
       'aptara.com': 'aptaracorp.com',
+      'hcl.com': 'hcltech.com',
+      'datadog.com': 'datadoghq.com',
+      'jpmorgan.com': 'jpmorganchase.com',
+      'tataconsultancyservices.com': 'tcs.com',
     };
     if (domain && DOMAIN_ALIASES[domain]) {
+      const oldDomain = domain;
       domain = DOMAIN_ALIASES[domain];
-      if (!cleanWebsite || cleanWebsite.includes('aptara.com')) {
+      if (!cleanWebsite || cleanWebsite.includes(oldDomain)) {
         cleanWebsite = `https://www.${domain}`;
       }
-      if (!cleanCareerUrl || cleanCareerUrl.includes('aptara.com')) {
+      if (domain === 'aptaracorp.com' && (!cleanCareerUrl || cleanCareerUrl.includes('aptara.com'))) {
         cleanCareerUrl = `https://www.${domain}/careers/`;
       }
     }

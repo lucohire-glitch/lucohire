@@ -207,7 +207,7 @@ export const ScraperController = {
       status: status || null,
       is_published: is_published !== undefined ? is_published === 'true' : null,
       search: search || null,
-      limit: limit ? parseInt(limit, 10) : 5000,
+      limit: limit ? parseInt(limit, 10) : 15000,
       offset: offset ? parseInt(offset, 10) : 0,
     });
     return res.json({ success: true, jobs, count: jobs.length, totalCount });

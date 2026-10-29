@@ -384,7 +384,7 @@ export const ScraperModel = {
     return { savedCount, foundIds };
   },
 
-  async getAllJobs({ company_id, company_name, title, location, status, is_published, search, limit = 5000, offset = 0 } = {}) {
+  async getAllJobs({ company_id, company_name, title, location, status, is_published, search, limit = 15000, offset = 0 } = {}) {
     let whereClauses = [];
     let values = [];
     let idx = 1;
