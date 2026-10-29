@@ -101,14 +101,14 @@ export default function AdminScraperView() {
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
   // Job Description Detail Modal
   const [selectedJobModal, setSelectedJobModal] = useState<ScrapedJob | null>(null);
+  const [isAutoSyncing, setIsAutoSyncing] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadDataSilent = async () => {
     try {
       const [compRes, scansRes, jobsRes] = await Promise.all([
         fetchScraperCompanies(),
@@ -118,15 +118,80 @@ export default function AdminScraperView() {
       if (compRes?.companies) setCompanies(compRes.companies);
       if (scansRes?.scans) setScans(scansRes.scans);
       if (jobsRes?.jobs) setJobs(jobsRes.jobs);
+      return compRes?.companies || [];
     } catch (e: any) {
       console.error(e);
+      return [];
+    }
+  };
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      await loadDataSilent();
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    let isMounted = true;
+    let syncInProgress = false;
+
+    const runBackgroundAutoSync = async () => {
+      if (syncInProgress || !isMounted) return;
+      syncInProgress = true;
+      try {
+        const latestCompanies = await loadDataSilent();
+        if (!isMounted || !Array.isArray(latestCompanies) || latestCompanies.length === 0) return;
+
+        const now = Date.now();
+        // Select companies not scanned in the last 2 minutes (up to 3 per cycle for smooth real-time updates)
+        const dueForSync = latestCompanies
+          .filter((c: any) => {
+            if (!c.last_scanned_at) return true;
+            const ageMs = now - new Date(c.last_scanned_at).getTime();
+            return ageMs > 2 * 60 * 1000;
+          })
+          .sort((a: any, b: any) => {
+            const ta = a.last_scanned_at ? new Date(a.last_scanned_at).getTime() : 0;
+            const tb = b.last_scanned_at ? new Date(b.last_scanned_at).getTime() : 0;
+            return ta - tb;
+          })
+          .slice(0, 3);
+
+        if (dueForSync.length > 0 && isMounted) {
+          setIsAutoSyncing(true);
+          for (const comp of dueForSync) {
+            if (!isMounted) break;
+            const prevCount = comp.latest_reported_count || comp.active_jobs_count || 0;
+            try {
+              const scanRes = await triggerCompanyScan(comp.id);
+              const newCount = scanRes?.reportedCount ?? scanRes?.jobsExtracted ?? prevCount;
+              if (isMounted && newCount > 0 && newCount !== prevCount) {
+                showToast(`⚡ Auto-Sync: ${comp.name} updated (${prevCount.toLocaleString()} → ${newCount.toLocaleString()} jobs)`);
+              }
+            } catch {}
+          }
+          if (isMounted) {
+            await loadDataSilent();
+            setIsAutoSyncing(false);
+          }
+        }
+      } finally {
+        syncInProgress = false;
+      }
+    };
+
+    loadData().then(() => {
+      setTimeout(runBackgroundAutoSync, 1500);
+    });
+
+    const intervalId = setInterval(runBackgroundAutoSync, 45000);
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
   }, []);
 
   const handleAddCompany = async (e: React.FormEvent) => {
@@ -563,11 +628,31 @@ export default function AdminScraperView() {
         marginBottom: '20px',
       }}>
         <div>
-          <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ink, #1C1733)', margin: 0 }}>
-            Universal Job Scraping Engine v2
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ink, #1C1733)', margin: 0 }}>
+              Universal Job Scraping Engine v2
+            </h2>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '3px 10px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: 700,
+                background: isAutoSyncing ? '#EEF2FF' : '#EAFBF1',
+                color: isAutoSyncing ? '#4A3AE0' : '#16A34A',
+                border: isAutoSyncing ? '1px solid #C7D2FE' : '1px solid #BBF7D0',
+              }}
+              title="Automatically checks tracked company career portals for new job postings in the background"
+            >
+              <RefreshCw size={11} className={isAutoSyncing ? 'admin-spin' : ''} />
+              {isAutoSyncing ? 'Auto-Syncing Live Jobs...' : 'Live Auto-Sync Active'}
+            </span>
+          </div>
           <p style={{ fontSize: '13px', color: 'var(--ink-soft, #75708F)', margin: '4px 0 0' }}>
-            Automated discovery, multi-ATS extraction, compliance gates &amp; zero-job safety.
+            Automated discovery, multi-ATS extraction, real-time auto-sync &amp; zero-job safety.
           </p>
         </div>
 
@@ -805,17 +890,51 @@ export default function AdminScraperView() {
                       )}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '2px 8px',
-                        borderRadius: '6px',
-                        background: '#ECEAF9',
-                        color: 'var(--violet-700, #4A3AE0)',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                      }}>
-                        {c.ats_provider || 'Detecting...'}
-                      </span>
+                      {(() => {
+                        const slug = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        let verifyUrl = c.career_url || (c.website ? (c.website.startsWith('http') ? c.website : `https://${c.website}`) : '');
+                        if (c.ats_provider === 'Greenhouse' && slug) {
+                          verifyUrl = `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs`;
+                        } else if (c.ats_provider === 'Lever' && slug) {
+                          verifyUrl = `https://jobs.lever.co/${slug}`;
+                        } else if (c.ats_provider === 'Ashby' && slug) {
+                          verifyUrl = `https://jobs.ashbyhq.com/${slug}`;
+                        }
+                        return verifyUrl ? (
+                          <a
+                            href={verifyUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Click to verify live job count on official ATS / Career Portal"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              background: '#ECEAF9',
+                              color: 'var(--violet-700, #4A3AE0)',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              textDecoration: 'none',
+                            }}
+                          >
+                            {c.ats_provider || 'Detecting...'} <ExternalLink size={10} />
+                          </a>
+                        ) : (
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            background: '#ECEAF9',
+                            color: 'var(--violet-700, #4A3AE0)',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                          }}>
+                            {c.ats_provider || 'Detecting...'}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td style={{ padding: '12px 16px', color: c.contact_email ? '#1C1733' : '#9AA0B4' }}>
                       {c.contact_email ? (
