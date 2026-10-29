@@ -85,6 +85,20 @@ export const DiscoveryService = {
       }
     }
 
+    // 3.5 Resolve known parked/corporate domain aliases (e.g. aptara.com redirects to parked dynamo.com; real domain is aptaracorp.com)
+    const DOMAIN_ALIASES = {
+      'aptara.com': 'aptaracorp.com',
+    };
+    if (domain && DOMAIN_ALIASES[domain]) {
+      domain = DOMAIN_ALIASES[domain];
+      if (!cleanWebsite || cleanWebsite.includes('aptara.com')) {
+        cleanWebsite = `https://www.${domain}`;
+      }
+      if (!cleanCareerUrl || cleanCareerUrl.includes('aptara.com')) {
+        cleanCareerUrl = `https://www.${domain}/careers/`;
+      }
+    }
+
     // Check if domain is a 3rd party aggregator
     const isAggregator = domain && this.AGGREGATOR_DOMAINS.some(aggr => domain.includes(aggr));
     if (isAggregator) {
@@ -145,6 +159,44 @@ export const DiscoveryService = {
       return { ats: 'Salesforce Careers', token: 'salesforce' };
     }
 
+    // 0.05 IBM Global Careers Platform
+    if (combinedLower.includes('ibm.com/careers') || (url && /\bibm\.com\b/i.test(url))) {
+      return { ats: 'IBM Careers API', token: 'ibm' };
+    }
+
+    // 0.06 Capgemini JobStream Platform
+    if (combinedLower.includes('cg-jobstream-api.azurewebsites.net') || (url && /\bcapgemini\.com\b/i.test(url))) {
+      return { ats: 'Capgemini Careers', token: 'capgemini' };
+    }
+
+    // 0.07 Tata Group Global Careers
+    if (combinedLower.includes('/bin/tata/jobpostings') || (url && /\btata\.com\b/i.test(url))) {
+      return { ats: 'Tata Careers Portal', token: 'tata' };
+    }
+
+    // 0.08 Phenom People (Cisco careers.cisco.com, Cognizant, Abbott, Booking, L'Oreal, Thermo Fisher, etc.)
+    if (
+      combinedLower.includes('phenompeople.com') ||
+      combinedLower.includes('phapp.ddo') ||
+      combinedLower.includes('careerconnectresources') ||
+      (url && /careers\.cisco\.com|jobs\.cisco\.com/i.test(url))
+    ) {
+      return { ats: 'Phenom People', token: 'phenom', phenomUrl: url };
+    }
+
+    // 0.09 SAP SuccessFactors Recruiting Marketing (Wipro careers.wipro.com, HCL, Infosys, Deloitte, etc.)
+    if (
+      combinedLower.includes('rmkcdn.successfactors.com') ||
+      combinedLower.includes('sapsf.eu') ||
+      combinedLower.includes('sapsf.com') ||
+      combinedLower.includes('j2w.init') ||
+      combinedLower.includes('searchresultsunify') ||
+      combinedLower.includes('/services/recruiting/v1/jobs') ||
+      (url && /careers\.wipro\.com/i.test(url))
+    ) {
+      return { ats: 'SAP SuccessFactors', token: 'sapsf', sapsfUrl: url };
+    }
+
     // 0.1 Oracle Cloud HCM / Fusion Candidate Experience (Dell, Siemens, Marriott, FedEx, etc.)
     if (combinedLower.includes('candidateexperience') || combinedLower.includes('hcmui') || combinedLower.includes('hcmrestapi')) {
       const match = combined.match(/https?:\/\/[a-zA-Z0-9_.-]+\/hcmUI\/CandidateExperience\/[a-zA-Z0-9_/.\-%?&=#]*/i);
@@ -155,10 +207,16 @@ export const DiscoveryService = {
       };
     }
 
-    // 0.2 Eightfold AI (NVIDIA nvidia.eightfold.ai, HP apply.hp.com, Micron, Starbucks, etc.)
-    if (combinedLower.includes('eightfold.ai') || combinedLower.includes('apply.hp.com') || combinedLower.includes('/pcsx/') || combinedLower.includes('_ef_group_id') || (combinedLower.includes('apply.') && combinedLower.includes('/careers'))) {
+    // 0.2 Eightfold AI (NVIDIA nvidia.eightfold.ai, HP apply.hp.com, Microsoft apply.careers.microsoft.com, Micron, Starbucks, etc.)
+    if (
+      combinedLower.includes('.eightfold.ai') ||
+      combinedLower.includes('apply.hp.com') ||
+      combinedLower.includes('apply.careers.microsoft.com') ||
+      combinedLower.includes('/api/pcsx/') ||
+      combinedLower.includes('_ef_group_id')
+    ) {
       const efMatch = combined.match(/https?:\/\/([a-zA-Z0-9_-]+)\.eightfold\.ai(?:\/careers)?/i);
-      const efUrl = efMatch ? efMatch[0] : (url && url.includes('eightfold.ai') ? url : null);
+      const efUrl = efMatch ? efMatch[0] : (url && (url.includes('eightfold.ai') || url.includes('apply.')) ? url : null);
       return { ats: 'Eightfold AI', token: efMatch ? efMatch[1] : null, eightfoldUrl: efUrl || url };
     }
 
@@ -236,11 +294,6 @@ export const DiscoveryService = {
       return { ats: 'Recruitee', token: match ? match[1] : null };
     }
 
-    // 9. Eightfold AI (apply.hp.com, *.eightfold.ai, pcsx)
-    if (combinedLower.includes('eightfold.ai') || combinedLower.includes('apply.hp.com') || combinedLower.includes('/pcsx/') || combinedLower.includes('_ef_group_id') || (combinedLower.includes('apply.') && combinedLower.includes('/careers'))) {
-      return { ats: 'Eightfold AI', token: null, eightfoldUrl: url };
-    }
-
     return { ats: 'Custom website', token: null };
   },
 
@@ -291,7 +344,7 @@ export const DiscoveryService = {
         const isAtsUrl =
           href.includes('eightfold.ai') ||
           href.includes('apply.hp.com') ||
-          (href.includes('apply.') && href.includes('/careers')) ||
+          href.includes('apply.careers.') ||
           href.includes('greenhouse.io') ||
           href.includes('lever.co') ||
           href.includes('myworkdayjobs.com') ||
@@ -302,6 +355,9 @@ export const DiscoveryService = {
           href.includes('recruitee.com') ||
           href.includes('candidateexperience') ||
           href.includes('hcmui') ||
+          href.includes('phenompeople.com') ||
+          href.includes('successfactors.com') ||
+          href.includes('sapsf.') ||
           href.includes('breezy.hr');
 
         if (isAtsUrl) {
@@ -399,9 +455,11 @@ export const DiscoveryService = {
     // Step 2: Check common career & hiring paths directly
     const commonPaths = [
       '/careers/jobsearch',
+      '/careers/jobs/joblisting',
       '/careers/jobs',
       '/company/careers/jobs',
       '/careers/search',
+      '/job-list',
       '/careers',
       '/jobs',
       '/job-search',

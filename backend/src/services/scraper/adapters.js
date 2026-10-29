@@ -208,11 +208,11 @@ export const ATSAdapters = {
       return true;
     });
 
-    const targetList = (keyword || location) ? filtered : allRaw.slice(0, 100);
+    const targetList = (keyword || location) ? filtered : allRaw;
 
     return {
       extractionMethod: 'Salesforce Official Feed',
-      reportedCount: totalReported,
+      reportedCount: (keyword || location) ? filtered.length : (totalReported || allRaw.length),
       jobs: targetList.map(j => {
         const loc = j.Job_Requisition_Primary_Location || (j.Locations && j.Locations.join(', ')) || 'Multiple Locations';
         const refId = j.Job_Requisition_Ref_ID || String(Math.random().toString(36).substring(7));
@@ -271,43 +271,63 @@ export const ATSAdapters = {
     let allPositions = [];
     let totalReported = 0;
 
-    // Fetch first page to get count and first 10 jobs
-    const firstUrl = `https://${host}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=0&sort_by=timestamp${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
-    try {
-      const firstRes = await ComplianceService.safeFetch(firstUrl, {
-        headers: { 'Accept': 'application/json' },
-        timeout: 10000,
-      });
+    // Fetch first page to get count and first 10 jobs (try alternate Eightfold host if primary is rate-limited)
+    const candidateHosts = [host];
+    const baseSub = domain.split('.')[0];
+    if (!candidateHosts.includes(`apply.careers.${domain}`)) candidateHosts.push(`apply.careers.${domain}`);
+    if (!candidateHosts.includes(`${baseSub}.eightfold.ai`)) candidateHosts.push(`${baseSub}.eightfold.ai`);
 
-      if (firstRes.ok) {
+    let firstRes = null;
+    for (const h of candidateHosts) {
+      try {
+        const testUrl = `https://${h}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=0&sort_by=timestamp${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
+        const r = await ComplianceService.safeFetch(testUrl, {
+          headers: { 'Accept': 'application/json' },
+          timeout: 10000,
+        });
+        if (r.ok) {
+          const ct = r.headers.get('content-type') || '';
+          if (ct.includes('json')) {
+            host = h;
+            firstRes = r;
+            break;
+          }
+        }
+      } catch {}
+    }
+
+    try {
+      if (firstRes && firstRes.ok) {
         const firstData = await firstRes.json();
         const pos0 = firstData?.data?.positions || [];
         totalReported = firstData?.data?.count || pos0.length;
         allPositions.push(...pos0);
 
-        // Fetch all active jobs up to total reported without artificial limit
-        const maxJobsToFetch = totalReported;
+        // Fetch active jobs in polite batches of 10 to prevent Eightfold HTTP 429 rate-limiting
+        const maxJobsToFetch = Math.min(totalReported, 1000);
         const offsets = [];
         for (let offset = 10; offset < maxJobsToFetch; offset += 10) {
           offsets.push(offset);
         }
 
         if (offsets.length > 0) {
-          // Fetch in polite concurrent batches of 25 to respect compliance and keep speed fast
-          const BATCH_SIZE = 25;
+          const BATCH_SIZE = 10;
           for (let b = 0; b < offsets.length; b += BATCH_SIZE) {
             const batch = offsets.slice(b, b + BATCH_SIZE);
             const results = await Promise.allSettled(
               batch.map(offset => {
                 const u = `https://${host}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=${offset}&sort_by=timestamp${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
-                return ComplianceService.safeFetch(u, { headers: { 'Accept': 'application/json' }, timeout: 8000 }).then(r => r.json());
+                return ComplianceService.safeFetch(u, { headers: { 'Accept': 'application/json' }, timeout: 8000 }).then(r => r.ok ? r.json() : null);
               })
             );
+            let batchGotAny = false;
             for (const r of results) {
               if (r.status === 'fulfilled' && r.value?.data?.positions) {
                 allPositions.push(...r.value.data.positions);
+                batchGotAny = true;
               }
             }
+            if (!batchGotAny) break; // Stop pagination cleanly if rate-limited
           }
         }
       }
@@ -341,8 +361,8 @@ export const ATSAdapters = {
 
     // Fetch live full job descriptions directly from Eightfold position_details endpoint for top positions
     const detailsMap = new Map();
-    const DETAIL_CHUNK_SIZE = 25;
-    const maxDetailFetches = Math.min(allPositions.length, 100);
+    const DETAIL_CHUNK_SIZE = 15;
+    const maxDetailFetches = Math.min(allPositions.length, 30);
     for (let i = 0; i < maxDetailFetches; i += DETAIL_CHUNK_SIZE) {
       const chunk = allPositions.slice(i, i + DETAIL_CHUNK_SIZE);
       const detailResults = await Promise.allSettled(
@@ -456,11 +476,11 @@ export const ATSAdapters = {
     const keyword = (options.keyword || options.title || options.search || '').trim();
     const location = (options.location || '').trim();
 
-    let finderQuery = `finder=findReqs;siteNumber=${siteNumber}`;
-    if (keyword) finderQuery += `,keyword=${encodeURIComponent(keyword)}`;
-    if (location) finderQuery += `,location=${encodeURIComponent(location)}`;
+    let finderBase = `finder=findReqs;siteNumber=${siteNumber}`;
+    if (keyword) finderBase += `,keyword=${encodeURIComponent(keyword)}`;
+    if (location) finderBase += `,location=${encodeURIComponent(location)}`;
 
-    const apiUrl = `https://${host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&${finderQuery}&expand=requisitionList&limit=50&offset=0`;
+    const apiUrl = `https://${host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&${finderBase},limit=25,offset=0&expand=requisitionList.secondaryLocations`;
     const res = await ComplianceService.safeFetch(apiUrl, {
       headers: { 'Accept': 'application/json' },
       timeout: 12000,
@@ -473,13 +493,41 @@ export const ATSAdapters = {
     const data = await res.json();
     const searchItem = data.items?.[0] || {};
     const totalReported = searchItem.TotalJobsCount || 0;
-    const rawJobs = searchItem.requisitionList || [];
+    const rawJobs = [...(searchItem.requisitionList || [])];
+    const pageSize = rawJobs.length || 25;
+
+    // Paginate through all Oracle Cloud HCM pages up to totalReported (max 600)
+    if (totalReported > rawJobs.length && rawJobs.length > 0) {
+      const maxToFetch = Math.min(totalReported, 600);
+      const offsets = [];
+      for (let off = pageSize; off < maxToFetch; off += pageSize) {
+        offsets.push(off);
+      }
+      const BATCH_SIZE = 6;
+      for (let b = 0; b < offsets.length; b += BATCH_SIZE) {
+        const batch = offsets.slice(b, b + BATCH_SIZE);
+        const pageResults = await Promise.allSettled(
+          batch.map(off => {
+            const pageUrl = `https://${host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&${finderBase},limit=${pageSize},offset=${off}&expand=requisitionList.secondaryLocations`;
+            return ComplianceService.safeFetch(pageUrl, {
+              headers: { 'Accept': 'application/json' },
+              timeout: 10000,
+            }).then(r => r.ok ? r.json() : null);
+          })
+        );
+        for (const pr of pageResults) {
+          if (pr.status === 'fulfilled' && pr.value?.items?.[0]?.requisitionList) {
+            rawJobs.push(...pr.value.items[0].requisitionList);
+          }
+        }
+      }
+    }
 
     return {
       extractionMethod: 'Oracle Cloud HCM API',
-      reportedCount: totalReported,
+      reportedCount: totalReported || rawJobs.length,
       jobs: rawJobs.map(j => {
-        const reqId = j.Id || String(Math.random().toString(36).substring(7));
+        const reqId = String(j.Id || Math.random().toString(36).substring(7));
         const loc = j.PrimaryLocation || 'Multiple Locations';
         const jobUrl = `https://${host}/hcmUI/CandidateExperience/en/sites/careers/job/${reqId}`;
         return {
@@ -1004,6 +1052,548 @@ export const ATSAdapters = {
   },
 
   /**
+   * Adapter: Phenom People Universal Career Platform (widgets API & phApp.ddo)
+   * Used universally by Cisco (careers.cisco.com), Cognizant, Abbott, Booking, L'Oreal, Thermo Fisher, Eli Lilly, etc.
+   */
+  async extractPhenomPeople(careerUrl, companyName, options = {}) {
+    let host = 'careers.cisco.com';
+    let lang = 'en_global';
+    let country = 'global';
+    let siteType = 'external';
+
+    try {
+      const u = new URL(careerUrl.startsWith('http') ? careerUrl : `https://${careerUrl}`);
+      host = u.hostname;
+      if (host === 'www.cisco.com' || host === 'cisco.com' || host === 'jobs.cisco.com') {
+        host = 'careers.cisco.com';
+      }
+    } catch {}
+
+    const keyword = (options.keyword || options.title || options.search || '').trim();
+    const location = (options.location || '').trim().toLowerCase();
+
+    const widgetsUrl = `https://${host}/widgets`;
+    let totalReported = 0;
+    const rawJobs = [];
+
+    // Try fetching pages of 100 via Phenom widgets API
+    const PAGE_SIZE = 100;
+    const MAX_PAGES = 6; // up to 600 jobs fetched cleanly
+
+    for (let page = 0; page < MAX_PAGES; page++) {
+      try {
+        const res = await ComplianceService.safeFetch(widgetsUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({
+            lang,
+            deviceType: 'desktop',
+            country,
+            pageName: 'search-results',
+            ddoKey: 'refineSearch',
+            sortBy: '',
+            subsearch: '',
+            from: page * PAGE_SIZE,
+            jobs: true,
+            counts: true,
+            all_fields: ['category', 'country', 'state', 'city', 'type', 'workLocation'],
+            size: PAGE_SIZE,
+            clearAll: false,
+            jdSource: 'facets',
+            isSliderEnable: false,
+            pageId: 'page11',
+            siteType,
+            keywords: keyword,
+            global: true,
+            selected_fields: {}
+          }),
+          timeout: 10000,
+        });
+
+        if (!res.ok) break;
+        const data = await res.json();
+        const refSearch = data.refineSearch || data.eagerLoadRefineSearch || {};
+        if (typeof refSearch.totalHits === 'number' && refSearch.totalHits > 0) {
+          totalReported = refSearch.totalHits;
+        }
+        const batchJobs = refSearch.data?.jobs || [];
+        if (batchJobs.length === 0) break;
+        rawJobs.push(...batchJobs);
+        if (totalReported && rawJobs.length >= totalReported) break;
+      } catch {
+        break;
+      }
+    }
+
+    // Fallback: parse phApp.ddo from HTML if widgets POST didn't return jobs
+    if (rawJobs.length === 0) {
+      const searchUrl = careerUrl.includes('search') ? careerUrl : `https://${host}/global/en/search-results`;
+      const pageRes = await ComplianceService.safeFetch(searchUrl, { timeout: 10000 });
+      if (pageRes.ok) {
+        const html = await pageRes.text();
+        const ddoMatch = html.match(/phApp\.ddo\s*=\s*(\{.+?\});\s*(?:phApp|window|var|<\/script>)/s);
+        if (ddoMatch) {
+          const ddo = JSON.parse(ddoMatch[1]);
+          const ref = ddo.eagerLoadRefineSearch || ddo.refineSearch || {};
+          totalReported = ref.totalHits || 0;
+          if (Array.isArray(ref.data?.jobs)) {
+            rawJobs.push(...ref.data.jobs);
+          }
+        }
+      }
+    }
+
+    if (rawJobs.length === 0) {
+      throw new Error(`Phenom People API returned 0 jobs for ${companyName}`);
+    }
+
+    const filtered = location
+      ? rawJobs.filter(j => JSON.stringify(j).toLowerCase().includes(location))
+      : rawJobs;
+
+    return {
+      extractionMethod: 'API (Phenom People)',
+      reportedCount: totalReported || filtered.length,
+      jobs: filtered.map(j => {
+        const reqId = String(j.reqId || j.jobId || j.jobSeqNo || Math.random().toString(36).substring(7));
+        const title = j.title || 'Open Position';
+        const loc = j.cityStateCountry || j.location || [j.city, j.state, j.country].filter(Boolean).join(', ') || 'Multiple Locations';
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const jobUrl = j.applyUrl || `https://${host}/global/en/job/${reqId}/${slug}`;
+        const isRemote = (loc + ' ' + (j.workLocation || '') + ' ' + title).toLowerCase().includes('remote');
+
+        return {
+          external_job_id: reqId,
+          title,
+          location: loc,
+          locations: j.multi_location_array || [loc],
+          work_mode: isRemote ? 'Remote' : ((j.workLocation || '').toLowerCase().includes('hybrid') ? 'Hybrid' : 'On-site'),
+          employment_type: j.type || 'Full-time',
+          department: j.category || j.department || 'General',
+          experience: j.experienceLevel || '',
+          salary: '',
+          skills: j.skills || [],
+          description: cleanHtmlToMarkdown(j.descriptionTeaser || j.description || '') || `Official verified opening at ${companyName} for ${title}. Requisition ID: ${reqId}. Location: ${loc}.`,
+          original_job_url: jobUrl,
+          apply_url: j.applyUrl || jobUrl,
+          ats_provider: 'Phenom People',
+          confidence_score: 98,
+        };
+      }),
+      strategyMemory: {
+        s: 'Phenom People API',
+        host,
+        totalFound: totalReported || filtered.length,
+        v: '1.0.0',
+        chk: new Date().toISOString(),
+      }
+    };
+  },
+
+  /**
+   * Adapter: SAP SuccessFactors Recruiting Marketing (RMK / Career Site Builder)
+   * Used universally by Wipro (careers.wipro.com), HCL, Infosys, Deloitte, NTT Data, etc.
+   */
+  async extractSuccessFactorsRMK(careerUrl, companyName, options = {}) {
+    let host = 'careers.wipro.com';
+    try {
+      const u = new URL(careerUrl.startsWith('http') ? careerUrl : `https://${careerUrl}`);
+      host = u.hostname;
+      if (host === 'www.wipro.com' || host === 'wipro.com') {
+        host = 'careers.wipro.com';
+      }
+    } catch {}
+
+    const keyword = (options.keyword || options.title || options.search || '').trim();
+    const location = (options.location || '').trim();
+    const apiUrl = `https://${host}/services/recruiting/v1/jobs`;
+
+    let totalReported = 0;
+    const rawResults = [];
+
+    // 1. Try Modern RMK JSON API (/services/recruiting/v1/jobs)
+    try {
+      const firstRes = await ComplianceService.safeFetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          keywords: keyword,
+          locale: 'en_US',
+          location,
+          pageNumber: 0,
+          sortBy: 'recent'
+        }),
+        timeout: 10000,
+      });
+
+      if (firstRes.ok) {
+        const firstData = await firstRes.json();
+        totalReported = firstData.totalJobs || 0;
+        if (Array.isArray(firstData.jobSearchResult)) {
+          rawResults.push(...firstData.jobSearchResult);
+        }
+
+        // Fetch additional pages in polite batches (up to 35 pages = 350 jobs)
+        const totalPages = Math.min(Math.ceil(totalReported / 10), 35);
+        const pages = [];
+        for (let p = 1; p < totalPages; p++) pages.push(p);
+
+        const BATCH_SIZE = 7;
+        for (let b = 0; b < pages.length; b += BATCH_SIZE) {
+          const batch = pages.slice(b, b + BATCH_SIZE);
+          const batchRes = await Promise.allSettled(
+            batch.map(p =>
+              ComplianceService.safeFetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                  keywords: keyword,
+                  locale: 'en_US',
+                  location,
+                  pageNumber: p,
+                  sortBy: 'recent'
+                }),
+                timeout: 8000,
+              }).then(r => r.ok ? r.json() : null)
+            )
+          );
+          for (const br of batchRes) {
+            if (br.status === 'fulfilled' && Array.isArray(br.value?.jobSearchResult)) {
+              rawResults.push(...br.value.jobSearchResult);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('SAP SuccessFactors RMK JSON error:', e.message);
+    }
+
+    if (rawResults.length > 0) {
+      return {
+        extractionMethod: 'API (SAP SuccessFactors)',
+        reportedCount: totalReported || rawResults.length,
+        jobs: rawResults.map(item => {
+          const r = item.response || item;
+          const id = String(r.id || Math.random().toString(36).substring(7));
+          const title = r.unifiedStandardTitle || r.title || 'Open Position';
+          const urlTitle = r.urlTitle || r.unifiedUrlTitle || title.replace(/[^a-zA-Z0-9]+/g, '-');
+          const loc = (Array.isArray(r.jobLocationShort) ? r.jobLocationShort[0] : r.jobLocationShort)
+            ?.replace(/,\s*$/, '')
+            ?.trim() || (Array.isArray(r.sfstd_jobLocation_obj) ? r.sfstd_jobLocation_obj.join(', ') : 'Multiple Locations');
+          const dept = Array.isArray(r.custRMKMappingPicklist) ? r.custRMKMappingPicklist[0] : 'Technology & Operations';
+          const jobUrl = `https://${host}/job/${encodeURIComponent(urlTitle)}/${id}-en_US`;
+
+          return {
+            external_job_id: id,
+            title,
+            location: loc,
+            locations: [loc],
+            work_mode: (title + ' ' + loc).toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+            employment_type: 'Full-time',
+            department: dept || 'General',
+            experience: '',
+            salary: '',
+            skills: [],
+            description: `Official verified opening at ${companyName} for ${title}.\n\n• Requisition ID: ${id}\n• Department: ${dept}\n• Location: ${loc}\n• Start Date: ${r.unifiedStandardStart || 'Immediate'}\n\nApply directly on official portal: ${jobUrl}`,
+            original_job_url: jobUrl,
+            apply_url: jobUrl,
+            ats_provider: 'SAP SuccessFactors',
+            confidence_score: 98,
+          };
+        }),
+        strategyMemory: {
+          s: 'SAP SuccessFactors RMK API',
+          host,
+          totalFound: totalReported || rawResults.length,
+          v: '1.0.0',
+          chk: new Date().toISOString(),
+        }
+      };
+    }
+
+    throw new Error(`SAP SuccessFactors RMK returned 0 jobs for ${companyName}`);
+  },
+
+  /**
+   * Adapter: IBM Global Careers Search API (2,154+ live jobs)
+   */
+  async extractIBM(careerUrl = '', companyName = 'IBM', options = {}) {
+    const apiUrl = 'https://www-api.ibm.com/search/api/v2';
+    const keyword = (options.keyword || options.title || options.search || '').trim();
+    const location = (options.location || '').trim().toLowerCase();
+
+    let totalReported = 0;
+    const allHits = [];
+    const PAGE_SIZE = 100;
+    const MAX_PAGES = 6; // Fetch up to 600 verified jobs cleanly
+
+    for (let page = 0; page < MAX_PAGES; page++) {
+      try {
+        const mustClauses = [];
+        if (keyword) {
+          mustClauses.push({ query_string: { query: keyword } });
+        }
+        const res = await ComplianceService.safeFetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({
+            appId: 'careers',
+            scopes: ['careers2'],
+            query: { bool: { must: mustClauses } },
+            size: PAGE_SIZE,
+            from: page * PAGE_SIZE,
+            lang: 'zz',
+            sm: { query: keyword, lang: 'zz' },
+            _source: ['_id', 'title', 'url', 'description', 'field_keyword_05', 'field_keyword_08', 'field_keyword_17', 'field_keyword_18', 'field_keyword_19']
+          }),
+          timeout: 10000,
+        });
+
+        if (!res.ok) break;
+        const data = await res.json();
+        if (typeof data.hits?.total?.value === 'number') {
+          totalReported = data.hits.total.value;
+        }
+        const hits = data.hits?.hits || [];
+        if (hits.length === 0) break;
+        allHits.push(...hits);
+        if (totalReported && allHits.length >= totalReported) break;
+      } catch {
+        break;
+      }
+    }
+
+    if (allHits.length === 0) {
+      throw new Error('IBM Careers API returned 0 jobs');
+    }
+
+    const filtered = location
+      ? allHits.filter(h => JSON.stringify(h._source || {}).toLowerCase().includes(location))
+      : allHits;
+
+    return {
+      extractionMethod: 'API (IBM Global Careers)',
+      reportedCount: totalReported || filtered.length,
+      jobs: filtered.map(h => {
+        const s = h._source || {};
+        const urlJobId = (s.url || '').match(/jobId=([A-Za-z0-9_-]+)/i)?.[1];
+        const reqId = String(urlJobId || h._id || Math.random().toString(36).substring(7));
+        const title = s.title || 'Open Position';
+        const loc = [s.field_keyword_19, s.field_keyword_05].filter(Boolean).join(', ') || s.field_keyword_08 || 'Multiple Locations';
+        const dept = s.field_keyword_08 || 'Technology';
+        const workMode = (s.field_keyword_17 || loc).toLowerCase().includes('remote') ? 'Remote' : ((s.field_keyword_17 || '').toLowerCase().includes('hybrid') ? 'Hybrid' : 'On-site');
+        const jobUrl = s.url || `https://www.ibm.com/careers/search?q=${encodeURIComponent(reqId)}`;
+
+        return {
+          external_job_id: reqId,
+          title,
+          location: loc,
+          locations: [loc],
+          work_mode: workMode,
+          employment_type: s.field_keyword_18 || 'Full-time',
+          department: dept,
+          experience: '',
+          salary: '',
+          skills: [],
+          description: cleanHtmlToMarkdown(s.description || '') || `Official verified opening at IBM for ${title}. Requisition ID: ${reqId}. Location: ${loc}.`,
+          original_job_url: jobUrl,
+          apply_url: jobUrl,
+          ats_provider: 'IBM Careers API',
+          confidence_score: 98,
+        };
+      }),
+      strategyMemory: {
+        s: 'IBM Search API v2',
+        ep: apiUrl,
+        totalFound: totalReported || filtered.length,
+        v: '1.0.0',
+        chk: new Date().toISOString(),
+      }
+    };
+  },
+
+  /**
+   * Adapter: Capgemini Global JobStream API (6,799+ live jobs)
+   */
+  async extractCapgemini(careerUrl = '', companyName = 'Capgemini', options = {}) {
+    const keyword = (options.keyword || options.title || options.search || '').trim();
+    const location = (options.location || '').trim().toLowerCase();
+
+    let totalReported = 0;
+    const allItems = [];
+    const PAGE_SIZE = 100;
+    const MAX_PAGES = 5; // 500 rich jobs with full HTML descriptions
+
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      try {
+        const params = new URLSearchParams({
+          page: String(page),
+          size: String(PAGE_SIZE),
+        });
+        if (keyword) params.set('search', keyword);
+
+        const apiUrl = `https://cg-jobstream-api.azurewebsites.net/api/job-search?${params.toString()}`;
+        const res = await ComplianceService.safeFetch(apiUrl, {
+          headers: { 'Accept': 'application/json' },
+          timeout: 10000,
+        });
+        if (!res.ok) break;
+        const data = await res.json();
+        if (typeof data.total === 'number' && data.total > 0) {
+          totalReported = data.total;
+        }
+        const items = data.data || [];
+        if (items.length === 0) break;
+        allItems.push(...items);
+        if (totalReported && allItems.length >= totalReported) break;
+      } catch {
+        break;
+      }
+    }
+
+    if (allItems.length === 0) {
+      throw new Error('Capgemini JobStream API returned 0 jobs');
+    }
+
+    const filtered = location
+      ? allItems.filter(j => (j.location || '').toLowerCase().includes(location) || (j.country_name || '').toLowerCase().includes(location))
+      : allItems;
+
+    return {
+      extractionMethod: 'API (Capgemini JobStream)',
+      reportedCount: totalReported || filtered.length,
+      jobs: filtered.map(j => {
+        const reqId = String(j.ref || j.id || j._id || Math.random().toString(36).substring(7));
+        const title = j.title || 'Open Position';
+        const loc = j.location || j.country_name || 'Multiple Locations';
+        const jobUrl = j.apply_job_url || `https://www.capgemini.com/careers/join-capgemini/job-search/?search=${encodeURIComponent(reqId)}`;
+
+        return {
+          external_job_id: reqId,
+          title,
+          location: loc,
+          locations: [loc],
+          work_mode: loc.toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+          employment_type: j.contract_type || 'Full-time',
+          department: j.professional_communities || j.department || j.sbu || 'Technology',
+          experience: j.experience_level || '',
+          salary: '',
+          skills: [],
+          description: cleanHtmlToMarkdown(j.description || j.description_stripped || '') || `Official verified opening at Capgemini for ${title}. Location: ${loc}.`,
+          original_job_url: jobUrl,
+          apply_url: jobUrl,
+          ats_provider: 'Capgemini Careers',
+          confidence_score: 98,
+        };
+      }),
+      strategyMemory: {
+        s: 'Capgemini JobStream API',
+        totalFound: totalReported || filtered.length,
+        v: '1.0.0',
+        chk: new Date().toISOString(),
+      }
+    };
+  },
+
+  /**
+   * Adapter: Tata Group Official Global Careers Portal (14,014+ live jobs across Tata companies)
+   */
+  async extractTata(careerUrl = '', companyName = 'Tata', options = {}) {
+    let totalReported = 0;
+
+    // 1. Fetch official total job postings count from Tata CountServlet
+    try {
+      const countRes = await ComplianceService.safeFetch('https://www.tata.com/bin/tata/jobPostingsCountServlet', {
+        headers: { 'Accept': 'application/json' },
+        timeout: 8000,
+      });
+      if (countRes.ok) {
+        const countData = await countRes.json();
+        if (countData?.response?.totalCount) {
+          totalReported = Number(countData.response.totalCount);
+        }
+      }
+    } catch {}
+
+    // 2. Fetch live job listings across key role categories from jobPostingsFilterServlet
+    const userKeyword = (options.keyword || options.title || options.search || '').trim();
+    const searchTerms = userKeyword
+      ? [userKeyword]
+      : ['engineer', 'developer', 'manager', 'analyst', 'consultant', 'lead', 'associate', 'executive', 'architect', 'designer', 'specialist', 'officer'];
+
+    const seenIds = new Set();
+    const allPostings = [];
+
+    const results = await Promise.allSettled(
+      searchTerms.map(term =>
+        ComplianceService.safeFetch('https://www.tata.com/bin/tata/jobPostingsFilterServlet?', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': 'https://www.tata.com/careers/jobs/joblisting',
+            'Origin': 'https://www.tata.com',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: `searchTerm=${encodeURIComponent(term)}&searchMode=search&jobFormat=undefined`,
+          timeout: 9000,
+        }).then(r => r.ok ? r.json() : null)
+      )
+    );
+
+    for (const r of results) {
+      if (r.status === 'fulfilled' && Array.isArray(r.value?.response?.jobPostings)) {
+        for (const p of r.value.response.jobPostings) {
+          const id = String(p.jobId || `${p.companyName}_${p.jobTitle}`);
+          if (!seenIds.has(id)) {
+            seenIds.add(id);
+            allPostings.push(p);
+          }
+        }
+      }
+    }
+
+    if (allPostings.length === 0) {
+      throw new Error('Tata Careers Servlet returned 0 postings');
+    }
+
+    return {
+      extractionMethod: 'API (Tata Careers Portal)',
+      reportedCount: totalReported || allPostings.length,
+      jobs: allPostings.map(p => {
+        const reqId = String(p.jobId || Math.random().toString(36).substring(7));
+        const subCompany = p.companyName || 'Tata Group';
+        const title = p.jobTitle ? `${p.jobTitle} (${subCompany})` : `Open Position (${subCompany})`;
+        const loc = p.location || 'India';
+        const jobUrl = `https://www.tata.com/careers/jobs/jobdetails?jobId=${encodeURIComponent(reqId)}&company=${encodeURIComponent(subCompany)}`;
+
+        return {
+          external_job_id: reqId,
+          title,
+          location: loc,
+          locations: [loc],
+          work_mode: loc.toLowerCase().includes('remote') || loc.toLowerCase().includes('flexible') ? 'Remote' : 'On-site',
+          employment_type: p.jobType || 'Full-time',
+          department: subCompany,
+          experience: '',
+          salary: '',
+          skills: [],
+          description: cleanHtmlToMarkdown(p.shortDescription || '') || `Official opening at ${subCompany} (Tata Group) for ${p.jobTitle}. Requisition ID: ${reqId}. Location: ${loc}.`,
+          original_job_url: jobUrl,
+          apply_url: jobUrl,
+          ats_provider: 'Tata Careers Portal',
+          confidence_score: 97,
+        };
+      }),
+      strategyMemory: {
+        s: 'Tata Global Job Servlet',
+        totalFound: totalReported || allPostings.length,
+        v: '1.0.0',
+        chk: new Date().toISOString(),
+      }
+    };
+  },
+
+  /**
    * Adapter: XML Sitemaps Job Extractor
    * Discovers and parses high-volume enterprise jobs from XML sitemaps
    */
@@ -1274,28 +1864,77 @@ export const ATSAdapters = {
       }
     }
 
-    // Layer 4: Auto-Probe Sitemaps for job links
-    if (origin) {
-      const sitemapsToTry = [
-        `${origin}/sitemap.xml`,
-        `${origin}/jobs-sitemap.xml`,
-        `${origin}/careers-sitemap.xml`
-      ];
-      for (const smUrl of sitemapsToTry) {
-        try {
-          const smRes = await this.extractSitemapJobs(smUrl, companyName, 50);
-          if (smRes.jobs && smRes.jobs.length > 0) {
-            return smRes;
+    // Layer 4: Accordion / Toggle / Card Parser for WordPress, Fusion Builder, Elementor, Divi & Custom Career Pages (e.g. Aptara 13 jobs)
+    $('a').each((idx, el) => {
+      const href = ($(el).attr('href') || '').trim();
+      const btnText = $(el).text().trim().replace(/\s+/g, ' ').toLowerCase();
+      if (btnText === 'apply now' || btnText === 'apply' || href === '#applynow' || href.startsWith('#apply')) {
+        const card = $(el).closest('.fusion-layout-column, .fusion-column-wrapper, .fusion-toggle, .job-card, .career-card, .opening-card, .position-card, .elementor-widget-wrap, article, .card');
+        if (card.length > 0) {
+          const heading = card.find('h2, h3, h4, .job-title, .title').first().text().trim().replace(/\s+/g, ' ');
+          if (heading && heading.length > 3 && heading.length < 140) {
+            const locText = card.find('li, .location, .job-location, p').first().text().trim().replace(/\s+/g, ' ') || 'Multiple Locations';
+            const cleanLoc = (locText.length > 1 && locText.length < 80 && locText.toLowerCase() !== heading.toLowerCase() && locText.toLowerCase() !== 'apply now')
+              ? locText
+              : 'Multiple Locations';
+            const cardText = cleanHtmlToMarkdown(card.html() || '') || `Official opening at ${companyName} for ${heading}. Location: ${cleanLoc}.`;
+            const isRemote = (heading + ' ' + cleanLoc).toLowerCase().includes('remote');
+            const isHybrid = (heading + ' ' + cleanLoc).toLowerCase().includes('hybrid');
+            const slug = heading.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+            const fullApplyUrl = (href && !href.startsWith('#')) ? new URL(href, res.url || url).href : (res.url || url);
+
+            jobs.push({
+              external_job_id: `${slug}-${idx + 1}`,
+              title: heading,
+              location: cleanLoc,
+              locations: [cleanLoc],
+              work_mode: isRemote ? 'Remote' : (isHybrid ? 'Hybrid' : 'On-site'),
+              employment_type: heading.toLowerCase().includes('contract') ? 'Contract' : 'Full-time',
+              department: 'General',
+              experience: '',
+              salary: '',
+              skills: [],
+              description: cardText,
+              original_job_url: `${res.url || url}#job-${slug}-${idx + 1}`,
+              apply_url: fullApplyUrl,
+              ats_provider: 'Official Career Page',
+              confidence_score: 94,
+            });
           }
-        } catch {}
+        }
       }
+    });
+
+    if (jobs.length > 0) {
+      const uniqueCardMap = new Map();
+      for (const j of jobs) {
+        const key = `${j.title.toLowerCase()}__${j.location.toLowerCase()}`;
+        if (!uniqueCardMap.has(key)) {
+          uniqueCardMap.set(key, j);
+        }
+      }
+      const uniqueCards = Array.from(uniqueCardMap.values());
+      return {
+        extractionMethod: 'Official Career Page Cards',
+        reportedCount: uniqueCards.length,
+        jobs: uniqueCards,
+        strategyMemory: {
+          s: 'Official Career Page Cards',
+          ep: res.url || url,
+          totalFound: uniqueCards.length,
+          v: '2.1.0',
+          chk: new Date().toISOString(),
+        }
+      };
     }
 
     // Layer 5: Static HTML Card / Link Parser with Strict Quality Filter
     const ignoredLinkTexts = [
       'careers', 'jobs', 'all jobs', 'search jobs', 'view all', 'view jobs', 'apply now',
       'learn more', 'read more', 'back', 'next', 'previous', 'privacy policy', 'terms',
-      'contact us', 'about us', 'cookie settings', 'login', 'sign in', 'home'
+      'contact us', 'about us', 'cookie settings', 'login', 'sign in', 'home', 'explore all jobs',
+      'see open positions', 'write to us', 'join our talent network', 'turn on job alerts',
+      'explore our locations', 'search now', 'equal opportunity', 'job search', 'join us'
     ];
 
     $('a').each((i, el) => {
@@ -1303,18 +1942,22 @@ export const ATSAdapters = {
       const text = $(el).text().trim().replace(/\s+/g, ' ');
       const textLower = text.toLowerCase();
 
-      if (!href || text.length < 4 || text.length > 80 || ignoredLinkTexts.includes(textLower)) {
+      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:')) {
+        return;
+      }
+      if (text.length < 4 || text.length > 80 || ignoredLinkTexts.includes(textLower)) {
         return;
       }
 
-      // Must have career/job indicators in href or parent container
-      const isJobLink = /\/(job|career|position|opening|vacancy)\b/i.test(href) ||
-                        href.includes('jobdetails?id=') ||
-                        $(el).closest('[class*="job"], [class*="career"], [class*="posting"], [class*="opening"], [class*="card"]').length > 0;
+      // Must point to a specific job detail path, not a top-level marketing/category page
+      const isSpecificJobLink =
+        /\/(job|jobs|position|positions|opening|openings|vacancy|vacancies)\/[a-zA-Z0-9_-]{3,}/i.test(href) ||
+        href.includes('jobdetails?id=') ||
+        href.includes('jobId=');
 
-      if (isJobLink) {
+      if (isSpecificJobLink) {
         try {
-          const fullJobUrl = new URL(href, url).href;
+          const fullJobUrl = new URL(href, res.url || url).href;
           jobs.push({
             external_job_id: fullJobUrl,
             title: text,
@@ -1330,29 +1973,41 @@ export const ATSAdapters = {
             original_job_url: fullJobUrl,
             apply_url: fullJobUrl,
             ats_provider: 'Custom HTML',
-            confidence_score: 75,
+            confidence_score: 80,
           });
         } catch {}
       }
     });
 
-    // Deduplicate by URL
+    // Deduplicate by title + URL
     const uniqueMap = new Map();
     for (const j of jobs) {
-      if (!uniqueMap.has(j.original_job_url)) {
-        uniqueMap.set(j.original_job_url, j);
+      const key = `${j.title.toLowerCase()}__${j.original_job_url}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, j);
       }
     }
     const finalJobs = Array.from(uniqueMap.values());
 
+    // Check if the official career page explicitly states there are 0 openings (e.g. Kellton "Zero Opening For the keyword")
+    const bodyTextLower = $('body').text().replace(/\s+/g, ' ').toLowerCase();
+    const hasExplicitZeroOpenings =
+      bodyTextLower.includes('zero opening') ||
+      bodyTextLower.includes('no open positions') ||
+      bodyTextLower.includes('no current openings') ||
+      bodyTextLower.includes('currently no openings') ||
+      bodyTextLower.includes('no vacancies available') ||
+      bodyTextLower.includes('0 jobs found') ||
+      bodyTextLower.includes('no jobs found');
+
     return {
       extractionMethod: 'Autonomous Universal Extractor',
-      reportedCount: finalJobs.length,
+      reportedCount: finalJobs.length > 0 ? finalJobs.length : (hasExplicitZeroOpenings ? 0 : null),
       jobs: finalJobs,
       strategyMemory: {
         s: 'Autonomous Universal',
-        ep: url,
-        v: '2.0.0',
+        ep: res.url || url,
+        v: '2.1.0',
         chk: new Date().toISOString(),
       }
     };

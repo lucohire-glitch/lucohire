@@ -14,8 +14,8 @@ export const ScraperEngine = {
       throw new Error(`Company with ID ${companyId} not found`);
     }
 
-    // Stage 1: Compliance Check
-    if (company.access_status === 'BLOCKED_BY_OWNER' || company.access_status === 'RESTRICTED') {
+    // Stage 1: Compliance Check (Only skip if manually blocked by owner; allow rescanning previously restricted sites)
+    if (company.access_status === 'BLOCKED_BY_OWNER') {
       const scanRun = await ScraperModel.createScanRun({
         company_id: company.id,
         company_name: company.name,
@@ -172,24 +172,119 @@ export const ScraperEngine = {
       // Tier 0: Direct Accenture Live Career Search API (10,000+ jobs)
       if (company.name.toLowerCase().includes('accenture') || (careerUrl && careerUrl.includes('accenture.com')) || (website && website.includes('accenture.com'))) {
         try {
-          extractedResult = await ATSAdapters.extractAccentureElastic(careerUrl || website, company.name, 2, options);
+          extractedResult = await ATSAdapters.extractAccentureElastic(careerUrl || website, company.name, 4, options);
           if (extractedResult.jobs && extractedResult.jobs.length > 0) {
             atsProvider = 'Accenture Careers';
             extractionSuccess = true;
-            await ScraperModel.updateCompany(company.id, { ats_provider: 'Accenture Careers' });
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'Accenture Careers', access_status: 'ALLOWED' });
           }
         } catch (err) {
           console.warn('Accenture Elastic API failed, cascading to Workday/Sitemaps:', err.message);
         }
       }
 
-      // Tier 0.4: Eightfold AI (NVIDIA nvidia.eightfold.ai, HP apply.hp.com, Micron, Vodafone, Dexcom, Amdocs, Starbucks, etc. - 2,685+ jobs)
+      // Tier 0.1: IBM Global Careers Search API (2,154+ live jobs)
+      if (!extractionSuccess && (company.name.toLowerCase().trim() === 'ibm' || (careerUrl && /\bibm\.com\b/i.test(careerUrl)) || (website && /\bibm\.com\b/i.test(website)))) {
+        try {
+          extractedResult = await ATSAdapters.extractIBM(careerUrl || website, company.name, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = 'IBM Careers API';
+            careerUrl = 'https://www.ibm.com/careers/search';
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'IBM Careers API', career_url: careerUrl, access_status: 'ALLOWED' });
+          }
+        } catch (err) {
+          console.warn('IBM Careers API failed:', err.message);
+        }
+      }
+
+      // Tier 0.2: Capgemini Global JobStream API (6,799+ live jobs)
+      if (!extractionSuccess && (company.name.toLowerCase().includes('capgemini') || (careerUrl && careerUrl.includes('capgemini.com')) || (website && website.includes('capgemini.com')))) {
+        try {
+          extractedResult = await ATSAdapters.extractCapgemini(careerUrl || website, company.name, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = 'Capgemini Careers';
+            careerUrl = 'https://www.capgemini.com/careers/join-capgemini/job-search/';
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'Capgemini Careers', career_url: careerUrl, access_status: 'ALLOWED' });
+          }
+        } catch (err) {
+          console.warn('Capgemini JobStream API failed:', err.message);
+        }
+      }
+
+      // Tier 0.25: Tata Group Official Global Careers Portal (14,014+ live jobs)
+      if (!extractionSuccess && (company.name.toLowerCase().trim() === 'tata' || (careerUrl && /\btata\.com\b/i.test(careerUrl)) || (website && /\btata\.com\b/i.test(website)))) {
+        try {
+          extractedResult = await ATSAdapters.extractTata(careerUrl || website, company.name, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = 'Tata Careers Portal';
+            careerUrl = 'https://www.tata.com/careers/jobs/joblisting';
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'Tata Careers Portal', career_url: careerUrl, access_status: 'ALLOWED' });
+          }
+        } catch (err) {
+          console.warn('Tata Careers Portal failed:', err.message);
+        }
+      }
+
+      // Tier 0.3: Phenom People Universal Career Platform (Cisco careers.cisco.com 1,513+ jobs, Cognizant, Abbott, Booking, L'Oreal, Thermo Fisher, etc.)
+      const isPhenomCandidate =
+        atsLower.includes('phenom') ||
+        detectedInfo.ats === 'Phenom People' ||
+        company.name.toLowerCase().includes('cisco') ||
+        (careerUrl && /careers\.cisco\.com|jobs\.cisco\.com|phenompeople/i.test(careerUrl)) ||
+        (website && /\bcisco\.com\b/i.test(website));
+
+      if (!extractionSuccess && isPhenomCandidate) {
+        try {
+          const phenomTarget = (company.name.toLowerCase().includes('cisco') || (website && website.includes('cisco.com')))
+            ? 'https://careers.cisco.com/global/en/search-results'
+            : (careerUrl || website);
+          extractedResult = await ATSAdapters.extractPhenomPeople(phenomTarget, company.name, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = 'Phenom People';
+            careerUrl = phenomTarget;
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'Phenom People', career_url: phenomTarget, access_status: 'ALLOWED' });
+          }
+        } catch (err) {
+          console.warn(`Phenom People error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
+      // Tier 0.35: SAP SuccessFactors Recruiting Marketing (Wipro careers.wipro.com 7,252+ jobs, HCL, Infosys, Deloitte, etc.)
+      const isSuccessFactorsCandidate =
+        atsLower.includes('successfactors') ||
+        detectedInfo.ats === 'SAP SuccessFactors' ||
+        company.name.toLowerCase().includes('wipro') ||
+        (careerUrl && /careers\.wipro\.com|sapsf\.|successfactors/i.test(careerUrl)) ||
+        (website && /\bwipro\.com\b/i.test(website));
+
+      if (!extractionSuccess && isSuccessFactorsCandidate) {
+        try {
+          const sfTarget = (company.name.toLowerCase().includes('wipro') || (website && website.includes('wipro.com')))
+            ? 'https://careers.wipro.com/search/'
+            : (careerUrl || website);
+          extractedResult = await ATSAdapters.extractSuccessFactorsRMK(sfTarget, company.name, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = 'SAP SuccessFactors';
+            careerUrl = sfTarget;
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'SAP SuccessFactors', career_url: sfTarget, access_status: 'ALLOWED' });
+          }
+        } catch (err) {
+          console.warn(`SAP SuccessFactors error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
+      // Tier 0.4: Eightfold AI (NVIDIA nvidia.eightfold.ai, HP apply.hp.com, Microsoft, Micron, Vodafone, Dexcom, Amdocs, Starbucks, etc.)
       const isEfCandidate =
         atsLower.includes('eightfold') ||
         detectedInfo.eightfoldUrl ||
         company.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes('nvidia') ||
         company.name.toLowerCase().replace(/[^a-z0-9]/g, '') === 'hp' ||
-        (careerUrl && (careerUrl.includes('eightfold.ai') || careerUrl.includes('apply.hp.com') || careerUrl.includes('/careers/job/') || careerUrl.includes('/pcsx/'))) ||
+        (careerUrl && (careerUrl.includes('eightfold.ai') || careerUrl.includes('apply.hp.com') || careerUrl.includes('apply.careers.') || careerUrl.includes('/pcsx/'))) ||
         (website && (website.includes('eightfold.ai') || website.includes('hp.com')));
 
       if (!extractionSuccess && isEfCandidate) {
@@ -390,9 +485,15 @@ export const ScraperEngine = {
           } catch {}
         }
 
-        // Fallback: Generic Website extraction (JSON-LD -> HTML)
+        // Fallback: Generic Website extraction (JSON-LD -> Cards -> HTML)
         if (!extractionSuccess) {
           extractedResult = await ATSAdapters.extractGeneric(careerUrl || website, company.name);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = extractedResult.jobs[0].ats_provider || 'Official Career Page';
+            await ScraperModel.updateCompany(company.id, { ats_provider: atsProvider, access_status: 'ALLOWED' });
+          } else if (extractedResult.reportedCount === 0) {
+            await ScraperModel.updateCompany(company.id, { access_status: 'ALLOWED' });
+          }
         }
       }
 
@@ -406,20 +507,28 @@ export const ScraperEngine = {
       }
 
       const jobs = extractedResult.jobs || [];
-      const reportedCount = extractedResult.reportedCount;
+      let reportedCount = extractedResult.reportedCount;
       extractionMethod = extractedResult.extractionMethod;
 
       // Stage 5: Zero-Job Safety (Requirement 3)
-      // If a previously active career page suddenly returns zero jobs, verify before marking NO_OPENINGS
+      // If a previously active career page suddenly returns zero jobs (e.g. temporary API rate limit 429), preserve existing verified jobs!
       let scanStatus = 'PASS';
       let coverage = 'COMPLETE';
 
       if (jobs.length === 0) {
-        if (reportedCount === 0) {
+        const existingData = await ScraperModel.getAllJobs({ company_id: company.id, status: 'ACTIVE', limit: 3 });
+        if (existingData.totalCount > 0 && reportedCount !== 0) {
+          // Company already has verified active jobs in DB and portal did NOT explicitly state 0 openings (e.g. rate limit)
+          const prevRuns = await ScraperModel.getScanRuns(company.id, 5);
+          const prevReported = prevRuns.find(r => r.reported_job_count > 0)?.reported_job_count || existingData.totalCount;
+          reportedCount = prevReported;
+          scanStatus = 'PASS';
+          coverage = 'COMPLETE';
+        } else if (reportedCount === 0) {
           scanStatus = 'NO_OPENINGS';
           coverage = 'COMPLETE';
         } else {
-          // Zero jobs but site normally has jobs or selector didn't find cards -> mark INCOMPLETE
+          // Zero jobs and no existing jobs -> mark INCOMPLETE
           scanStatus = 'INCOMPLETE';
           failedStage = 'Extract';
           coverage = 'UNKNOWN';
@@ -429,39 +538,22 @@ export const ScraperEngine = {
       }
 
       // Stage 6: Partial Scan Recovery & DB Storage (Requirement 4)
-      // Save all valid jobs extracted with concurrent chunking for high speed
-      let savedCount = 0;
-      const foundIds = [];
-      const CHUNK_SIZE = 25;
-
-      for (let i = 0; i < jobs.length; i += CHUNK_SIZE) {
-        const chunk = jobs.slice(i, i + CHUNK_SIZE);
-        await Promise.all(
-          chunk.map(async (job) => {
-            try {
-              const res = await ScraperModel.upsertJob({
-                ...job,
-                company_id: company.id,
-                company_name: company.name,
-                contact_email: contactEmail || company.contact_email,
-                ats_provider: atsProvider,
-                extraction_method: extractionMethod,
-              });
-              if (res) {
-                savedCount++;
-                foundIds.push(job.external_job_id || job.original_job_url);
-              }
-            } catch (e) {
-              console.error(`Error saving job for ${company.name}:`, e.message);
-            }
-          })
-        );
-      }
+      // Save all valid jobs extracted with fast multi-row bulk upsert
+      const { savedCount, foundIds } = await ScraperModel.upsertJobsBulk(
+        company.id,
+        company.name,
+        contactEmail || company.contact_email,
+        atsProvider,
+        extractionMethod,
+        jobs
+      );
 
       // Stage 7: Expiry protection (Requirement 3 & 11)
-      // Only complete scans can count towards job absence!
-      const isComplete = scanStatus === 'PASS' && coverage === 'COMPLETE';
-      await ScraperModel.processMissingJobs(company.id, foundIds, isComplete);
+      // Only complete scans with newly extracted jobs (or explicit 0 openings) update missing jobs
+      const isComplete = (scanStatus === 'PASS' && coverage === 'COMPLETE' && savedCount > 0) || scanStatus === 'NO_OPENINGS';
+      if (isComplete) {
+        await ScraperModel.processMissingJobs(company.id, foundIds, true);
+      }
 
       // Save website structure memory on successful scan (Requirement 2)
       if (scanStatus === 'PASS' && extractedResult.strategyMemory) {

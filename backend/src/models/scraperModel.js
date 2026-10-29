@@ -245,34 +245,146 @@ export const ScraperModel = {
       [companyId]
     );
 
-    let updatedCount = 0;
+    const foundSet = new Set(foundExternalIds);
+    const idsToUpdate = [];
     for (const job of rows) {
-      const isFound = foundExternalIds.includes(job.external_job_id) || foundExternalIds.includes(job.original_job_url);
+      const isFound = foundSet.has(job.external_job_id) || foundSet.has(job.original_job_url);
       if (!isFound) {
-        const nextMissing = (job.missing_scans_count || 0) + 1;
-        let nextStatus = job.status;
-        let isPublished = job.is_published;
-
-        if (nextMissing >= 3) {
-          nextStatus = 'EXPIRED';
-          isPublished = false;
-        } else if (nextMissing >= 1) {
-          nextStatus = 'SUSPECTED_REMOVED';
-        }
-
-        await pool.query(
-          `UPDATE scraped_jobs 
-           SET missing_scans_count = $1, status = $2, is_published = $3, updated_at = now() 
-           WHERE id = $4`,
-          [nextMissing, nextStatus, isPublished, job.id]
-        );
-        updatedCount++;
+        idsToUpdate.push(job.id);
       }
     }
-    return { updatedCount };
+
+    if (idsToUpdate.length > 0) {
+      const shouldExpireNow = foundExternalIds.length > 0;
+      if (shouldExpireNow) {
+        await pool.query(
+          `UPDATE scraped_jobs 
+           SET missing_scans_count = COALESCE(missing_scans_count, 0) + 1, status = 'EXPIRED', is_published = false, updated_at = now() 
+           WHERE id = ANY($1::int[])`,
+          [idsToUpdate]
+        );
+      } else {
+        await pool.query(
+          `UPDATE scraped_jobs 
+           SET missing_scans_count = COALESCE(missing_scans_count, 0) + 1,
+               status = CASE WHEN COALESCE(missing_scans_count, 0) + 1 >= 3 THEN 'EXPIRED' ELSE 'SUSPECTED_REMOVED' END,
+               is_published = CASE WHEN COALESCE(missing_scans_count, 0) + 1 >= 3 THEN false ELSE is_published END,
+               updated_at = now() 
+           WHERE id = ANY($1::int[])`,
+          [idsToUpdate]
+        );
+      }
+    }
+    return { updatedCount: idsToUpdate.length };
   },
 
-  async getAllJobs({ company_id, company_name, title, location, status, is_published, search, limit = 2000, offset = 0 } = {}) {
+  async upsertJobsBulk(companyId, companyName, contactEmail, atsProvider, extractionMethod, jobsList = []) {
+    if (!Array.isArray(jobsList) || jobsList.length === 0) {
+      return { savedCount: 0, foundIds: [] };
+    }
+
+    // 1. Fetch existing jobs for this company in 1 query
+    const existingRes = await pool.query(
+      'SELECT id, external_job_id, original_job_url FROM scraped_jobs WHERE company_id = $1',
+      [companyId]
+    );
+    const byExtId = new Map();
+    const byUrl = new Map();
+    for (const r of existingRes.rows) {
+      if (r.external_job_id) byExtId.set(r.external_job_id, r.id);
+      if (r.original_job_url) byUrl.set(r.original_job_url, r.id);
+    }
+
+    const toInsert = [];
+    const toUpdate = [];
+    const foundIds = [];
+    const seenBatchKeys = new Set();
+
+    for (const j of jobsList) {
+      const extId = String(j.external_job_id || '');
+      const origUrl = String(j.original_job_url || '');
+      const key = extId || origUrl;
+      if (!key || seenBatchKeys.has(key)) continue;
+      seenBatchKeys.add(key);
+      foundIds.push(key);
+
+      const existingId = (extId && byExtId.get(extId)) || (origUrl && byUrl.get(origUrl));
+      if (existingId) {
+        toUpdate.push({ ...j, id: existingId });
+      } else {
+        toInsert.push(j);
+      }
+    }
+
+    let savedCount = 0;
+
+    // 2. Multi-row bulk INSERT for new jobs (batches of 100 rows per query)
+    const INSERT_BATCH = 100;
+    for (let i = 0; i < toInsert.length; i += INSERT_BATCH) {
+      const batch = toInsert.slice(i, i + INSERT_BATCH);
+      const values = [];
+      const placeholders = [];
+      let pIdx = 1;
+
+      for (const j of batch) {
+        placeholders.push(
+          `($${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, $${pIdx++}, 'ACTIVE', true, 0, now(), now())`
+        );
+        values.push(
+          companyId,
+          companyName,
+          j.title || 'Open Position',
+          j.location || '',
+          JSON.stringify(j.locations || []),
+          j.work_mode || 'On-site',
+          j.employment_type || 'Full-time',
+          j.department || 'General',
+          j.experience || '',
+          j.salary || '',
+          JSON.stringify(j.skills || []),
+          j.description || '',
+          j.original_job_url || '',
+          j.apply_url || j.original_job_url || '',
+          String(j.external_job_id || ''),
+          atsProvider || j.ats_provider || '',
+          extractionMethod || j.extraction_method || 'API',
+          j.confidence_score || 90,
+          contactEmail || j.contact_email || ''
+        );
+      }
+
+      await pool.query(
+        `INSERT INTO scraped_jobs (
+          company_id, company_name, title, location, locations, work_mode,
+          employment_type, department, experience, salary, skills, description,
+          original_job_url, apply_url, external_job_id, ats_provider,
+          extraction_method, confidence_score, contact_email, status, is_published,
+          missing_scans_count, first_discovered_at, last_verified_at
+        ) VALUES ${placeholders.join(', ')}`,
+        values
+      );
+      savedCount += batch.length;
+    }
+
+    // 3. Fast bulk refresh for existing jobs + parallel chunk updates
+    if (toUpdate.length > 0) {
+      const updateIds = toUpdate.map(u => u.id);
+      await pool.query(
+        `UPDATE scraped_jobs
+         SET status = 'ACTIVE', missing_scans_count = 0, last_verified_at = now(), updated_at = now(),
+             ats_provider = COALESCE(NULLIF($1, ''), ats_provider),
+             extraction_method = COALESCE(NULLIF($2, ''), extraction_method),
+             contact_email = COALESCE(NULLIF($3, ''), contact_email)
+         WHERE id = ANY($4::int[])`,
+        [atsProvider || '', extractionMethod || '', contactEmail || '', updateIds]
+      );
+      savedCount += toUpdate.length;
+    }
+
+    return { savedCount, foundIds };
+  },
+
+  async getAllJobs({ company_id, company_name, title, location, status, is_published, search, limit = 5000, offset = 0 } = {}) {
     let whereClauses = [];
     let values = [];
     let idx = 1;
@@ -297,6 +409,8 @@ export const ScraperModel = {
     if (status && status !== 'All') {
       whereClauses.push(`j.status = $${idx++}`);
       values.push(status);
+    } else if (!status) {
+      whereClauses.push(`j.status = 'ACTIVE'`);
     }
     if (typeof is_published === 'boolean') {
       whereClauses.push(`j.is_published = $${idx++}`);

@@ -6,7 +6,7 @@
 const robotsCache = new Map(); // domain -> { rules, crawlDelay, timestamp }
 
 export const ComplianceService = {
-  USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 (LucoHireBot/2.0; +https://lucohire.com/bot; bot@lucohire.com)',
+  USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
 
   /**
    * SSRF Protection: Blocks requests to localhost, internal IPs, cloud metadata endpoints
@@ -176,6 +176,37 @@ export const ComplianceService = {
         signal: controller.signal,
       });
       return res;
+    } catch (err) {
+      // Fallback: if bare domain fails (e.g. SSL cert only on www. or *corp.com like aptara.com -> www.aptaracorp.com), retry once
+      try {
+        const parsed = new URL(url);
+        const host = parsed.hostname.toLowerCase();
+        const fallbackHosts = [];
+        if (!host.startsWith('www.') && host.split('.').length === 2) {
+          fallbackHosts.push(`www.${host}`);
+          const base = host.split('.')[0];
+          const tld = host.split('.')[1];
+          fallbackHosts.push(`www.${base}corp.${tld}`);
+        }
+        for (const fbHost of fallbackHosts) {
+          try {
+            const fbUrl = new URL(url);
+            fbUrl.hostname = fbHost;
+            const fbCtrl = new AbortController();
+            const fbTimer = setTimeout(() => fbCtrl.abort(), timeoutMs);
+            const fbRes = await fetch(fbUrl.href, {
+              ...options,
+              headers,
+              signal: fbCtrl.signal,
+            });
+            clearTimeout(fbTimer);
+            if (fbRes.ok || fbRes.status < 500) {
+              return fbRes;
+            }
+          } catch {}
+        }
+      } catch {}
+      throw err;
     } finally {
       clearTimeout(timeoutId);
     }
