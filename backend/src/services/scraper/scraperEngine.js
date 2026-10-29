@@ -148,7 +148,7 @@ export const ScraperEngine = {
                     break;
                   }
                 }
-              } catch {}
+              } catch { }
             }
           }
 
@@ -166,7 +166,7 @@ export const ScraperEngine = {
               }
             }
           }
-        } catch {}
+        } catch { }
       }
 
       // Tier 0: Direct Accenture Live Career Search API (10,000+ jobs)
@@ -443,7 +443,7 @@ export const ScraperEngine = {
               await ScraperModel.updateCompany(company.id, { ats_provider: 'Workday', career_url: probeUrl });
               break;
             }
-          } catch {}
+          } catch { }
         }
 
         // Probe Greenhouse (Skip for 2-letter tokens like 'hp' to avoid false positives)
@@ -456,7 +456,7 @@ export const ScraperEngine = {
               extractionSuccess = true;
               await ScraperModel.updateCompany(company.id, { ats_provider: 'Greenhouse', access_status: 'ALLOWED', verification_status: 'Verified' });
             }
-          } catch {}
+          } catch { }
         }
 
         // Probe Lever (Skip for 2-letter tokens)
@@ -469,7 +469,7 @@ export const ScraperEngine = {
               extractionSuccess = true;
               await ScraperModel.updateCompany(company.id, { ats_provider: 'Lever', access_status: 'ALLOWED', verification_status: 'Verified' });
             }
-          } catch {}
+          } catch { }
         }
 
         // Probe Ashby, SmartRecruiters, Workable, Recruitee in parallel for fast universal discovery
@@ -520,7 +520,7 @@ export const ScraperEngine = {
               extractionSuccess = true;
               await ScraperModel.updateCompany(company.id, { ats_provider: 'Sitemap XML', access_status: 'ALLOWED', verification_status: 'Verified' });
             }
-          } catch {}
+          } catch { }
         }
 
         // Fallback 1: Generic Website extraction (JSON-LD -> SPA State -> REST JSON -> Cards -> HTML)
@@ -550,7 +550,7 @@ export const ScraperEngine = {
               extractionSuccess = true;
               await ScraperModel.updateCompany(company.id, { ats_provider: atsProvider, access_status: 'ALLOWED', verification_status: 'Verified' });
             }
-          } catch {}
+          } catch { }
         }
 
         // Ensure company is marked ALLOWED & Verified
@@ -563,7 +563,7 @@ export const ScraperEngine = {
           const host = new URL(website.startsWith('http') ? website : `https://${website}`).hostname.replace(/^www\./, '');
           contactEmail = `careers@${host}`;
           await ScraperModel.updateCompany(company.id, { contact_email: contactEmail });
-        } catch {}
+        } catch { }
       }
 
       const jobs = extractedResult.jobs || [];
@@ -709,19 +709,28 @@ export const ScraperEngine = {
   },
 
   /**
-   * Run scans for all allowed companies
+   * Run scans for all allowed companies in parallel batches (supports 50-100+ companies fast)
    */
   async scanAllAllowed() {
     const companies = await ScraperModel.getAllCompanies();
-    const allowed = companies.filter(c => c.access_status === 'ALLOWED' || c.access_status === 'ALLOWED_API_ONLY');
+    const allowed = companies.filter(c => c.access_status !== 'BLOCKED_BY_OWNER');
     const results = [];
+    const BATCH_SIZE = 5;
 
-    for (const comp of allowed) {
-      try {
-        const res = await this.scanCompany(comp.id);
-        results.push({ company: comp.name, ...res });
-      } catch (err) {
-        results.push({ company: comp.name, status: 'ERROR', error: err.message });
+    for (let i = 0; i < allowed.length; i += BATCH_SIZE) {
+      const batch = allowed.slice(i, i + BATCH_SIZE);
+      const settled = await Promise.allSettled(
+        batch.map(comp =>
+          this.scanCompany(comp.id).then(res => ({ company: comp.name, ...res }))
+        )
+      );
+      for (let j = 0; j < settled.length; j++) {
+        const item = settled[j];
+        if (item.status === 'fulfilled') {
+          results.push(item.value);
+        } else {
+          results.push({ company: batch[j].name, status: 'ERROR', error: item.reason?.message || 'Scan error' });
+        }
       }
     }
     return results;

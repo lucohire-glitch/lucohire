@@ -1211,8 +1211,9 @@ export const ATSAdapters = {
     try {
       const u = new URL(careerUrl.startsWith('http') ? careerUrl : `https://${careerUrl}`);
       host = u.hostname;
-      if (host === 'www.cisco.com' || host === 'cisco.com' || host === 'jobs.cisco.com') {
-        host = 'careers.cisco.com';
+      if (!/^(careers|jobs)\./i.test(host)) {
+        const baseDomain = host.replace(/^www\./i, '');
+        host = `careers.${baseDomain}`;
       }
     } catch {}
 
@@ -1346,8 +1347,9 @@ export const ATSAdapters = {
     try {
       const u = new URL(careerUrl.startsWith('http') ? careerUrl : `https://${careerUrl}`);
       host = u.hostname;
-      if (host === 'www.wipro.com' || host === 'wipro.com') {
-        host = 'careers.wipro.com';
+      if (!/^(careers|career|jobs)\./i.test(host)) {
+        const baseDomain = host.replace(/^www\./i, '');
+        host = `careers.${baseDomain}`;
       }
     } catch {}
 

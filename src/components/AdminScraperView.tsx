@@ -229,10 +229,21 @@ export default function AdminScraperView() {
 
       const res = await importScraperCsv(parsed);
       if (res.success) {
-        showToast(`Imported ${res.importedCount} direct companies from CSV!`);
+        showToast(`Imported ${res.importedCount} direct companies! Starting parallel live scans...`);
         setIsCsvModalOpen(false);
         setCsvText('');
-        loadData();
+        await loadData();
+        if (Array.isArray(res.companies) && res.companies.length > 0) {
+          const importedIds = res.companies.map((c: any) => c.id).filter(Boolean);
+          const BATCH = 4;
+          for (let i = 0; i < importedIds.length; i += BATCH) {
+            const chunk = importedIds.slice(i, i + BATCH);
+            showToast(`Scanning imported companies (${Math.min(i + BATCH, importedIds.length)}/${importedIds.length})...`);
+            await Promise.allSettled(chunk.map((id: number) => triggerCompanyScan(id)));
+            await loadData();
+          }
+          showToast(`✅ All ${importedIds.length} imported companies scanned & verified!`);
+        }
       }
     } catch (err: any) {
       showToast('CSV import failed: ' + err.message);
@@ -266,11 +277,17 @@ export default function AdminScraperView() {
 
   const handleScanAll = async () => {
     setIsLoading(true);
-    showToast('Queueing scans for all allowed companies...');
+    showToast(`Scanning all ${companies.length} companies in parallel batches...`);
     try {
-      await triggerScanAll();
-      showToast('Batch scan complete!');
-      loadData();
+      const ids = companies.map(c => c.id);
+      const BATCH = 4;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const chunk = ids.slice(i, i + BATCH);
+        showToast(`Scanning batch ${Math.floor(i / BATCH) + 1} of ${Math.ceil(ids.length / BATCH)} (${Math.min(i + BATCH, ids.length)}/${ids.length} companies)...`);
+        await Promise.allSettled(chunk.map(id => triggerCompanyScan(id)));
+        await loadData();
+      }
+      showToast(`✅ Batch scan complete for all ${ids.length} companies!`);
     } catch (err: any) {
       showToast('Batch scan failed: ' + err.message);
     } finally {
