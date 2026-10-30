@@ -195,12 +195,12 @@ export const DiscoveryService = {
       return { ats: 'Tata Careers Portal', token: 'tata' };
     }
 
-    // 0.08 Phenom People (Cisco careers.cisco.com, Cognizant, Abbott, Booking, L'Oreal, Thermo Fisher, etc.)
+    // 0.08 Phenom People (Cisco careers.cisco.com, Disney join.disneycareers.com, Cognizant, Abbott, Booking, L'Oreal, Thermo Fisher, etc.)
     if (
       combinedLower.includes('phenompeople.com') ||
       combinedLower.includes('phapp.ddo') ||
       combinedLower.includes('careerconnectresources') ||
-      (url && /careers\.cisco\.com|jobs\.cisco\.com/i.test(url))
+      (url && /careers\.cisco\.com|jobs\.cisco\.com|disneycareers\.com|join\.disneycareers\.com/i.test(url))
     ) {
       return { ats: 'Phenom People', token: 'phenom', phenomUrl: url };
     }

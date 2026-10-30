@@ -255,13 +255,14 @@ export const ScraperEngine = {
         }
       }
 
-      // Tier 0.3: Phenom People Universal Career Platform (Cisco careers.cisco.com 1,513+ jobs, Cognizant, Abbott, Booking, L'Oreal, Thermo Fisher, etc.)
+      // Tier 0.3: Phenom People Universal Career Platform (Cisco careers.cisco.com, Disney join.disneycareers.com 640+ jobs, Cognizant, Abbott, Booking, L'Oreal, Thermo Fisher, etc.)
       const isPhenomCandidate =
         atsLower.includes('phenom') ||
         detectedInfo.ats === 'Phenom People' ||
         company.name.toLowerCase().includes('cisco') ||
-        (careerUrl && /careers\.cisco\.com|jobs\.cisco\.com|phenompeople/i.test(careerUrl)) ||
-        (website && /\bcisco\.com\b/i.test(website));
+        company.name.toLowerCase().includes('disney') ||
+        (careerUrl && /careers\.cisco\.com|jobs\.cisco\.com|disneycareers\.com|join\.disneycareers|phenompeople/i.test(careerUrl)) ||
+        (website && /\bcisco\.com\b|\bdisney\b/i.test(website));
 
       if (!extractionSuccess && isPhenomCandidate) {
         try {

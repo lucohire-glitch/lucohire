@@ -1277,11 +1277,19 @@ export const ATSAdapters = {
     let siteType = 'external';
 
     try {
-      const u = new URL(careerUrl.startsWith('http') ? careerUrl : `https://${careerUrl}`);
+      let target = careerUrl.startsWith('http') ? careerUrl : `https://${careerUrl}`;
+      // Follow redirect to resolve actual portal host (e.g., disneycareers.com -> join.disneycareers.com)
+      try {
+        const headRes = await ComplianceService.safeFetch(target, { method: 'HEAD', redirect: 'follow', timeout: 5000 });
+        if (headRes && headRes.url) {
+          target = headRes.url;
+        }
+      } catch {}
+      const u = new URL(target);
       host = u.hostname;
-      if (!/^(careers|jobs)\./i.test(host)) {
-        const baseDomain = host.replace(/^www\./i, '');
-        host = `careers.${baseDomain}`;
+      // Only prepend careers. if host is a 2-part root domain not already mentioning careers/jobs/join
+      if (!/^(careers|jobs|join)\./i.test(host) && !/career|jobs/i.test(host) && host.split('.').length === 2) {
+        host = `careers.${host}`;
       }
     } catch {}
 
