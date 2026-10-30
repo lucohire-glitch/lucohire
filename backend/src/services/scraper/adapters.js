@@ -2027,12 +2027,18 @@ export const ATSAdapters = {
             if (Array.isArray(obj)) {
               if (obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null) {
                 const sample = obj[0];
-                const hasTitle = sample.title || sample.Job_Posting_Title || sample.name || sample.jobTitle || sample.position;
-                const hasDetails = sample.location || sample.Locations || sample.department || sample.reqId || sample.id || sample.url;
+                const JUNK = /^(day in (the )?life|life at|our culture|read more|learn more|apply now|watch video|meet the team|our values|benefits|diversity|cookie|privacy|terms)/i;
+                const sampleTitle = String(sample.title || sample.Job_Posting_Title || sample.name || sample.jobTitle || sample.position || '').trim();
+                const sampleUrl = String(sample.url || sample.applyUrl || sample.link || '');
+                const isMedia = /\.(mp4|webm|avi|mov|png|jpg|jpeg|gif|svg|pdf)$/i.test(sampleUrl);
+
+                const hasTitle = sampleTitle && !JUNK.test(sampleTitle) && !isMedia;
+                const hasDetails = sample.location || sample.Locations || sample.department || sample.reqId || sample.id || (sample.url && !isMedia);
                 if (hasTitle && hasDetails) {
                   for (const j of obj) {
-                    const title = j.title || j.Job_Posting_Title || j.name || j.jobTitle || j.position;
-                    if (title && typeof title === 'string') {
+                    const title = (j.title || j.Job_Posting_Title || j.name || j.jobTitle || j.position || '').trim();
+                    const rawUrl = String(j.url || j.applyUrl || j.link || '');
+                    if (!title || JUNK.test(title) || /\.(mp4|webm|avi|mov|png|jpg|jpeg|gif|svg|pdf)$/i.test(rawUrl)) continue;
                       const loc = j.location || (Array.isArray(j.Locations) ? j.Locations.join(', ') : j.jobLocation) || 'Multiple Locations';
                       const jobUrl = j.url || j.applyUrl || j.link || url;
                       jobs.push({
@@ -2053,7 +2059,6 @@ export const ATSAdapters = {
                         confidence_score: 92,
                       });
                     }
-                  }
                   return;
                 }
               }
@@ -2777,11 +2782,16 @@ export const ATSAdapters = {
         const jobArrays = findJobArrays(nextData?.props?.pageProps || nextData);
         const rawJobs = jobArrays.reduce((acc, arr) => acc.length >= arr.length ? acc : arr, []);
 
+        const JUNK_TITLES = /^(day in the life|day in life|life at|our culture|read more|learn more|apply now|watch video|meet the team|our values|benefits|diversity|inclusion|cookie|privacy|terms)/i;
         for (const j of rawJobs) {
-          const title = j.title || j.jobTitle || j.name || '';
-          if (!title) continue;
+          const title = (j.title || j.jobTitle || j.name || '').trim();
+          if (!title || JUNK_TITLES.test(title)) continue;
           if (keyword && !title.toLowerCase().includes(keyword) &&
             !(j.department || j.team || '').toLowerCase().includes(keyword)) continue;
+
+          // Reject media / video / asset files that are not job postings
+          const rawUrl = String(j.url || j.absoluteUrl || j.applyUrl || '');
+          if (/\.(mp4|webm|avi|mov|png|jpg|jpeg|gif|svg|pdf)$/i.test(rawUrl)) continue;
 
           // Build location string from embedded locations array or filters
           let loc = '';
@@ -2906,6 +2916,11 @@ export const ATSAdapters = {
           }
         } catch {}
       });
+    }
+
+    const uniqueTitles = new Set(allJobs.map(j => j.title.toLowerCase().trim()));
+    if (uniqueTitles.size <= 1 && allJobs.length > 1) {
+      allJobs.length = 0;
     }
 
     if (allJobs.length === 0) throw new Error(`NextJS/SPA: No jobs found in embedded state for ${careerUrl}`);

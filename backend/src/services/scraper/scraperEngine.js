@@ -119,6 +119,33 @@ export const ScraperEngine = {
       const detectedInfo = DiscoveryService.detectAts('', careerUrl);
       const atsToken = detectedInfo.token || company.name.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+      // Guard against name-guessed ATS boards that belong to a different company
+      // (e.g. "meta" on Recruitee returning Addis Ababa University, or single dummy test jobs).
+      const isGenuineCompanyJobs = (companyName, jobs) => {
+        if (!jobs || jobs.length === 0) return false;
+        const normName = (companyName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!normName) return false;
+
+        // Reject single dummy / test postings
+        if (jobs.length === 1 && /test\s*uat|sample\s*job|dummy\s*job/i.test(jobs[0].title || '')) return false;
+
+        const sample = jobs.slice(0, 10);
+        let matches = 0;
+        for (const j of sample) {
+          const combined = (
+            (j.company_name || '') + ' ' +
+            (j.company?.name || '') + ' ' +
+            (j.title || '') + ' ' +
+            (j.original_job_url || '') + ' ' +
+            (j.apply_url || '') + ' ' +
+            (j.description || '')
+          ).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+          if (combined.includes(normName)) matches++;
+        }
+        return matches >= Math.min(1, sample.length);
+      };
+
       // Workday target candidate
       let targetWorkday = null;
       if (careerUrl && careerUrl.includes('myworkdayjobs.com')) {
@@ -440,7 +467,10 @@ export const ScraperEngine = {
             for (const [label, fn] of probes) {
               try {
                 const r = await fn(slug);
-                if (r?.jobs?.length > 0) { probed = { r, label, slug }; break; }
+                if (r?.jobs?.length > 0 && isGenuineCompanyJobs(company.name, r.jobs)) {
+                  probed = { r, label, slug };
+                  break;
+                }
               } catch {}
             }
             if (probed) break;
@@ -594,7 +624,7 @@ export const ScraperEngine = {
         if (!extractionSuccess && atsToken && atsToken.length > 2) {
           try {
             const ghRes = await ATSAdapters.extractGreenhouse(atsToken, company.name);
-            if (ghRes.jobs && ghRes.jobs.length > 0) {
+            if (ghRes.jobs && ghRes.jobs.length > 0 && isGenuineCompanyJobs(company.name, ghRes.jobs)) {
               extractedResult = ghRes;
               atsProvider = 'Greenhouse';
               extractionSuccess = true;
@@ -607,7 +637,7 @@ export const ScraperEngine = {
         if (!extractionSuccess && atsToken && atsToken.length > 2) {
           try {
             const leverRes = await ATSAdapters.extractLever(atsToken, company.name);
-            if (leverRes.jobs && leverRes.jobs.length > 0) {
+            if (leverRes.jobs && leverRes.jobs.length > 0 && isGenuineCompanyJobs(company.name, leverRes.jobs)) {
               extractedResult = leverRes;
               atsProvider = 'Lever';
               extractionSuccess = true;
@@ -625,7 +655,7 @@ export const ScraperEngine = {
             ATSAdapters.extractRecruitee(atsToken, company.name).then(r => ({ ats: 'Recruitee', res: r })),
           ]);
           for (const p of probeChecks) {
-            if (p.status === 'fulfilled' && p.value?.res?.jobs?.length > 0) {
+            if (p.status === 'fulfilled' && p.value?.res?.jobs?.length > 0 && isGenuineCompanyJobs(company.name, p.value.res.jobs)) {
               extractedResult = p.value.res;
               atsProvider = p.value.ats;
               extractionSuccess = true;
@@ -684,18 +714,9 @@ export const ScraperEngine = {
           }
         }
 
-        // Fallback 2: Open-Source Verified Employer Job Feed (for WAF-protected portals like Tesla, Apple, Google, Amazon, etc.)
-        if (!extractionSuccess || !extractedResult.jobs || extractedResult.jobs.length === 0) {
-          try {
-            const feedRes = await ATSAdapters.extractOpenVerifiedFeed(company.name, normInput.domain, options);
-            if (feedRes.jobs && feedRes.jobs.length > 0) {
-              extractedResult = feedRes;
-              atsProvider = `${company.name} Careers`;
-              extractionSuccess = true;
-              await ScraperModel.updateCompany(company.id, { ats_provider: atsProvider, access_status: 'ALLOWED', verification_status: 'Verified' });
-            }
-          } catch { }
-        }
+        // Fallback 2 (removed on purpose): the third-party "open verified feed" (GitHub internship lists)
+        // returned small, unofficial subsets of a company's jobs (wrong counts). If no official source
+        // works, the scan is reported as incomplete and existing verified data is preserved (zero-job safety).
 
         // Ensure company is marked ALLOWED & Verified
         await ScraperModel.updateCompany(company.id, { access_status: 'ALLOWED', verification_status: 'Verified' });
