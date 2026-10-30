@@ -315,6 +315,69 @@ export const DiscoveryService = {
       return { ats: 'Recruitee', token: match ? match[1] : null };
     }
 
+    // 9. iCIMS (AT&T, FedEx, Boeing, L'Oreal, Raytheon, Northrop Grumman, etc.)
+    if (combinedLower.includes('icims.com') || combinedLower.includes('icims-jobs') || combinedLower.includes('icimscloud')) {
+      const match = url.match(/([a-zA-Z0-9_-]+)\.icims\.com/i) ||
+                    html.match(/([a-zA-Z0-9_-]+)\.icims\.com/i) ||
+                    html.match(/iSiteID=([^&"' ]+)/i);
+      return { ats: 'iCIMS', token: match ? match[1] : null, careerUrl: url };
+    }
+
+    // 10. Taleo / Oracle Recruiting Cloud (HP, Oracle, Toyota, Deutsche Bank, Nordstrom, Nissan)
+    if (combinedLower.includes('taleo.net') || combinedLower.includes('oraclecloud.com/hcm') || combinedLower.includes('oracle recruiting')) {
+      const match = url.match(/([a-zA-Z0-9_-]+)\.taleo\.net/i) ||
+                    html.match(/([a-zA-Z0-9_-]+)\.taleo\.net/i) ||
+                    html.match(/orgCode=([^&"' ]+)/i);
+      return { ats: 'Taleo', token: match ? match[1] : null, careerUrl: url };
+    }
+
+    // 11. Brassring / Kenexa (GM, Lockheed Martin, P&G, Philips, government agencies)
+    if (combinedLower.includes('brassring.com') || combinedLower.includes('kenexa.com') || combinedLower.includes('sjobs.brassring')) {
+      const match = url.match(/([a-zA-Z0-9_-]+)\.brassring\.com/i) ||
+                    html.match(/([a-zA-Z0-9_-]+)\.brassring\.com/i);
+      return { ats: 'Brassring', token: match ? match[1] : null, careerUrl: url };
+    }
+
+    // 12. Rippling ATS
+    if (combinedLower.includes('ats.rippling.com') || combinedLower.includes('rippling.com')) {
+      const match = url.match(/ats\.rippling\.com\/([^/?#]+)/i) ||
+                    html.match(/ats\.rippling\.com\/([a-zA-Z0-9_-]+)/i);
+      return { ats: 'Rippling', token: match ? match[1] : null, careerUrl: url };
+    }
+
+    // 13. JazzHR
+    if (combinedLower.includes('jazzhr.com') || combinedLower.includes('app.jazz.co') || combinedLower.includes('applytojob.com')) {
+      const match = url.match(/([a-zA-Z0-9_-]+)\.applytojob\.com/i) ||
+                    html.match(/([a-zA-Z0-9_-]+)\.applytojob\.com/i);
+      return { ats: 'JazzHR', token: match ? match[1] : null, careerUrl: url };
+    }
+
+    // 14. Comeet
+    if (combinedLower.includes('comeet.co') || combinedLower.includes('comeet.com')) {
+      const match = url.match(/comeet\.co\/jobs\/([^/?#]+)/i) ||
+                    html.match(/comeet\.co\/jobs\/([a-zA-Z0-9_-]+)/i);
+      return { ats: 'Comeet', token: match ? match[1] : null, careerUrl: url };
+    }
+
+    // 15. Personio (European SaaS ATS — heavily used in Germany, Spain, UK)
+    if (combinedLower.includes('personio.de') || combinedLower.includes('personio.com') || combinedLower.includes('jobs.personio')) {
+      const match = url.match(/([a-zA-Z0-9_-]+)\.personio\.de/i) ||
+                    html.match(/([a-zA-Z0-9_-]+)\.personio\.de/i);
+      return { ats: 'Personio', token: match ? match[1] : null, careerUrl: url };
+    }
+
+    // 16. Pinpoint
+    if (combinedLower.includes('pinpointhq.com')) {
+      const match = url.match(/([a-zA-Z0-9_-]+)\.pinpointhq\.com/i) ||
+                    html.match(/([a-zA-Z0-9_-]+)\.pinpointhq\.com/i);
+      return { ats: 'Pinpoint', token: match ? match[1] : null, careerUrl: url };
+    }
+
+    // 17. Next.js / React SPA embedded career pages (Stripe, Airbnb, Notion, Figma, Vercel, Linear, etc.)
+    if (html.includes('__NEXT_DATA__') || html.includes('__NUXT__') || html.includes('window.__PRELOADED_STATE__')) {
+      return { ats: 'NextJS SPA', token: null, careerUrl: url };
+    }
+
     return { ats: 'Custom website', token: null };
   },
 
@@ -379,7 +442,15 @@ export const DiscoveryService = {
           href.includes('phenompeople.com') ||
           href.includes('successfactors.com') ||
           href.includes('sapsf.') ||
-          href.includes('breezy.hr');
+          href.includes('breezy.hr') ||
+          href.includes('icims.com') ||
+          href.includes('taleo.net') ||
+          href.includes('brassring.com') ||
+          href.includes('ats.rippling.com') ||
+          href.includes('comeet.co') ||
+          href.includes('personio.de') ||
+          href.includes('pinpointhq.com') ||
+          href.includes('applytojob.com');
 
         if (isAtsUrl) {
           found = href;

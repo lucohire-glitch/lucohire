@@ -345,6 +345,93 @@ export const ScraperEngine = {
         }
       }
 
+      // Tier 0.7: iCIMS (AT&T, FedEx, Boeing, L'Oréal, Raytheon, Northrop Grumman, Marriott, UPS, Walmart)
+      if (!extractionSuccess && (detectedInfo.ats === 'iCIMS' || atsLower.includes('icims') || (careerUrl && careerUrl.includes('icims.com')))) {
+        try {
+          const iCIMSTarget = detectedInfo.careerUrl || careerUrl || website;
+          extractedResult = await ATSAdapters.extractICIMS(iCIMSTarget, company.name, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = 'iCIMS';
+            careerUrl = iCIMSTarget;
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'iCIMS', career_url: iCIMSTarget, access_status: 'ALLOWED', verification_status: 'Verified' });
+          }
+        } catch (err) {
+          console.warn(`iCIMS error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
+      // Tier 0.8: Taleo / Oracle Recruiting Cloud (HP, Oracle, Toyota, Nordstrom, Deutsche Bank)
+      if (!extractionSuccess && (detectedInfo.ats === 'Taleo' || atsLower.includes('taleo') || (careerUrl && careerUrl.includes('taleo.net')))) {
+        try {
+          const taleoTarget = detectedInfo.careerUrl || careerUrl || website;
+          extractedResult = await ATSAdapters.extractTaleo(taleoTarget, company.name, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = 'Taleo';
+            careerUrl = taleoTarget;
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'Taleo', career_url: taleoTarget, access_status: 'ALLOWED', verification_status: 'Verified' });
+          }
+        } catch (err) {
+          console.warn(`Taleo error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
+      // Tier 0.9: Brassring / Kenexa (GM, Lockheed Martin, P&G, Philips)
+      if (!extractionSuccess && (detectedInfo.ats === 'Brassring' || atsLower.includes('brassring') || (careerUrl && careerUrl.includes('brassring.com')))) {
+        try {
+          const brassTarget = detectedInfo.careerUrl || careerUrl || website;
+          extractedResult = await ATSAdapters.extractBrassring(brassTarget, company.name, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = 'Brassring';
+            careerUrl = brassTarget;
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: 'Brassring', career_url: brassTarget, access_status: 'ALLOWED', verification_status: 'Verified' });
+          }
+        } catch (err) {
+          console.warn(`Brassring error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
+      // Tier 0.95: Modern SaaS ATS (Rippling, JazzHR, Comeet, Personio, Pinpoint)
+      if (!extractionSuccess && (
+        detectedInfo.ats === 'Rippling' || detectedInfo.ats === 'JazzHR' ||
+        detectedInfo.ats === 'Comeet' || detectedInfo.ats === 'Personio' ||
+        detectedInfo.ats === 'Pinpoint' ||
+        atsLower.includes('rippling') || atsLower.includes('jazzhr') ||
+        atsLower.includes('comeet') || atsLower.includes('personio') || atsLower.includes('pinpoint') ||
+        (careerUrl && (careerUrl.includes('rippling.com') || careerUrl.includes('jazzhr') || careerUrl.includes('comeet.co') || careerUrl.includes('personio') || careerUrl.includes('pinpointhq')))
+      )) {
+        try {
+          const modernTarget = detectedInfo.careerUrl || careerUrl || website;
+          extractedResult = await ATSAdapters.extractModernATSRest(modernTarget, company.name, detectedInfo.ats || atsProvider || '', options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = detectedInfo.ats || 'Modern ATS';
+            careerUrl = modernTarget;
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: atsProvider, career_url: modernTarget, access_status: 'ALLOWED', verification_status: 'Verified' });
+          }
+        } catch (err) {
+          console.warn(`Modern ATS REST error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
+      // Tier 0.97: Next.js / React SPA Embedded State Career Pages (Stripe, Airbnb, Notion, Figma, Vercel, Linear)
+      if (!extractionSuccess && (detectedInfo.ats === 'NextJS SPA' || atsLower.includes('nextjs') || atsLower.includes('spa'))) {
+        try {
+          const spaTarget = detectedInfo.careerUrl || careerUrl || website;
+          extractedResult = await ATSAdapters.extractNextJSSPA(spaTarget, company.name, options);
+          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+            atsProvider = `${company.name} Careers`;
+            careerUrl = spaTarget;
+            extractionSuccess = true;
+            await ScraperModel.updateCompany(company.id, { ats_provider: `${company.name} Careers`, career_url: spaTarget, access_status: 'ALLOWED', verification_status: 'Verified' });
+          }
+        } catch (err) {
+          console.warn(`NextJS SPA error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
       // 1. Try Workday
       if (!extractionSuccess && targetWorkday && targetWorkday.includes('myworkdayjobs.com')) {
         try {

@@ -2175,5 +2175,827 @@ export const ATSAdapters = {
         chk: new Date().toISOString(),
       }
     };
-  }
+  },
+
+  /**
+   * Adapter: iCIMS — Industry's largest ATS (AT&T, FedEx, Boeing, L'Oréal, Raytheon, UPS, Walmart, Marriott, etc.)
+   * Supports iCIMS Cloud REST API v1/v2 (JSON) AND legacy iCIMS site-ID HTML scraping as fallback.
+   * No login required — uses public iCIMS REST API "search" endpoint.
+   */
+  async extractICIMS(careerUrl = '', companyName = '', options = {}) {
+    const keyword = (options.keyword || options.title || options.search || '').trim();
+    const location = (options.location || '').trim();
+    const allJobs = [];
+
+    // --- Strategy 1: Detect iCIMS site ID from career URL and use REST API ---
+    let siteId = null;
+    let apiHost = null;
+
+    try {
+      const parsed = new URL(careerUrl.startsWith('http') ? careerUrl : `https://${careerUrl}`);
+      const host = parsed.hostname; // e.g. "att.jobs" or "careers.attjobs.icims.com"
+
+      // Pattern A: careers.COMPANY.icims.com / jobs.COMPANY.icims.com
+      const iCIMSHostMatch = host.match(/^(?:careers|jobs)\.([^.]+)\.icims\.com$/i);
+      if (iCIMSHostMatch) {
+        siteId = iCIMSHostMatch[1]; // e.g. "att"
+        apiHost = host;
+      }
+
+      // Pattern B: site id in URL path /icims/jobs/NNNNN or /jobs/NNNNN
+      if (!siteId) {
+        const pathMatch = careerUrl.match(/[/?&]iSiteID=([^&]+)/i) ||
+          careerUrl.match(/\/([a-zA-Z0-9_-]+)\/jobs\/search/i);
+        if (pathMatch) siteId = pathMatch[1];
+      }
+
+      // Pattern C: look at host directly (att.icims.com, raytheon.icims.com)
+      if (!siteId) {
+        const directMatch = host.match(/^([^.]+)\.icims\.com$/i);
+        if (directMatch) {
+          siteId = directMatch[1];
+          apiHost = host;
+        }
+      }
+    } catch {}
+
+    if (siteId && apiHost) {
+      try {
+        // iCIMS REST search API
+        let start = 0;
+        const PAGE = 50;
+        let totalReported = 0;
+        for (let p = 0; p < 20; p++) {
+          const apiUrl = `https://${apiHost}/icims/search?q=` +
+            `${encodeURIComponent(keyword)}&location=${encodeURIComponent(location)}` +
+            `&iSiteID=${encodeURIComponent(siteId)}&start=${start}&limit=${PAGE}&format=json`;
+          const res = await ComplianceService.safeFetch(apiUrl, {
+            headers: { 'Accept': 'application/json' },
+            timeout: 12000,
+          });
+          if (!res.ok) break;
+          const data = await res.json();
+          const jobs = data.searchResults || data.results || data.jobs || [];
+          if (jobs.length === 0) break;
+          if (p === 0) totalReported = data.totalResults || data.total || jobs.length;
+
+          for (const j of jobs) {
+            const jobUrl = j.url || j.applyUrl || `https://${apiHost}/icims/jobs/${j.jobId || j.id}`;
+            allJobs.push({
+              external_job_id: String(j.jobId || j.id || j.requisitionId || start + allJobs.length),
+              title: j.title || j.jobTitle || 'Open Position',
+              location: j.locationName || j.location || j.city || location || 'On-site',
+              locations: [j.locationName || j.location || j.city || 'On-site'],
+              work_mode: (j.locationName || j.location || '').toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+              employment_type: j.jobType || j.employmentType || 'Full-time',
+              department: j.category || j.department || j.functionalArea || 'General',
+              experience: j.yearsExperience || '',
+              salary: j.compensation || '',
+              skills: [],
+              description: j.description ? cleanHtmlToMarkdown(j.description) :
+                `Official verified opening at ${companyName} for **${j.title || 'Open Position'}**.\n\n• **Requisition ID**: ${j.jobId || j.id}\n• **Department**: ${j.category || j.department || 'General'}\n• **Location**: ${j.locationName || j.location || 'On-site'}`,
+              original_job_url: jobUrl,
+              apply_url: j.applyUrl || jobUrl,
+              ats_provider: 'iCIMS',
+              confidence_score: 95,
+            });
+          }
+
+          start += PAGE;
+          if (start >= totalReported && totalReported > 0) break;
+        }
+
+        if (allJobs.length > 0) {
+          return {
+            extractionMethod: 'API (iCIMS REST)',
+            reportedCount: totalReported || allJobs.length,
+            jobs: allJobs,
+            strategyMemory: { s: 'iCIMS REST API', ep: apiHost, v: '1.0.0', chk: new Date().toISOString() },
+          };
+        }
+      } catch {}
+    }
+
+    // --- Strategy 2: iCIMS HTML scraping (fallback for custom-branded portals) ---
+    try {
+      const res = await ComplianceService.safeFetch(careerUrl, { timeout: 14000 });
+      if (!res.ok) throw new Error(`iCIMS portal returned ${res.status}`);
+      const html = await res.text();
+      const $ = cheerio.load(html);
+
+      // Attempt JSON data embedded in <script id="__NEXT_DATA__"> or window.__ssr__ or window.icims
+      let jsonData = null;
+      $('script').each((_, el) => {
+        const src = $(el).html() || '';
+        if (src.includes('"jobId"') || src.includes('"jobTitle"') || src.includes('"requisitionId"')) {
+          try {
+            const match = src.match(/(?:window\.__ssr__|window\.icims|__NEXT_DATA__)\s*=\s*({[\s\S]+?});?\s*(?:$|<\/script>|window\.)/);
+            if (match) jsonData = JSON.parse(match[1]);
+          } catch {}
+        }
+      });
+
+      if (jsonData) {
+        const rawList = jsonData?.props?.pageProps?.jobs || jsonData?.data?.jobs || jsonData?.jobs || [];
+        for (const j of rawList) {
+          const jobUrl = j.url || j.absoluteUrl || j.applyLink || careerUrl;
+          allJobs.push({
+            external_job_id: String(j.jobId || j.id || allJobs.length),
+            title: j.title || j.jobTitle || 'Open Position',
+            location: j.locationName || j.location || 'On-site',
+            locations: [j.locationName || j.location || 'On-site'],
+            work_mode: (j.locationName || '').toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+            employment_type: j.jobType || 'Full-time',
+            department: j.category || j.department || 'General',
+            experience: '',
+            salary: '',
+            skills: [],
+            description: j.description ? cleanHtmlToMarkdown(j.description) : `Official verified opening at ${companyName} for **${j.title}**.`,
+            original_job_url: jobUrl,
+            apply_url: jobUrl,
+            ats_provider: 'iCIMS',
+            confidence_score: 88,
+          });
+        }
+      }
+
+      // Fallback: parse HTML job cards (iCIMS classic/branded portals)
+      if (allJobs.length === 0) {
+        $('article.iCIMS_JobsTable, .iCIMS_JobsTable_Item, li[data-job-id], div[data-jobid], .job-listing-item').each((_, el) => {
+          const $el = $(el);
+          const title = $el.find('h3.iCIMS_JobsTable_HeaderTitle, a.iCIMS_Anchor, .job-title, h3 a, h2 a').first().text().trim();
+          if (!title) return;
+          const href = $el.find('a').first().attr('href') || '';
+          const loc = $el.find('.iCIMS_JobsTable_HeaderSubTitle, .job-location, [class*="location"]').first().text().trim();
+          const dept = $el.find('.iCIMS_JobsTable_HeaderDepartment, [class*="department"], [class*="category"]').first().text().trim();
+          const jobId = $el.attr('data-job-id') || $el.attr('data-jobid') || '';
+          const jobUrl = href.startsWith('http') ? href : `${new URL(careerUrl).origin}${href}`;
+          allJobs.push({
+            external_job_id: jobId || title.replace(/\s+/g, '-').toLowerCase(),
+            title,
+            location: loc || 'On-site',
+            locations: [loc || 'On-site'],
+            work_mode: loc.toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+            employment_type: 'Full-time',
+            department: dept || 'General',
+            experience: '',
+            salary: '',
+            skills: [],
+            description: `Official verified opening at ${companyName} for **${title}**.\n\n• **Location**: ${loc || 'On-site'}`,
+            original_job_url: jobUrl,
+            apply_url: jobUrl,
+            ats_provider: 'iCIMS',
+            confidence_score: 80,
+          });
+        });
+      }
+    } catch {}
+
+    if (allJobs.length === 0) throw new Error(`iCIMS: No jobs found for ${companyName}`);
+
+    return {
+      extractionMethod: 'iCIMS (HTML Scraping)',
+      reportedCount: allJobs.length,
+      jobs: allJobs,
+      strategyMemory: { s: 'iCIMS HTML', ep: careerUrl, v: '1.0.0', chk: new Date().toISOString() },
+    };
+  },
+
+  /**
+   * Adapter: Taleo / Oracle Recruiting Cloud (Oracle, HP, Toyota, Deutsche Bank, Nordstrom, etc.)
+   * Taleo uses a unique org code + REST API. No login required for job listings.
+   */
+  async extractTaleo(careerUrl = '', companyName = '', options = {}) {
+    const keyword = (options.keyword || options.title || options.search || '').trim();
+    const allJobs = [];
+
+    // Extract Taleo org code from URL (e.g. "oracle" from oracle.taleo.net or careers.oracle.com/taleo/...)
+    let orgCode = null;
+    try {
+      const u = new URL(careerUrl.startsWith('http') ? careerUrl : `https://${careerUrl}`);
+      // Pattern: ORGCODE.taleo.net
+      const taleoHostMatch = u.hostname.match(/^([^.]+)\.taleo\.net$/i);
+      if (taleoHostMatch) orgCode = taleoHostMatch[1];
+      // Pattern: /taleo/careersite/ORGCODE/ in path
+      if (!orgCode) {
+        const pathMatch = careerUrl.match(/\/taleo\/careersite\/([^/]+)\//i) ||
+          careerUrl.match(/orgCode=([^&]+)/i) ||
+          careerUrl.match(/\/external\/?#?\/([A-Za-z0-9]+)\/home/i);
+        if (pathMatch) orgCode = pathMatch[1];
+      }
+    } catch {}
+
+    if (orgCode) {
+      // Taleo REST API (Oracle Recruiting Cloud public endpoint)
+      try {
+        const apiBase = `https://${orgCode}.taleo.net/careersection/rest/jobboard/listjobs`;
+        let start = 0;
+        const PAGE = 25;
+        let totalReported = 0;
+        for (let p = 0; p < 20; p++) {
+          const params = new URLSearchParams({
+            listSize: String(PAGE),
+            startPoint: String(start),
+            keyword: keyword || '',
+            locationStr: options.location || '',
+          });
+          const res = await ComplianceService.safeFetch(`${apiBase}?${params}`, {
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            timeout: 12000,
+          });
+          if (!res.ok) break;
+          const data = await res.json();
+          const requisitions = data.requisitionList || data.jobs || data.requisitions || [];
+          if (requisitions.length === 0) break;
+          if (p === 0) totalReported = data.total || data.totalCount || requisitions.length;
+
+          for (const j of requisitions) {
+            const jobId = String(j.jobId || j.requisitionId || j.id || '');
+            const jobUrl = `https://${orgCode}.taleo.net/careersection/jobdetail.ftl?job=${jobId}`;
+            const loc = j.primaryLocation?.description || j.locationName || j.location || options.location || 'On-site';
+            allJobs.push({
+              external_job_id: jobId,
+              title: j.title || j.jobTitle || 'Open Position',
+              location: loc,
+              locations: [loc],
+              work_mode: loc.toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+              employment_type: j.jobType || j.employmentType || 'Full-time',
+              department: j.jobFamily || j.department || j.category || 'General',
+              experience: '',
+              salary: '',
+              skills: [],
+              description: j.jobDescription ? cleanHtmlToMarkdown(j.jobDescription) :
+                `Official verified opening at ${companyName} for **${j.title || 'Open Position'}**.\n\n• **Job ID**: ${jobId}\n• **Department**: ${j.jobFamily || j.department || 'General'}\n• **Location**: ${loc}`,
+              original_job_url: jobUrl,
+              apply_url: jobUrl,
+              ats_provider: 'Taleo',
+              confidence_score: 95,
+            });
+          }
+
+          start += PAGE;
+          if (start >= totalReported && totalReported > 0) break;
+        }
+      } catch {}
+    }
+
+    // HTML scraping fallback for Taleo-hosted career pages
+    if (allJobs.length === 0) {
+      try {
+        const res = await ComplianceService.safeFetch(careerUrl, { timeout: 14000 });
+        if (res.ok) {
+          const html = await res.text();
+          const $ = cheerio.load(html);
+          $('tr.listSectionContents, div[id^="requisitionListInterface"], .jobListingItem, tr[data-id]').each((_, el) => {
+            const $el = $(el);
+            const titleEl = $el.find('a[href*="/careersection/"], a.viewJobLink, a[href*="job"], span.listTitle, td.req_link a').first();
+            const title = titleEl.text().trim();
+            if (!title) return;
+            const href = titleEl.attr('href') || '';
+            const loc = $el.find('.req_location, td[title*="Location"], [class*="location"]').first().text().trim();
+            const dept = $el.find('.req_department, td[title*="Department"], [class*="category"]').first().text().trim();
+            let jobUrl = href;
+            if (href && !href.startsWith('http')) {
+              try {
+                jobUrl = new URL(href, careerUrl).href;
+              } catch { jobUrl = careerUrl; }
+            }
+            allJobs.push({
+              external_job_id: href.match(/job=([^&]+)/i)?.[1] || title.replace(/\s+/g, '-').toLowerCase(),
+              title,
+              location: loc || 'On-site',
+              locations: [loc || 'On-site'],
+              work_mode: (loc || '').toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+              employment_type: 'Full-time',
+              department: dept || 'General',
+              experience: '',
+              salary: '',
+              skills: [],
+              description: `Official verified opening at ${companyName} for **${title}**.\n\n• **Location**: ${loc || 'On-site'}`,
+              original_job_url: jobUrl || careerUrl,
+              apply_url: jobUrl || careerUrl,
+              ats_provider: 'Taleo',
+              confidence_score: 82,
+            });
+          });
+        }
+      } catch {}
+    }
+
+    if (allJobs.length === 0) throw new Error(`Taleo: No jobs found for ${companyName}`);
+
+    return {
+      extractionMethod: 'Taleo (ORC API + HTML)',
+      reportedCount: allJobs.length,
+      jobs: allJobs,
+      strategyMemory: { s: 'Taleo', orgCode, ep: careerUrl, v: '1.0.0', chk: new Date().toISOString() },
+    };
+  },
+
+  /**
+   * Adapter: Brassring / Kenexa (IBM Kenexa ATS) — GM, Lockheed Martin, P&G, Philips, US Government agencies
+   * Uses Brassring gateway JSON API (no login required for public job search)
+   */
+  async extractBrassring(careerUrl = '', companyName = '', options = {}) {
+    const keyword = (options.keyword || options.title || options.search || '').trim();
+    const allJobs = [];
+
+    let gatewayHost = null;
+    let wlid = null;
+    try {
+      const u = new URL(careerUrl.startsWith('http') ? careerUrl : `https://${careerUrl}`);
+      // e.g. sjobs.brassring.com, sjobs2.brassring.com, gm.brassring.com
+      if (u.hostname.includes('brassring.com')) {
+        gatewayHost = u.hostname;
+        const wlidMatch = careerUrl.match(/[?&]wlid=([^&]+)/i) || careerUrl.match(/\/TGWebHost\/home\.aspx\?partnerid=([^&]+)/i);
+        if (wlidMatch) wlid = wlidMatch[1];
+      }
+    } catch {}
+
+    // Brassring JSON gateway (public career search)
+    if (gatewayHost) {
+      try {
+        const apiUrl = `https://${gatewayHost}/TGWebHost/jobsearch.aspx`;
+        const payload = new URLSearchParams({
+          req: keyword || '',
+          location: options.location || '',
+          wlid: wlid || '',
+          strSrchCriteria: '',
+          PageSize: '50',
+          PageNum: '1',
+          format: 'json',
+        });
+        const res = await ComplianceService.safeFetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json, text/html',
+          },
+          body: payload.toString(),
+          timeout: 14000,
+        });
+
+        if (res.ok) {
+          const ct = res.headers.get('content-type') || '';
+          if (ct.includes('json')) {
+            const data = await res.json();
+            const jobs = data.jobs || data.searchResults || data.requisitions || [];
+            for (const j of jobs) {
+              const jobUrl = j.url || j.applyUrl || `https://${gatewayHost}/TGWebHost/requisitiondetail.aspx?jobId=${j.jobId || j.id}`;
+              const loc = j.location || j.city || 'On-site';
+              allJobs.push({
+                external_job_id: String(j.jobId || j.id || j.requisitionId || allJobs.length),
+                title: j.title || j.jobTitle || 'Open Position',
+                location: loc,
+                locations: [loc],
+                work_mode: loc.toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+                employment_type: j.jobType || 'Full-time',
+                department: j.category || j.department || 'General',
+                experience: '',
+                salary: '',
+                skills: [],
+                description: j.description ? cleanHtmlToMarkdown(j.description) :
+                  `Official verified opening at ${companyName} for **${j.title || 'Open Position'}**.\n\n• **Job ID**: ${j.jobId || j.id}\n• **Location**: ${loc}`,
+                original_job_url: jobUrl,
+                apply_url: jobUrl,
+                ats_provider: 'Brassring',
+                confidence_score: 90,
+              });
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // HTML scraping fallback
+    if (allJobs.length === 0) {
+      try {
+        const res = await ComplianceService.safeFetch(careerUrl, { timeout: 14000 });
+        if (res.ok) {
+          const html = await res.text();
+          const $ = cheerio.load(html);
+          $('li[id^="req-"], tr[class*="requisition"], .job-result, .search-result, div[data-req]').each((_, el) => {
+            const $el = $(el);
+            const titleEl = $el.find('a[href*="requisitiondetail"], a[href*="jobdetail"], .job-title a, h3 a, h2 a').first();
+            const title = titleEl.text().trim();
+            if (!title) return;
+            const href = titleEl.attr('href') || '';
+            const loc = $el.find('[class*="location"], [class*="city"]').first().text().trim();
+            const dept = $el.find('[class*="department"], [class*="category"]').first().text().trim();
+            let jobUrl = href;
+            if (href && !href.startsWith('http')) {
+              try { jobUrl = new URL(href, careerUrl).href; } catch {}
+            }
+            allJobs.push({
+              external_job_id: href.match(/jobId=([^&]+)/i)?.[1] || title.replace(/\s+/g, '-').toLowerCase(),
+              title,
+              location: loc || 'On-site',
+              locations: [loc || 'On-site'],
+              work_mode: (loc || '').toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+              employment_type: 'Full-time',
+              department: dept || 'General',
+              experience: '',
+              salary: '',
+              skills: [],
+              description: `Official verified opening at ${companyName} for **${title}**.`,
+              original_job_url: jobUrl || careerUrl,
+              apply_url: jobUrl || careerUrl,
+              ats_provider: 'Brassring',
+              confidence_score: 80,
+            });
+          });
+        }
+      } catch {}
+    }
+
+    if (allJobs.length === 0) throw new Error(`Brassring: No jobs found for ${companyName}`);
+    return {
+      extractionMethod: 'Brassring / Kenexa (API + HTML)',
+      reportedCount: allJobs.length,
+      jobs: allJobs,
+      strategyMemory: { s: 'Brassring', gatewayHost, ep: careerUrl, v: '1.0.0', chk: new Date().toISOString() },
+    };
+  },
+
+  /**
+   * Adapter: Next.js / React SPA Embedded State Career Pages (Stripe, Airbnb, Notion, Figma, Vercel, etc.)
+   * These pages embed ALL job data inside __NEXT_DATA__ or window.__PRELOADED_STATE__ — NO client-side JS needed!
+   * Works without browser, headless chrome, or CAPTCHA.
+   */
+  async extractNextJSSPA(careerUrl = '', companyName = '', options = {}) {
+    const keyword = (options.keyword || options.title || options.search || '').toLowerCase().trim();
+    const location = (options.location || '').toLowerCase().trim();
+    const allJobs = [];
+
+    const res = await ComplianceService.safeFetch(careerUrl, { timeout: 16000 });
+    if (!res.ok) throw new Error(`NextJS SPA: HTTP ${res.status} for ${careerUrl}`);
+    const html = await res.text();
+    const $ = cheerio.load(html);
+
+    // --- Strategy 1: __NEXT_DATA__ JSON (Next.js SSR / SSG) ---
+    const nextDataScript = $('#__NEXT_DATA__').html() || $('script#__NEXT_DATA__').html() || '';
+    if (nextDataScript) {
+      try {
+        const nextData = JSON.parse(nextDataScript);
+        // Deep search for job arrays in any shape of pageProps
+        const findJobArrays = (obj, depth = 0) => {
+          if (!obj || typeof obj !== 'object' || depth > 8) return [];
+          if (Array.isArray(obj)) {
+            if (obj.length > 0 && typeof obj[0] === 'object' &&
+              (obj[0].title || obj[0].jobTitle || obj[0].name) &&
+              (obj[0].id || obj[0].jobId || obj[0].slug || obj[0].url || obj[0].greenhouseId)) {
+              return [obj];
+            }
+            const found = [];
+            for (const item of obj) found.push(...findJobArrays(item, depth + 1));
+            return found;
+          }
+          const found = [];
+          for (const key of Object.keys(obj)) found.push(...findJobArrays(obj[key], depth + 1));
+          return found;
+        };
+
+        const jobArrays = findJobArrays(nextData?.props?.pageProps || nextData);
+        const rawJobs = jobArrays.reduce((acc, arr) => acc.length >= arr.length ? acc : arr, []);
+
+        for (const j of rawJobs) {
+          const title = j.title || j.jobTitle || j.name || '';
+          if (!title) continue;
+          if (keyword && !title.toLowerCase().includes(keyword) &&
+            !(j.department || j.team || '').toLowerCase().includes(keyword)) continue;
+
+          // Build location string from embedded locations array or filters
+          let loc = '';
+          if (j.locations && Array.isArray(j.locations)) loc = j.locations.join(' | ');
+          else if (j.location) loc = typeof j.location === 'string' ? j.location : (j.location.name || '');
+          else if (j.locationIndices && nextData.props?.pageProps?.jobIndexData?.filters?.locations) {
+            const locFilters = nextData.props.pageProps.jobIndexData.filters.locations || [];
+            loc = j.locationIndices.map(i => locFilters[i]?.name || '').filter(Boolean).join(' | ') || 'Multiple Locations';
+          }
+          if (location && !loc.toLowerCase().includes(location)) continue;
+
+          const slug = j.slug || j.id || j.jobId || j.greenhouseId || '';
+          const jobUrl = j.url || j.absoluteUrl || j.applyUrl ||
+            (j.greenhouseId ? `${careerUrl.split('/jobs/')[0]}/careers/listing/${j.slug}/${j.greenhouseId}` : careerUrl);
+
+          allJobs.push({
+            external_job_id: String(j.id || j.jobId || j.greenhouseId || slug),
+            title,
+            location: loc || 'Multiple Locations',
+            locations: loc ? loc.split(' | ') : ['Multiple Locations'],
+            work_mode: (loc || '').toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+            employment_type: j.employmentType || j.type || 'Full-time',
+            department: j.department || j.team || j.category || 'General',
+            experience: '',
+            salary: '',
+            skills: [],
+            description: j.description ? cleanHtmlToMarkdown(j.description) :
+              `Official verified opening at ${companyName} for **${title}**.\n\n• **Department**: ${j.department || j.team || 'General'}\n• **Location**: ${loc || 'Multiple Locations'}\n• **Employment Type**: ${j.employmentType || 'Full-time'}`,
+            original_job_url: jobUrl,
+            apply_url: jobUrl,
+            ats_provider: `${companyName} Careers (Next.js)`,
+            confidence_score: 97,
+          });
+        }
+      } catch {}
+    }
+
+    // --- Strategy 2: window.__PRELOADED_STATE__ or other SPA state globals ---
+    if (allJobs.length === 0) {
+      $('script:not([src])').each((_, el) => {
+        if (allJobs.length > 0) return;
+        const src = $(el).html() || '';
+        const statePatterns = [
+          /window\.__(?:PRELOADED|INITIAL|APP|STORE)_STATE__\s*=\s*({[\s\S]+?});?\s*(?=<\/script>|window\.|var |const |let )/,
+          /window\.appState\s*=\s*({[\s\S]+?});?\s*(?=<\/script>|window\.)/,
+          /\blistings\s*[:=]\s*(\[[\s\S]*?\])\s*[,;]/,
+          /"jobs"\s*:\s*(\[[\s\S]*?\])\s*[,}]/,
+        ];
+        for (const pat of statePatterns) {
+          const match = src.match(pat);
+          if (!match) continue;
+          try {
+            const parsed = JSON.parse(match[1]);
+            const rawList = Array.isArray(parsed)
+              ? parsed
+              : parsed.jobs || parsed.listings || parsed.results || parsed.data?.jobs || [];
+            for (const j of rawList) {
+              const title = j.title || j.jobTitle || j.name || '';
+              if (!title) continue;
+              if (keyword && !title.toLowerCase().includes(keyword)) continue;
+              const loc = j.location || j.locationName || j.city || 'On-site';
+              if (location && !loc.toLowerCase().includes(location)) continue;
+              const jobUrl = j.url || j.absoluteUrl || j.applyUrl || j.link || careerUrl;
+              allJobs.push({
+                external_job_id: String(j.id || j.jobId || j.requisitionId || allJobs.length),
+                title,
+                location: loc,
+                locations: [loc],
+                work_mode: loc.toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+                employment_type: j.type || j.employmentType || 'Full-time',
+                department: j.department || j.category || j.team || 'General',
+                experience: '',
+                salary: '',
+                skills: [],
+                description: `Official verified opening at ${companyName} for **${title}**.\n\n• **Location**: ${loc}`,
+                original_job_url: jobUrl,
+                apply_url: jobUrl,
+                ats_provider: `${companyName} Careers`,
+                confidence_score: 90,
+              });
+            }
+            if (allJobs.length > 0) return;
+          } catch {}
+        }
+      });
+    }
+
+    // --- Strategy 3: Nuxt / Vue SSR (window.__NUXT__ or __NUXT__) ---
+    if (allJobs.length === 0) {
+      $('script:not([src])').each((_, el) => {
+        if (allJobs.length > 0) return;
+        const src = $(el).html() || '';
+        if (!src.includes('__NUXT__')) return;
+        try {
+          const match = src.match(/(?:window\.__NUXT__|__NUXT__)\s*=\s*({[\s\S]+?})\s*;?\s*(?=<\/script>)/);
+          if (!match) return;
+          const nuxt = JSON.parse(match[1]);
+          const rawList = nuxt?.data?.[0]?.jobs || nuxt?.state?.jobs?.list || [];
+          for (const j of rawList) {
+            const title = j.title || j.name || '';
+            if (!title) continue;
+            if (keyword && !title.toLowerCase().includes(keyword)) continue;
+            const loc = j.location || j.city || 'On-site';
+            const jobUrl = j.url || j.link || careerUrl;
+            allJobs.push({
+              external_job_id: String(j.id || allJobs.length),
+              title,
+              location: loc,
+              locations: [loc],
+              work_mode: loc.toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+              employment_type: j.type || 'Full-time',
+              department: j.department || j.category || 'General',
+              experience: '',
+              salary: '',
+              skills: [],
+              description: `Official verified opening at ${companyName} for **${title}**.`,
+              original_job_url: jobUrl,
+              apply_url: jobUrl,
+              ats_provider: `${companyName} Careers`,
+              confidence_score: 88,
+            });
+          }
+        } catch {}
+      });
+    }
+
+    if (allJobs.length === 0) throw new Error(`NextJS/SPA: No jobs found in embedded state for ${careerUrl}`);
+    return {
+      extractionMethod: 'NextJS/SPA Embedded State',
+      reportedCount: allJobs.length,
+      jobs: allJobs,
+      strategyMemory: { s: 'NextJS SPA', ep: careerUrl, v: '1.0.0', chk: new Date().toISOString() },
+    };
+  },
+
+  /**
+   * Adapter: Rippling / Merge / Findem (Next-gen SaaS ATS REST APIs — no login required for job listings)
+   * Covers: Rippling, Merge.dev, Findem, Comeet, Personio, Pinpoint, HiringThing, JazzHR, Jobvite, ApplicantStack
+   */
+  async extractModernATSRest(careerUrl = '', companyName = '', atsHint = '', options = {}) {
+    const keyword = (options.keyword || options.title || options.search || '').trim();
+    const allJobs = [];
+    const lower = careerUrl.toLowerCase();
+    const hintLower = atsHint.toLowerCase();
+
+    // --- Rippling ---
+    if (hintLower.includes('rippling') || lower.includes('rippling.com') || lower.includes('ats.rippling.com')) {
+      try {
+        const slug = careerUrl.match(/ats\.rippling\.com\/([^/?]+)/i)?.[1] || companyName.toLowerCase().replace(/\s+/g, '-');
+        const apiUrl = `https://ats.rippling.com/api/career-page/job-postings/?company_subdomain=${slug}&status=active`;
+        const res = await ComplianceService.safeFetch(apiUrl, { headers: { Accept: 'application/json' }, timeout: 12000 });
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : data.results || data.jobs || [];
+          for (const j of list) {
+            if (keyword && !(j.name || j.title || '').toLowerCase().includes(keyword)) continue;
+            const loc = j.location?.city || j.locationName || j.location || 'On-site';
+            const jobUrl = j.url || `https://ats.rippling.com/${slug}/jobs/${j.id}`;
+            allJobs.push({
+              external_job_id: String(j.id || j.jobId || allJobs.length),
+              title: j.name || j.title || 'Open Position',
+              location: loc,
+              locations: [loc],
+              work_mode: (j.workType || loc).toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+              employment_type: j.employmentType || 'Full-time',
+              department: j.department?.name || j.department || 'General',
+              experience: '',
+              salary: '',
+              skills: [],
+              description: j.description ? cleanHtmlToMarkdown(j.description) : `Official verified opening at ${companyName} for **${j.name || j.title}**.`,
+              original_job_url: jobUrl,
+              apply_url: jobUrl,
+              ats_provider: 'Rippling',
+              confidence_score: 95,
+            });
+          }
+        }
+      } catch {}
+    }
+
+    // --- JazzHR ---
+    if (allJobs.length === 0 && (hintLower.includes('jazzhr') || lower.includes('jazzhr.com') || lower.includes('app.jazz.co'))) {
+      try {
+        const slug = careerUrl.match(/(?:app\.jazz\.co|jazzhr\.com)\/([^/?]+)/i)?.[1] || companyName.toLowerCase().replace(/\s+/g, '');
+        const apiUrl = `https://api.resumatorapi.com/v1/jobs?apikey=public&status=open&type=json`;
+        // JazzHR has a public route for careers
+        const pageUrl = `https://${slug}.applytojob.com/apply`;
+        const res = await ComplianceService.safeFetch(pageUrl, { timeout: 12000 });
+        if (res.ok) {
+          const html = await res.text();
+          const $ = cheerio.load(html);
+          $('.job, .position, article[class*="job"]').each((_, el) => {
+            const $el = $(el);
+            const title = $el.find('h2 a, h3 a, .title a, a[href*="/apply/"]').first().text().trim();
+            if (!title) return;
+            if (keyword && !title.toLowerCase().includes(keyword)) return;
+            const href = $el.find('a').first().attr('href') || '';
+            const loc = $el.find('[class*="location"]').first().text().trim();
+            const dept = $el.find('[class*="department"], [class*="category"]').first().text().trim();
+            const jobUrl = href.startsWith('http') ? href : `${pageUrl}${href}`;
+            allJobs.push({
+              external_job_id: href.replace(/[^a-z0-9]/gi, '-'),
+              title,
+              location: loc || 'On-site',
+              locations: [loc || 'On-site'],
+              work_mode: (loc || '').toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+              employment_type: 'Full-time',
+              department: dept || 'General',
+              experience: '',
+              salary: '',
+              skills: [],
+              description: `Official verified opening at ${companyName} for **${title}**.`,
+              original_job_url: jobUrl,
+              apply_url: jobUrl,
+              ats_provider: 'JazzHR',
+              confidence_score: 85,
+            });
+          });
+        }
+      } catch {}
+    }
+
+    // --- Comeet ---
+    if (allJobs.length === 0 && (hintLower.includes('comeet') || lower.includes('comeet.co'))) {
+      try {
+        const companySlug = careerUrl.match(/comeet\.co\/jobs\/([^/?]+)/i)?.[1] || companyName.toLowerCase().replace(/\s+/g, '-');
+        const apiUrl = `https://www.comeet.co/jobs/${companySlug}/api/positions`;
+        const res = await ComplianceService.safeFetch(apiUrl, { headers: { Accept: 'application/json' }, timeout: 12000 });
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : data.positions || data.jobs || [];
+          for (const j of list) {
+            if (keyword && !(j.name || j.title || '').toLowerCase().includes(keyword)) continue;
+            const loc = j.location?.city ? `${j.location.city}, ${j.location.country || ''}` : 'On-site';
+            const jobUrl = j.url || j.apply_url || `https://www.comeet.co/jobs/${companySlug}/${j.uid || j.id}`;
+            allJobs.push({
+              external_job_id: String(j.uid || j.id || allJobs.length),
+              title: j.name || j.title || 'Open Position',
+              location: loc,
+              locations: [loc],
+              work_mode: (j.work_type || '').toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+              employment_type: j.employment_type || 'Full-time',
+              department: j.department?.name || j.category || 'General',
+              experience: j.experience || '',
+              salary: '',
+              skills: j.skills || [],
+              description: j.requirements ? cleanHtmlToMarkdown(j.requirements) : `Official verified opening at ${companyName} for **${j.name || j.title}**.`,
+              original_job_url: jobUrl,
+              apply_url: jobUrl,
+              ats_provider: 'Comeet',
+              confidence_score: 94,
+            });
+          }
+        }
+      } catch {}
+    }
+
+    // --- Personio ---
+    if (allJobs.length === 0 && (hintLower.includes('personio') || lower.includes('personio.de') || lower.includes('personio.com'))) {
+      try {
+        const slug = careerUrl.match(/([^.]+)\.personio\.de/i)?.[1] || careerUrl.match(/([^.]+)\.jobs\.personio\.com/i)?.[1] || companyName.toLowerCase().replace(/\s+/g, '-');
+        const apiUrl = `https://${slug}.personio.de/api/v1/jobs`;
+        const res = await ComplianceService.safeFetch(apiUrl, { headers: { Accept: 'application/json' }, timeout: 12000 });
+        if (res.ok) {
+          const data = await res.json();
+          const list = data.data || data.jobs || (Array.isArray(data) ? data : []);
+          for (const j of list) {
+            if (keyword && !(j.name || '').toLowerCase().includes(keyword)) continue;
+            const loc = j.office?.name || j.location || 'On-site';
+            const jobUrl = j.job_positions_url || `https://${slug}.personio.de/job/${j.id}`;
+            allJobs.push({
+              external_job_id: String(j.id || allJobs.length),
+              title: j.name || 'Open Position',
+              location: loc,
+              locations: [loc],
+              work_mode: j.schedule === 'Remote' ? 'Remote' : 'On-site',
+              employment_type: j.employment_type || 'Full-time',
+              department: j.department?.name || j.subcompany?.name || 'General',
+              experience: '',
+              salary: '',
+              skills: [],
+              description: j.description ? cleanHtmlToMarkdown(j.description) : `Official verified opening at ${companyName} for **${j.name}**.`,
+              original_job_url: jobUrl,
+              apply_url: jobUrl,
+              ats_provider: 'Personio',
+              confidence_score: 94,
+            });
+          }
+        }
+      } catch {}
+    }
+
+    // --- Pinpoint ---
+    if (allJobs.length === 0 && (hintLower.includes('pinpoint') || lower.includes('pinpointhq.com') || lower.includes('jobs.pinpointhq.com'))) {
+      try {
+        const slug = careerUrl.match(/([^.]+)\.pinpointhq\.com/i)?.[1] || companyName.toLowerCase().replace(/\s+/g, '-');
+        const apiUrl = `https://${slug}.pinpointhq.com/api/v1/job_postings?status=published`;
+        const res = await ComplianceService.safeFetch(apiUrl, { headers: { Accept: 'application/json' }, timeout: 12000 });
+        if (res.ok) {
+          const data = await res.json();
+          const list = data.data || data.jobs || [];
+          for (const j of list.map((x) => x.attributes || x)) {
+            if (keyword && !(j.title || '').toLowerCase().includes(keyword)) continue;
+            const loc = j.city || j.office_name || j.location || 'On-site';
+            const jobUrl = j.canonical_url || j.url || `https://${slug}.pinpointhq.com/jobs/${j.slug || j.id}`;
+            allJobs.push({
+              external_job_id: String(j.id || allJobs.length),
+              title: j.title || 'Open Position',
+              location: loc,
+              locations: [loc],
+              work_mode: (j.remote_type || loc).toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+              employment_type: j.employment_status || 'Full-time',
+              department: j.team_name || j.department || 'General',
+              experience: '',
+              salary: '',
+              skills: [],
+              description: j.job_description ? cleanHtmlToMarkdown(j.job_description) : `Official verified opening at ${companyName} for **${j.title}**.`,
+              original_job_url: jobUrl,
+              apply_url: jobUrl,
+              ats_provider: 'Pinpoint',
+              confidence_score: 93,
+            });
+          }
+        }
+      } catch {}
+    }
+
+    if (allJobs.length === 0) throw new Error(`Modern ATS REST: No jobs found for ${companyName}`);
+    return {
+      extractionMethod: `Modern ATS REST (${atsHint || 'Auto'})`,
+      reportedCount: allJobs.length,
+      jobs: allJobs,
+      strategyMemory: { s: 'Modern ATS REST', ep: careerUrl, hint: atsHint, v: '1.0.0', chk: new Date().toISOString() },
+    };
+  },
 };
