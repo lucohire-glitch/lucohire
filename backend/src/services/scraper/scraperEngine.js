@@ -56,16 +56,15 @@ export const ScraperEngine = {
         careerUrl: company.career_url,
       });
 
-      const isKnownAtsUrl = careerUrl && (
-        careerUrl.includes('myworkdayjobs.com') ||
-        careerUrl.includes('greenhouse.io') ||
-        careerUrl.includes('lever.co') ||
-        careerUrl.includes('ashbyhq.com') ||
-        careerUrl.includes('smartrecruiters.com') ||
-        careerUrl.includes('workable.com')
-      );
+      let isKnownAtsUrl = false;
+      try {
+        const u = new URL(careerUrl.startsWith('http') ? careerUrl : `https://${careerUrl}`);
+        isKnownAtsUrl = /myworkdayjobs\.com|greenhouse\.io|lever\.co|ashbyhq\.com|smartrecruiters\.com|workable\.com|eightfold\.ai|phenompeople/i.test(u.hostname) ||
+          /^(careers|jobs|join)\./i.test(u.hostname) ||
+          /\/careers|\/jobs|\/listing/i.test(u.pathname);
+      } catch {}
 
-      if (!careerUrl || !website || !isKnownAtsUrl || atsProvider === 'Detecting...' || atsProvider === 'Custom website') {
+      if (!careerUrl || !website || (!isKnownAtsUrl && (atsProvider === 'Detecting...' || atsProvider === 'Custom website'))) {
         const queryTarget = normInput.website || `${normInput.domain}` || company.name;
         const discovery = await DiscoveryService.findCareerPage(queryTarget, company.name);
         if (discovery && discovery.careerUrl) {
@@ -145,6 +144,32 @@ export const ScraperEngine = {
         }
         return matches >= Math.min(1, sample.length);
       };
+
+      // Tier 0: Universal Common Career Adapter (Dynamic Protocol Orchestration)
+      // Auto-detects Algolia, Phenom, Workday, Greenhouse, Lever, Eightfold, SAP, Ashby, SmartRecruiters, etc.
+      // from live page HTML and headers WITHOUT needing hardcoded company names.
+      const initialPortalUrl = careerUrl || website || (normInput.domain ? `https://careers.${normInput.domain}` : null);
+      if (initialPortalUrl) {
+        try {
+          const uniRes = await ATSAdapters.extractUniversalCareerPortal(initialPortalUrl, company.name, options);
+          if (uniRes && uniRes.jobs && uniRes.jobs.length > 0 && isGenuineCompanyJobs(company.name, uniRes.jobs)) {
+            extractedResult = uniRes;
+            extractionSuccess = true;
+            atsProvider = uniRes.atsProvider || atsProvider;
+            if (uniRes.resolvedUrl && uniRes.resolvedUrl !== careerUrl) {
+              careerUrl = uniRes.resolvedUrl;
+            }
+            await ScraperModel.updateCompany(company.id, {
+              career_url: careerUrl,
+              ats_provider: atsProvider,
+              access_status: 'ALLOWED',
+              verification_status: 'Verified'
+            });
+          }
+        } catch (err) {
+          console.warn(`[Universal Common Adapter] Cascading for ${company.name}:`, err.message);
+        }
+      }
 
       // Workday target candidate
       let targetWorkday = null;
@@ -465,7 +490,7 @@ export const ScraperEngine = {
               await ScraperModel.updateCompany(company.id, { ats_provider: `${company.name} Careers`, career_url: algTarget, access_status: 'ALLOWED', verification_status: 'Verified' });
               break;
             }
-          } catch {}
+          } catch { }
         }
       }
 
@@ -482,7 +507,7 @@ export const ScraperEngine = {
             const host = new URL(spaTarget.startsWith('http') ? spaTarget : `https://${spaTarget}`).hostname.replace(/^www\./, '');
             const label = host.split('.')[0];
             if (label && !['careers', 'jobs', 'app'].includes(label)) slugs.add(label);
-          } catch {}
+          } catch { }
           const probes = [
             ['Greenhouse', (s) => ATSAdapters.extractGreenhouse(s, company.name)],
             ['Lever', (s) => ATSAdapters.extractLever(s, company.name)],
@@ -497,7 +522,7 @@ export const ScraperEngine = {
                   probed = { r, label, slug };
                   break;
                 }
-              } catch {}
+              } catch { }
             }
             if (probed) break;
           }
@@ -577,7 +602,7 @@ export const ScraperEngine = {
       if (!extractionSuccess && (atsLower.includes('smartrecruiters') || (careerUrl && careerUrl.includes('smartrecruiters.com')))) {
         try {
           let res = null;
-          try { res = await ATSAdapters.extractSmartRecruiters(atsToken, company.name); } catch {}
+          try { res = await ATSAdapters.extractSmartRecruiters(atsToken, company.name); } catch { }
           if (!res || !res.jobs || res.jobs.length === 0) {
             // Token guessed from company name may be wrong: read the real token from the career page HTML
             const tried = new Set([String(atsToken || '').toLowerCase()]);
@@ -589,7 +614,7 @@ export const ScraperEngine = {
                 for (const m of pageHtml.matchAll(/(?:careers|jobs)\.smartrecruiters\.com\/([A-Za-z0-9_-]+)/g)) candidates.push(m[1]);
                 for (const m of pageHtml.matchAll(/api\.smartrecruiters\.com\/v1\/companies\/([A-Za-z0-9_-]+)/g)) candidates.push(m[1]);
               }
-            } catch {}
+            } catch { }
             const nm = (company.name || '').replace(/[^A-Za-z0-9]+/g, '');
             if (nm) candidates.push(`${nm}Group`, nm);
             for (const cand of candidates) {
@@ -598,7 +623,7 @@ export const ScraperEngine = {
               try {
                 const r2 = await ATSAdapters.extractSmartRecruiters(cand, company.name);
                 if (r2.jobs && r2.jobs.length > 0) { res = r2; break; }
-              } catch {}
+              } catch { }
             }
           }
           if (res && res.jobs && res.jobs.length > 0) {

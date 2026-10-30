@@ -205,6 +205,16 @@ export const DiscoveryService = {
       return { ats: 'Phenom People', token: 'phenom', phenomUrl: url };
     }
 
+    // 0.085 Algolia InstantSearch Portals (BP careers.bp.com/listing, Deliveroo, Twitch, etc.)
+    if (
+      combinedLower.includes('algoliasearch') ||
+      combinedLower.includes('algolia.net') ||
+      combinedLower.includes('algoliaagent') ||
+      (combinedLower.includes('instantsearch') && combinedLower.includes('algolia'))
+    ) {
+      return { ats: 'Algolia InstantSearch', token: 'algolia', algoliaUrl: url };
+    }
+
     // 0.09 SAP SuccessFactors Recruiting Marketing (Wipro careers.wipro.com, HCL, Infosys, Deloitte, etc.)
     if (
       combinedLower.includes('rmkcdn.successfactors.com') ||
