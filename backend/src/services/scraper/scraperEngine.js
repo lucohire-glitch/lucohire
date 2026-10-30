@@ -420,12 +420,45 @@ export const ScraperEngine = {
       if (!extractionSuccess && (detectedInfo.ats === 'NextJS SPA' || atsLower.includes('nextjs') || atsLower.includes('spa'))) {
         try {
           const spaTarget = detectedInfo.careerUrl || careerUrl || website;
-          extractedResult = await ATSAdapters.extractNextJSSPA(spaTarget, company.name, options);
-          if (extractedResult.jobs && extractedResult.jobs.length > 0) {
-            atsProvider = `${company.name} Careers`;
+
+          // Prefer an official ATS API (exact counts) over scraping embedded SPA state.
+          const slugs = new Set();
+          const nameSlug = (company.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+          if (nameSlug) slugs.add(nameSlug);
+          try {
+            const host = new URL(spaTarget.startsWith('http') ? spaTarget : `https://${spaTarget}`).hostname.replace(/^www\./, '');
+            const label = host.split('.')[0];
+            if (label && !['careers', 'jobs', 'app'].includes(label)) slugs.add(label);
+          } catch {}
+          const probes = [
+            ['Greenhouse', (s) => ATSAdapters.extractGreenhouse(s, company.name)],
+            ['Lever', (s) => ATSAdapters.extractLever(s, company.name)],
+            ['Ashby', (s) => ATSAdapters.extractAshby(s, company.name)],
+          ];
+          let probed = null;
+          for (const slug of slugs) {
+            for (const [label, fn] of probes) {
+              try {
+                const r = await fn(slug);
+                if (r?.jobs?.length > 0) { probed = { r, label, slug }; break; }
+              } catch {}
+            }
+            if (probed) break;
+          }
+          if (probed) {
+            extractedResult = probed.r;
+            atsProvider = probed.label;
             careerUrl = spaTarget;
             extractionSuccess = true;
-            await ScraperModel.updateCompany(company.id, { ats_provider: `${company.name} Careers`, career_url: spaTarget, access_status: 'ALLOWED', verification_status: 'Verified' });
+            await ScraperModel.updateCompany(company.id, { ats_provider: probed.label, career_url: spaTarget, access_status: 'ALLOWED', verification_status: 'Verified' });
+          } else {
+            extractedResult = await ATSAdapters.extractNextJSSPA(spaTarget, company.name, options);
+            if (extractedResult.jobs && extractedResult.jobs.length > 0) {
+              atsProvider = `${company.name} Careers`;
+              careerUrl = spaTarget;
+              extractionSuccess = true;
+              await ScraperModel.updateCompany(company.id, { ats_provider: `${company.name} Careers`, career_url: spaTarget, access_status: 'ALLOWED', verification_status: 'Verified' });
+            }
           }
         } catch (err) {
           console.warn(`NextJS SPA error for ${company.name}, cascading:`, err.message);

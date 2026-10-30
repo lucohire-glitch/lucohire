@@ -190,6 +190,16 @@ export const ATSAdapters = {
       throw new Error('Salesforce Career Feed returned 0 postings');
     }
 
+    // The two feed files can overlap; dedupe by requisition id so counts match the official total
+    const seenRefs = new Set();
+    allRaw = allRaw.filter(j => {
+      const ref = j.Job_Requisition_Ref_ID;
+      if (!ref) return true;
+      if (seenRefs.has(ref)) return false;
+      seenRefs.add(ref);
+      return true;
+    });
+
     const keyword = (options.keyword || options.title || options.search || '').trim().toLowerCase();
     const location = (options.location || '').trim().toLowerCase();
 
