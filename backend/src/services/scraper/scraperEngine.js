@@ -443,6 +443,31 @@ export const ScraperEngine = {
         }
       }
 
+      // Tier 0.96: Algolia InstantSearch Portals (BP careers.bp.com/listing, Deliveroo, Twitch, etc.)
+      if (!extractionSuccess) {
+        const algCandidates = [
+          careerUrl,
+          normInput.domain ? `https://careers.${normInput.domain}/listing` : null,
+          normInput.domain ? `https://careers.${normInput.domain}` : null,
+          website
+        ].filter(Boolean);
+
+        for (const algTarget of algCandidates) {
+          try {
+            const algRes = await ATSAdapters.extractAlgoliaJobs(algTarget, company.name, options);
+            if (algRes.jobs && algRes.jobs.length > 0) {
+              extractedResult = algRes;
+              atsProvider = `${company.name} Careers`;
+              careerUrl = algTarget;
+              targetWorkday = null; // Prioritize the user-facing Algolia portal over backend Workday!
+              extractionSuccess = true;
+              await ScraperModel.updateCompany(company.id, { ats_provider: `${company.name} Careers`, career_url: algTarget, access_status: 'ALLOWED', verification_status: 'Verified' });
+              break;
+            }
+          } catch {}
+        }
+      }
+
       // Tier 0.97: Next.js / React SPA Embedded State Career Pages (Stripe, Airbnb, Notion, Figma, Vercel, Linear)
       if (!extractionSuccess && (detectedInfo.ats === 'NextJS SPA' || atsLower.includes('nextjs') || atsLower.includes('spa'))) {
         try {

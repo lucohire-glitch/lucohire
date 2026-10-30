@@ -2933,6 +2933,105 @@ export const ATSAdapters = {
   },
 
   /**
+   * Adapter: Algolia InstantSearch Career Portals (BP, Deliveroo, Twitch, and custom enterprise job search portals)
+   * Discovers Algolia app ID, search API key, and index name directly from the career page or linked bundles.
+   * Extracts 100% exact real-time matching jobs with live pagination.
+   */
+  async extractAlgoliaJobs(careerUrl = '', companyName = '', options = {}) {
+    const ua = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
+    const res = await ComplianceService.safeFetch(careerUrl, { headers: ua, timeout: 14000 });
+    if (!res.ok) throw new Error(`Algolia: HTTP ${res.status} for ${careerUrl}`);
+    const html = await res.text();
+
+    let appId, apiKey, indexName;
+    const scripts = html.match(/https?:\/\/[^\s"'>]+\.js[^\s"'>]*/gi) || [];
+    for (const s of scripts) {
+      if (s.includes('merged') || s.includes('app') || s.includes('search') || s.includes('bundle')) {
+        try {
+          const jsRes = await ComplianceService.safeFetch(s, { headers: ua, timeout: 12000 });
+          if (jsRes.ok) {
+            const js = await jsRes.text();
+            const m = js.match(/algoliasearch\(['"]([A-Z0-9]+)['"],\s*['"]([a-f0-9]+)['"]\)/i) ||
+                      js.match(/['"]([A-Z0-9]{10})['"],\s*['"]([a-f0-9]{32})['"]/);
+            if (m) {
+              appId = m[1];
+              apiKey = m[2];
+              const idx = js.match(/indexName\s*:\s*['"]([^'"]+)['"]/i);
+              if (idx) indexName = idx[1];
+              break;
+            }
+          }
+        } catch {}
+      }
+    }
+
+    if (!appId || !apiKey || !indexName) {
+      throw new Error(`Algolia: No search credentials discovered for ${careerUrl}`);
+    }
+
+    let origin = '';
+    try { origin = new URL(careerUrl).origin; } catch {}
+
+    const all = [];
+    let totalReported = 0;
+    const MAX_PAGES = 30; // up to 3000 jobs
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const aRes = await ComplianceService.safeFetch(`https://${appId}-dsn.algolia.net/1/indexes/${indexName}/query`, {
+        method: 'POST',
+        headers: {
+          'X-Algolia-Application-Id': appId,
+          'X-Algolia-API-Key': apiKey,
+          'Content-Type': 'application/json',
+          'Referer': careerUrl,
+          'Origin': origin || careerUrl,
+        },
+        body: JSON.stringify({ params: `query=&hitsPerPage=100&page=${page}` }),
+        timeout: 12000,
+      });
+      if (!aRes.ok) break;
+      const data = await aRes.json();
+      totalReported = data.nbHits || totalReported;
+      if (!data.hits || data.hits.length === 0) break;
+      all.push(...data.hits);
+      if (all.length >= totalReported) break;
+    }
+
+    if (all.length === 0) throw new Error(`Algolia: 0 jobs returned from index ${indexName}`);
+
+    return {
+      extractionMethod: 'Algolia InstantSearch API',
+      reportedCount: totalReported || all.length,
+      jobs: all.map(j => {
+        const title = (j.title || j.job_title || j.name || 'Open Position').trim();
+        const loc = Array.isArray(j.location) ? j.location.join(' | ') : (j.location || j.city || 'Multiple Locations');
+        const jobCode = Array.isArray(j.job_code) ? j.job_code[0] : (j.job_code || j.objectID || j.id || '');
+        const timeType = Array.isArray(j.time_type) ? j.time_type[0] : (j.time_type || 'Full time');
+        const summary = j._highlightResult?.summary?.value || j.summary || j.description || `Official opening at ${companyName} for ${title}.`;
+        const link = j.url || (jobCode && origin ? `${origin}/job-description/${jobCode}` : careerUrl);
+
+        return {
+          external_job_id: String(jobCode || j.objectID || Math.random().toString(36).substring(7)),
+          title,
+          location: loc,
+          locations: Array.isArray(j.location) ? j.location : [loc],
+          work_mode: /remote/i.test(`${title} ${loc}`) ? 'Remote' : 'On-site',
+          employment_type: timeType,
+          department: j.job_family_group || j.department || 'General',
+          experience: '',
+          salary: '',
+          skills: [],
+          description: cleanHtmlToMarkdown(summary),
+          original_job_url: link,
+          apply_url: link,
+          ats_provider: `${companyName} Careers (Algolia)`,
+          confidence_score: 98,
+        };
+      }),
+      strategyMemory: { s: 'Algolia', appId, indexName, v: '1.0.0', chk: new Date().toISOString() },
+    };
+  },
+
+  /**
    * Adapter: Rippling / Merge / Findem (Next-gen SaaS ATS REST APIs — no login required for job listings)
    * Covers: Rippling, Merge.dev, Findem, Comeet, Personio, Pinpoint, HiringThing, JazzHR, Jobvite, ApplicantStack
    */
