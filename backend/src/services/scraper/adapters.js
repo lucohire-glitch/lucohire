@@ -861,6 +861,51 @@ export const ATSAdapters = {
       .replace(/^https?:\/\/jobs\.ashbyhq\.com\//i, '')
       .replace(/\/.*$/, '')
       .trim();
+    // Primary: Ashby's official public Posting API (documented, no auth)
+    try {
+      const pubRes = await ComplianceService.safeFetch(
+        `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(cleanToken)}`,
+        { headers: { Accept: 'application/json' }, timeout: 12000 }
+      );
+      if (pubRes.ok) {
+        const pub = await pubRes.json();
+        const list = (pub.jobs || []).filter(j => j.isListed !== false);
+        if (list.length > 0) {
+          return {
+            extractionMethod: 'API (Ashby Posting API)',
+            reportedCount: list.length,
+            jobs: list.map(j => {
+              const loc = j.location || (j.isRemote ? 'Remote' : 'On-site');
+              const wt = String(j.workplaceType || (j.isRemote ? 'Remote' : 'On-site'));
+              return {
+                external_job_id: String(j.id),
+                title: j.title || 'Untitled Role',
+                location: loc,
+                locations: [loc, ...((j.secondaryLocations || []).map(s => s.location).filter(Boolean))],
+                work_mode: /remote/i.test(wt) ? 'Remote' : /hybrid/i.test(wt) ? 'Hybrid' : 'On-site',
+                employment_type: String(j.employmentType || 'Full-time').replace(/([a-z])([A-Z])/g, '$1-$2'),
+                department: j.department || j.team || 'General',
+                experience: '',
+                salary: '',
+                skills: [],
+                description: j.descriptionPlain ? j.descriptionPlain.trim() : (cleanHtmlToMarkdown(j.descriptionHtml) || `Official verified opening at ${companyName || 'the employer'} for ${j.title}. Location: ${loc}.`),
+                original_job_url: j.jobUrl || `https://jobs.ashbyhq.com/${cleanToken}/${j.id}`,
+                apply_url: j.applyUrl || `https://jobs.ashbyhq.com/${cleanToken}/${j.id}/application`,
+                ats_provider: 'Ashby',
+                confidence_score: 95,
+              };
+            }),
+            strategyMemory: {
+              s: 'Public Posting API',
+              ep: `/posting-api/job-board/${cleanToken}`,
+              v: '1.4.0',
+              chk: new Date().toISOString(),
+            }
+          };
+        }
+      }
+    } catch { /* fall through to GraphQL */ }
+
     const apiUrl = 'https://jobs.ashbyhq.com/api/non-user-graphql?op=ApiJobBoardWithTeams';
     const body = {
       operationName: 'ApiJobBoardWithTeams',
@@ -933,13 +978,26 @@ export const ATSAdapters = {
       throw new Error(`SmartRecruiters API responded with status ${res.status}`);
     }
     const data = await res.json();
-    const postings = data.content || [];
+    const postings = [...(data.content || [])];
 
-    // Fetch rich posting details in parallel batches of 20
+    // Paginate through all postings (API caps each page at 100). Safety cap: 2000 jobs.
+    const totalFound = data.totalFound || postings.length;
+    for (let offset = 100; offset < Math.min(totalFound, 2000); offset += 100) {
+      try {
+        const pr = await ComplianceService.safeFetch(`${apiUrl}&offset=${offset}`, { timeout: 10000 });
+        if (!pr.ok) break;
+        const pj = await pr.json();
+        if (!pj.content || pj.content.length === 0) break;
+        postings.push(...pj.content);
+      } catch { break; }
+    }
+
+    // Fetch rich posting details in parallel batches of 20 (first 100 only, to keep scans fast)
     const detailMap = new Map();
     const CHUNK_SIZE = 20;
-    for (let i = 0; i < postings.length; i += CHUNK_SIZE) {
-      const chunk = postings.slice(i, i + CHUNK_SIZE);
+    const detailTargets = postings.slice(0, 100);
+    for (let i = 0; i < detailTargets.length; i += CHUNK_SIZE) {
+      const chunk = detailTargets.slice(i, i + CHUNK_SIZE);
       const detailResults = await Promise.allSettled(
         chunk.map(j => {
           const detailUrl = `https://api.smartrecruiters.com/v1/companies/${token}/postings/${j.id}`;
@@ -1840,6 +1898,57 @@ export const ATSAdapters = {
    * 6. Smart DOM Card & Link Parser with anti-junk heuristics
    */
   async extractGeneric(url, companyName) {
+    // Amazon.jobs exposes a public JSON search endpoint (no auth)
+    if (/(^|\/\/|\.)amazon\.jobs/i.test(url || '')) {
+      try {
+        const base = 'https://www.amazon.jobs/en/search.json?result_limit=100';
+        const first = await ComplianceService.safeFetch(`${base}&offset=0`, { headers: { Accept: 'application/json' }, timeout: 15000 });
+        if (first.ok) {
+          const fj = await first.json();
+          const total = fj.hits || (fj.jobs || []).length;
+          const all = [...(fj.jobs || [])];
+          const MAX = 3000; // safety cap; reportedCount still reflects the official total
+          for (let off = 100; off < Math.min(total, MAX); off += 100) {
+            try {
+              const pr = await ComplianceService.safeFetch(`${base}&offset=${off}`, { headers: { Accept: 'application/json' }, timeout: 15000 });
+              if (!pr.ok) break;
+              const pj = await pr.json();
+              if (!pj.jobs || pj.jobs.length === 0) break;
+              all.push(...pj.jobs);
+            } catch { break; }
+          }
+          if (all.length > 0) {
+            return {
+              extractionMethod: 'API (Amazon Jobs JSON)',
+              reportedCount: total,
+              jobs: all.map(j => {
+                const loc = j.normalized_location || j.location || 'On-site';
+                const link = j.job_path ? `https://www.amazon.jobs${j.job_path}` : url;
+                return {
+                  external_job_id: String(j.id_icims || j.id),
+                  title: j.title || 'Open Position',
+                  location: loc,
+                  locations: [loc],
+                  work_mode: /remote|virtual/i.test(`${j.title} ${loc}`) ? 'Remote' : 'On-site',
+                  employment_type: 'Full-time',
+                  department: j.job_category || 'General',
+                  experience: '',
+                  salary: '',
+                  skills: [],
+                  description: cleanHtmlToMarkdown(`${j.description || j.description_short || ''}<br/>${j.basic_qualifications || ''}`) || `Official verified opening at Amazon for ${j.title}.`,
+                  original_job_url: link,
+                  apply_url: link,
+                  ats_provider: 'Amazon Jobs',
+                  confidence_score: 95,
+                };
+              }),
+              strategyMemory: { s: 'Public JSON', ep: '/en/search.json', v: '1.0.0', chk: new Date().toISOString() },
+            };
+          }
+        }
+      } catch { /* fall back to generic */ }
+    }
+
     const res = await ComplianceService.safeFetch(url, { timeout: 12000 });
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} when fetching career page ${url}`);
@@ -2812,18 +2921,18 @@ export const ATSAdapters = {
     if (hintLower.includes('rippling') || lower.includes('rippling.com') || lower.includes('ats.rippling.com')) {
       try {
         const slug = careerUrl.match(/ats\.rippling\.com\/([^/?]+)/i)?.[1] || companyName.toLowerCase().replace(/\s+/g, '-');
-        const apiUrl = `https://ats.rippling.com/api/career-page/job-postings/?company_subdomain=${slug}&status=active`;
-        const res = await ComplianceService.safeFetch(apiUrl, { headers: { Accept: 'application/json' }, timeout: 12000 });
+        const apiUrl = `https://api.rippling.com/platform/api/ats/v1/board/${slug}/jobs`;
+        const res = await ComplianceService.safeFetch(apiUrl, { headers: { Accept: 'application/json' }, timeout: 15000 });
         if (res.ok) {
           const data = await res.json();
           const list = Array.isArray(data) ? data : data.results || data.jobs || [];
           for (const j of list) {
             if (keyword && !(j.name || j.title || '').toLowerCase().includes(keyword)) continue;
-            const loc = j.location?.city || j.locationName || j.location || 'On-site';
-            const jobUrl = j.url || `https://ats.rippling.com/${slug}/jobs/${j.id}`;
+            const loc = (typeof j.workLocation === 'object' ? j.workLocation?.label : j.workLocation) || j.location?.city || j.locationName || (typeof j.location === 'string' ? j.location : '') || 'On-site';
+            const jobUrl = j.url || `https://ats.rippling.com/${slug}/jobs/${j.uuid || j.id}`;
             allJobs.push({
-              external_job_id: String(j.id || j.jobId || allJobs.length),
-              title: j.name || j.title || 'Open Position',
+              external_job_id: String(j.uuid || j.id || j.jobId || allJobs.length),
+              title: (j.name || j.title || 'Open Position').trim(),
               location: loc,
               locations: [loc],
               work_mode: (j.workType || loc).toLowerCase().includes('remote') ? 'Remote' : 'On-site',
