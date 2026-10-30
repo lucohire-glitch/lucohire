@@ -371,7 +371,7 @@ export const ScraperModel = {
       const updateIds = toUpdate.map(u => u.id);
       await pool.query(
         `UPDATE scraped_jobs
-         SET status = 'ACTIVE', missing_scans_count = 0, last_verified_at = now(), updated_at = now(),
+         SET status = 'ACTIVE', is_published = true, missing_scans_count = 0, last_verified_at = now(), updated_at = now(),
              ats_provider = COALESCE(NULLIF($1, ''), ats_provider),
              extraction_method = COALESCE(NULLIF($2, ''), extraction_method),
              contact_email = COALESCE(NULLIF($3, ''), contact_email)
