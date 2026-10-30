@@ -520,8 +520,32 @@ export const ScraperEngine = {
       // 5. Try SmartRecruiters
       if (!extractionSuccess && (atsLower.includes('smartrecruiters') || (careerUrl && careerUrl.includes('smartrecruiters.com')))) {
         try {
-          const res = await ATSAdapters.extractSmartRecruiters(atsToken, company.name);
-          if (res.jobs && res.jobs.length > 0) {
+          let res = null;
+          try { res = await ATSAdapters.extractSmartRecruiters(atsToken, company.name); } catch {}
+          if (!res || !res.jobs || res.jobs.length === 0) {
+            // Token guessed from company name may be wrong: read the real token from the career page HTML
+            const tried = new Set([String(atsToken || '').toLowerCase()]);
+            const candidates = [];
+            try {
+              const pageRes = await ComplianceService.safeFetch(careerUrl || website, { timeout: 12000 });
+              if (pageRes.ok) {
+                const pageHtml = await pageRes.text();
+                for (const m of pageHtml.matchAll(/(?:careers|jobs)\.smartrecruiters\.com\/([A-Za-z0-9_-]+)/g)) candidates.push(m[1]);
+                for (const m of pageHtml.matchAll(/api\.smartrecruiters\.com\/v1\/companies\/([A-Za-z0-9_-]+)/g)) candidates.push(m[1]);
+              }
+            } catch {}
+            const nm = (company.name || '').replace(/[^A-Za-z0-9]+/g, '');
+            if (nm) candidates.push(`${nm}Group`, nm);
+            for (const cand of candidates) {
+              if (tried.has(cand.toLowerCase())) continue;
+              tried.add(cand.toLowerCase());
+              try {
+                const r2 = await ATSAdapters.extractSmartRecruiters(cand, company.name);
+                if (r2.jobs && r2.jobs.length > 0) { res = r2; break; }
+              } catch {}
+            }
+          }
+          if (res && res.jobs && res.jobs.length > 0) {
             extractedResult = res;
             extractionSuccess = true;
           }
