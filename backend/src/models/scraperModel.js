@@ -77,6 +77,25 @@ export const ScraperModel = {
         created_at TIMESTAMPTZ DEFAULT now()
       );
 
+      -- 4. Background Scraper Task Queue (Scalable, Resilient to Timeouts, Concurrency & Retry Controlled)
+      CREATE TABLE IF NOT EXISTS scraper_queue (
+        id SERIAL PRIMARY KEY,
+        company_id INTEGER REFERENCES scraped_companies(id) ON DELETE CASCADE,
+        company_name TEXT NOT NULL,
+        task_type TEXT DEFAULT 'COMPANY_SCAN', -- 'COMPANY_SCAN', 'INCOMPLETE_RETRY', 'SPLIT_QUERY_PAGE'
+        status TEXT DEFAULT 'QUEUED', -- 'QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'RETRY_SCHEDULED'
+        priority INTEGER DEFAULT 1,
+        payload JSONB DEFAULT '{}'::jsonb,
+        attempts INTEGER DEFAULT 0,
+        max_attempts INTEGER DEFAULT 3,
+        last_error TEXT,
+        next_run_at TIMESTAMPTZ DEFAULT now(),
+        locked_at TIMESTAMPTZ,
+        locked_by TEXT,
+        completed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT now()
+      );
+
       -- Indexes for high performance
       CREATE INDEX IF NOT EXISTS idx_scraped_companies_name ON scraped_companies(name);
       CREATE INDEX IF NOT EXISTS idx_scraped_jobs_company_id ON scraped_jobs(company_id);
@@ -84,6 +103,8 @@ export const ScraperModel = {
       CREATE INDEX IF NOT EXISTS idx_scraped_jobs_published ON scraped_jobs(is_published);
       CREATE INDEX IF NOT EXISTS idx_scraper_scan_runs_company_id ON scraper_scan_runs(company_id);
       CREATE INDEX IF NOT EXISTS idx_scraper_scan_runs_created_at ON scraper_scan_runs(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_scraper_queue_status_next_run ON scraper_queue(status, next_run_at);
+      CREATE INDEX IF NOT EXISTS idx_scraper_queue_company_id ON scraper_queue(company_id);
     `);
     console.log('Scraper tables initialized successfully');
   },
@@ -522,5 +543,133 @@ export const ScraperModel = {
       values
     );
     return res.rows[0];
+  },
+
+  // -------------------------------------------------------------
+  // Queue Management (Background Queue & Incomplete Retry Engine)
+  // -------------------------------------------------------------
+  async enqueueJob({ companyId, companyName, taskType = 'COMPANY_SCAN', priority = 1, payload = {}, maxAttempts = 3, nextRunAt = null }) {
+    const res = await pool.query(
+      `INSERT INTO scraper_queue (
+        company_id, company_name, task_type, priority, payload, max_attempts, next_run_at, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, now()), 'QUEUED')
+      RETURNING *`,
+      [companyId, companyName, taskType, priority, JSON.stringify(payload), maxAttempts, nextRunAt]
+    );
+    return res.rows[0];
+  },
+
+  async dequeueNextJob(workerId = 'worker-1') {
+    // Atomically select and lock the highest-priority, due job using FOR UPDATE SKIP LOCKED
+    const res = await pool.query(
+      `UPDATE scraper_queue
+       SET status = 'RUNNING',
+           locked_at = now(),
+           locked_by = $1,
+           attempts = attempts + 1
+       WHERE id = (
+         SELECT id FROM scraper_queue
+         WHERE status IN ('QUEUED', 'RETRY_SCHEDULED')
+           AND next_run_at <= now()
+         ORDER BY priority DESC, next_run_at ASC, id ASC
+         FOR UPDATE SKIP LOCKED
+         LIMIT 1
+       )
+       RETURNING *`,
+      [workerId]
+    );
+    return res.rows[0] || null;
+  },
+
+  async completeQueueJob(jobId, result = {}) {
+    const res = await pool.query(
+      `UPDATE scraper_queue
+       SET status = 'COMPLETED',
+           locked_at = null,
+           locked_by = null,
+           completed_at = now(),
+           payload = payload || $2::jsonb
+       WHERE id = $1
+       RETURNING *`,
+      [jobId, JSON.stringify({ lastResult: result })]
+    );
+    return res.rows[0];
+  },
+
+  async failOrRetryQueueJob(jobId, errorMessage, delaySeconds = 30) {
+    const check = await pool.query('SELECT attempts, max_attempts FROM scraper_queue WHERE id = $1', [jobId]);
+    if (check.rows.length === 0) return null;
+    const { attempts, max_attempts } = check.rows[0];
+
+    if (attempts < max_attempts) {
+      const res = await pool.query(
+        `UPDATE scraper_queue
+         SET status = 'RETRY_SCHEDULED',
+             locked_at = null,
+             locked_by = null,
+             last_error = $2,
+             next_run_at = now() + ($3 || ' seconds')::interval
+         WHERE id = $1
+         RETURNING *`,
+        [jobId, errorMessage, `${delaySeconds}`]
+      );
+      return res.rows[0];
+    } else {
+      const res = await pool.query(
+        `UPDATE scraper_queue
+         SET status = 'FAILED',
+             locked_at = null,
+             locked_by = null,
+             last_error = $2
+         WHERE id = $1
+         RETURNING *`,
+        [jobId, errorMessage]
+      );
+      return res.rows[0];
+    }
+  },
+
+  async getQueueStats() {
+    const res = await pool.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE status = 'QUEUED')::int as queued_count,
+         COUNT(*) FILTER (WHERE status = 'RUNNING')::int as running_count,
+         COUNT(*) FILTER (WHERE status = 'RETRY_SCHEDULED')::int as retry_scheduled_count,
+         COUNT(*) FILTER (WHERE status = 'COMPLETED')::int as completed_count,
+         COUNT(*) FILTER (WHERE status = 'FAILED')::int as failed_count,
+         COUNT(*)::int as total_tasks
+       FROM scraper_queue`
+    );
+    return res.rows[0];
+  },
+
+  async getQueueItems(status = null, limit = 50) {
+    let query = 'SELECT * FROM scraper_queue';
+    let params = [];
+    if (status) {
+      query += ' WHERE status = $1';
+      params.push(status);
+    }
+    query += ' ORDER BY created_at DESC LIMIT ' + (params.length ? '$2' : '$1');
+    params.push(limit);
+    const { rows } = await pool.query(query, params);
+    return rows;
+  },
+
+  async getIncompleteCompanies() {
+    const query = `
+      SELECT DISTINCT ON (c.id)
+        c.id, c.name, c.career_url, c.ats_provider,
+        r.status as last_scan_status,
+        r.coverage as last_coverage,
+        r.reported_job_count as expected_count,
+        r.jobs_found as extracted_count,
+        r.created_at as last_scanned_at
+      FROM scraped_companies c
+      JOIN scraper_scan_runs r ON r.company_id = c.id
+      ORDER BY c.id, r.created_at DESC
+    `;
+    const { rows } = await pool.query(query);
+    return rows.filter(r => r.last_scan_status === 'INCOMPLETE' || r.last_coverage === 'PARTIAL');
   }
 };

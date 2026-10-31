@@ -1,6 +1,7 @@
 import { ScraperModel } from '../models/scraperModel.js';
 import { ScraperEngine } from '../services/scraper/scraperEngine.js';
 import { DiscoveryService } from '../services/scraper/discoveryService.js';
+import { ScraperQueueService } from '../services/scraper/queueService.js';
 
 export const ScraperController = {
   // Add single company
@@ -121,10 +122,12 @@ export const ScraperController = {
     return res.json({ success: true, company: updated });
   },
 
-  // Trigger scan for a company
+  // Trigger scan for a company (supports sync & background queue mode)
   async scanCompany(req, res) {
     const { id } = req.params;
-    const { keyword, title, location } = req.body || {};
+    const { keyword, title, location, isAsync } = req.body || {};
+    const useAsync = isAsync || req.query.async === 'true';
+
     try {
       const company = await ScraperModel.getCompanyById(id);
       if (!company) {
@@ -144,6 +147,18 @@ export const ScraperController = {
         });
       }
 
+      // Background Queue execution: returns immediately to avoid serverless timeout
+      if (useAsync) {
+        const queuedTask = await ScraperQueueService.enqueueScan(id, { keyword, title, location });
+        return res.status(202).json({
+          success: true,
+          queued: true,
+          taskId: queuedTask.id,
+          message: `Scan for ${company.name} successfully queued in background worker.`
+        });
+      }
+
+      // Standard execution
       const result = await ScraperEngine.scanCompany(id, { keyword, title, location });
       return res.json({ success: true, ...result });
     } catch (err) {
@@ -151,11 +166,58 @@ export const ScraperController = {
     }
   },
 
-  // Trigger scan for all allowed companies
-  async scanAll(_req, res) {
+  // Trigger scan for all allowed companies (Background Queue supported)
+  async scanAll(req, res) {
+    const useAsync = req.body?.isAsync !== false && req.query.sync !== 'true';
     try {
+      if (useAsync) {
+        const queueResult = await ScraperQueueService.enqueueAllAllowed();
+        return res.status(202).json({
+          success: true,
+          queued: true,
+          message: `Queued ${queueResult.enqueuedCount} companies for background scan without serverless timeout limits.`,
+          ...queueResult
+        });
+      }
+
       const results = await ScraperEngine.scanAllAllowed();
       return res.json({ success: true, results });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  },
+
+  // Get background queue stats, incomplete scans list, and recent tasks
+  async getQueueStatus(_req, res) {
+    try {
+      const data = await ScraperQueueService.getStats();
+      return res.json({ success: true, ...data });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  },
+
+  // Process a batch of queued jobs (used by worker or cron)
+  async processQueueBatch(req, res) {
+    const concurrency = req.body?.concurrency ? parseInt(req.body.concurrency, 10) : 2;
+    const maxTasks = req.body?.maxTasks ? parseInt(req.body.maxTasks, 10) : 5;
+    try {
+      const result = await ScraperQueueService.processBatch(concurrency, maxTasks);
+      return res.json({ success: true, ...result });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  },
+
+  // Trigger automatic retry for all incomplete/partial scans
+  async retryIncompleteScans(_req, res) {
+    try {
+      const result = await ScraperQueueService.enqueueIncompleteRetries();
+      return res.json({
+        success: true,
+        message: `Queued ${result.retriedCount} incomplete scans for automated retry.`,
+        ...result
+      });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }

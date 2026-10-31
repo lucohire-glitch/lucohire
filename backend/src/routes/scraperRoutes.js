@@ -21,6 +21,11 @@ router.get('/scans', requireAdmin, asyncHandler(ScraperController.getScanRuns));
 router.get('/scans/:id', requireAdmin, asyncHandler(ScraperController.getScanRunById));
 router.post('/scans/:id/retry-pending', requireAdmin, asyncHandler(ScraperController.retryPending));
 
+// Background Queue & Incomplete Retry Engine
+router.get('/queue', requireAdmin, asyncHandler(ScraperController.getQueueStatus));
+router.post('/queue/process-batch', requireAdmin, asyncHandler(ScraperController.processQueueBatch));
+router.post('/queue/retry-incomplete', requireAdmin, asyncHandler(ScraperController.retryIncompleteScans));
+
 // Job management
 router.get('/jobs', requireAdmin, asyncHandler(ScraperController.getJobs));
 router.put('/jobs/:id/publish', requireAdmin, asyncHandler(ScraperController.toggleJobPublish));
