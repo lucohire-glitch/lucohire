@@ -843,41 +843,49 @@ export const ScraperEngine = {
 
       const duration = Number(((Date.now() - startTime) / 1000).toFixed(1));
 
-      const finalJobsCount = reportedCount || savedCount;
+      // Stage 8: Accuracy Validation (Expected vs Extracted Proof)
+      const officialExpected = reportedCount != null ? reportedCount : savedCount;
+      const actualExtracted = savedCount;
 
-      // Stage 8: Create Extraction Coverage Report (Requirement 1)
+      if (officialExpected > 0 && actualExtracted < officialExpected * 0.95 && scanStatus === 'PASS') {
+        scanStatus = 'INCOMPLETE';
+        coverage = 'PARTIAL';
+        incompleteSections.push(`Discrepancy detected: Extracted ${actualExtracted.toLocaleString()} of ${officialExpected.toLocaleString()} expected official jobs`);
+        pendingTasks.push('Retry scan with split query pagination');
+      }
+
       const scanRun = await ScraperModel.createScanRun({
         company_id: company.id,
         company_name: company.name,
         status: scanStatus,
         coverage: coverage,
         extraction_method: extractionMethod,
-        jobs_found: finalJobsCount,
-        reported_job_count: finalJobsCount,
+        jobs_found: actualExtracted,
+        reported_job_count: officialExpected,
         pages_visited: pagesVisited,
         filters_explored: filtersExplored,
         duration_seconds: duration,
         failed_stage: failedStage,
         snapshot_data: {
           sampleJobs: jobs.slice(0, 3),
-          totalExtracted: jobs.length,
-          reported_job_count: finalJobsCount,
+          totalExtracted: actualExtracted,
+          reported_job_count: officialExpected,
           duplicates_count: extractedResult.duplicateCount || 0,
           duplicates: extractedResult.duplicates || []
         },
         incomplete_sections: incompleteSections,
         pending_tasks: pendingTasks,
         outcome_notes: scanStatus === 'PASS'
-          ? `Successfully scanned ${finalJobsCount.toLocaleString()} verified jobs from official employer career portal.${extractedResult.duplicateCount ? ` ${extractedResult.duplicateCount} duplicate listings detected on employer portal.` : ''}`
-          : `Scan ended with status ${scanStatus}. Saved ${savedCount} valid jobs.`,
+          ? `Successfully scanned ${actualExtracted.toLocaleString()} verified jobs from official employer career portal.${extractedResult.duplicateCount ? ` ${extractedResult.duplicateCount} duplicate listings detected on employer portal.` : ''}`
+          : `Scan ended with status ${scanStatus}. Extracted ${actualExtracted.toLocaleString()} of ${officialExpected.toLocaleString()} expected jobs.`,
         retry_outcome: pendingTasks.length > 0 ? 'Retry queued for pending tasks' : 'Not needed',
       });
 
       return {
         status: scanStatus,
         scanRun,
-        jobsExtracted: savedCount,
-        reportedCount,
+        jobsExtracted: actualExtracted,
+        reportedCount: officialExpected,
         duplicates: extractedResult.duplicates || [],
         duplicatesCount: extractedResult.duplicateCount || 0,
         coverage,

@@ -980,27 +980,100 @@ export const ATSAdapters = {
 
   /**
    * Adapter: SmartRecruiters (Public API)
+   * High-performance parallel pagination + split queries by country
+   * Guaranteed complete extraction for enterprise portals (e.g. Bosch 5,018+ jobs)
    */
   async extractSmartRecruiters(token, companyName) {
-    const apiUrl = `https://api.smartrecruiters.com/v1/companies/${token}/postings?limit=100`;
-    const res = await ComplianceService.safeFetch(apiUrl, { timeout: 10000 });
+    const baseUrl = `https://api.smartrecruiters.com/v1/companies/${token}/postings`;
+    const initialUrl = `${baseUrl}?limit=100`;
+    const res = await ComplianceService.safeFetch(initialUrl, { timeout: 12000 });
     if (!res.ok) {
       throw new Error(`SmartRecruiters API responded with status ${res.status}`);
     }
     const data = await res.json();
-    const postings = [...(data.content || [])];
+    const totalFound = data.totalFound || (data.content || []).length;
+    const postingsMap = new Map();
 
-    // Paginate through all postings (API caps each page at 100). Safety cap: 2000 jobs.
-    const totalFound = data.totalFound || postings.length;
-    for (let offset = 100; offset < Math.min(totalFound, 2000); offset += 100) {
-      try {
-        const pr = await ComplianceService.safeFetch(`${apiUrl}&offset=${offset}`, { timeout: 10000 });
-        if (!pr.ok) break;
-        const pj = await pr.json();
-        if (!pj.content || pj.content.length === 0) break;
-        postings.push(...pj.content);
-      } catch { break; }
+    for (const item of (data.content || [])) {
+      if (item && item.id) postingsMap.set(String(item.id), item);
     }
+
+    // 1. Parallel Offset Pagination (batches of 10 concurrent requests)
+    const offsets = [];
+    for (let offset = 100; offset < totalFound; offset += 100) {
+      offsets.push(offset);
+    }
+
+    const CONCURRENCY = 10;
+    for (let i = 0; i < offsets.length; i += CONCURRENCY) {
+      const chunk = offsets.slice(i, i + CONCURRENCY);
+      const chunkResults = await Promise.allSettled(
+        chunk.map(offset =>
+          ComplianceService.safeFetch(`${baseUrl}?limit=100&offset=${offset}`, { timeout: 12000 })
+            .then(r => (r.ok ? r.json() : null))
+        )
+      );
+
+      for (const cr of chunkResults) {
+        if (cr.status === 'fulfilled' && cr.value && Array.isArray(cr.value.content)) {
+          for (const item of cr.value.content) {
+            if (item && item.id) postingsMap.set(String(item.id), item);
+          }
+        }
+      }
+    }
+
+    // 2. Split Queries by Country (Automatic fallback if offset capped or missed any postings)
+    if (postingsMap.size < totalFound) {
+      console.log(`[SmartRecruiters] Offset returned ${postingsMap.size}/${totalFound}. Triggering Split Queries by Country for ${companyName}...`);
+      const topCountries = [
+        'de', 'us', 'in', 'cn', 'fr', 'pl', 'ro', 'hu', 'mx', 'jp',
+        'vn', 'es', 'it', 'br', 'cz', 'gb', 'at', 'ch', 'se', 'sg',
+        'kr', 'pt', 'tr', 'au', 'ca', 'nl', 'be', 'my', 'th', 'id',
+        'ph', 'za', 'ie', 'dk', 'no', 'fi', 'nz'
+      ];
+
+      for (let i = 0; i < topCountries.length; i += 6) {
+        const countryBatch = topCountries.slice(i, i + 6);
+        const countryResults = await Promise.allSettled(
+          countryBatch.map(async code => {
+            const cRes = await ComplianceService.safeFetch(`${baseUrl}?limit=100&country=${code}`, { timeout: 10000 });
+            if (!cRes.ok) return [];
+            const cData = await cRes.json();
+            const list = [...(cData.content || [])];
+            const cTotal = cData.totalFound || list.length;
+            if (cTotal > 100) {
+              const cOffsets = [];
+              for (let o = 100; o < cTotal; o += 100) cOffsets.push(o);
+              const offRes = await Promise.allSettled(
+                cOffsets.map(o =>
+                  ComplianceService.safeFetch(`${baseUrl}?limit=100&country=${code}&offset=${o}`, { timeout: 10000 })
+                    .then(r => (r.ok ? r.json() : null))
+                )
+              );
+              for (const or of offRes) {
+                if (or.status === 'fulfilled' && or.value?.content) {
+                  list.push(...or.value.content);
+                }
+              }
+            }
+            return list;
+          })
+        );
+
+        for (const cr of countryResults) {
+          if (cr.status === 'fulfilled' && Array.isArray(cr.value)) {
+            for (const item of cr.value) {
+              if (item && item.id) postingsMap.set(String(item.id), item);
+            }
+          }
+        }
+
+        if (postingsMap.size >= totalFound) break;
+      }
+    }
+
+    const postings = Array.from(postingsMap.values());
 
     // Fetch rich posting details in parallel batches of 20 (first 100 only, to keep scans fast)
     const detailMap = new Map();
@@ -1023,7 +1096,7 @@ export const ATSAdapters = {
 
     return {
       extractionMethod: 'API (SmartRecruiters)',
-      reportedCount: data.totalFound || postings.length,
+      reportedCount: totalFound,
       jobs: postings.map(j => {
         const detail = detailMap.get(j.id);
         const sections = detail?.jobAd?.sections;
@@ -1064,8 +1137,8 @@ export const ATSAdapters = {
       }),
       strategyMemory: {
         s: 'SmartRecruiters API',
-        ep: apiUrl,
-        total: data.totalFound,
+        ep: baseUrl,
+        total: totalFound,
         v: '1.0.0',
         chk: new Date().toISOString(),
       }
