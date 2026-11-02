@@ -347,7 +347,7 @@ export const ATSAdapters = {
           totalReported = typeof firstData.count === 'number' ? firstData.count : pos0.length;
           allPositions.push(...pos0);
 
-          const maxJobsToFetch = Math.min(totalReported, 1500);
+          const maxJobsToFetch = Math.min(totalReported, 2500);
           const offsets = [];
           for (let offset = 10; offset < maxJobsToFetch; offset += 10) {
             offsets.push(offset);
@@ -379,7 +379,7 @@ export const ATSAdapters = {
           totalReported = firstData?.data?.count || firstData?.count || pos0.length;
           allPositions.push(...pos0);
 
-          const maxJobsToFetch = Math.min(totalReported, 1500);
+          const maxJobsToFetch = Math.min(totalReported, 2500);
           const offsets = [];
           for (let offset = 10; offset < maxJobsToFetch; offset += 10) {
             offsets.push(offset);
@@ -671,92 +671,118 @@ export const ATSAdapters = {
 
     const apiUrl = `https://${host}/wday/cxs/${tenant}/${site}/jobs`;
     const limit = 20;
-    let offset = 0;
     let totalReported = null;
     const allJobs = [];
     const searchText = (options.keyword || options.title || options.search || options.location || '').trim();
 
-    for (let p = 0; p < maxPages; p++) {
-      try {
-        const res = await ComplianceService.safeFetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            appliedFacets: {},
-            limit,
-            offset,
-            searchText,
-          }),
-          timeout: 10000,
-        });
+    // 1. Fetch page 0 to discover total postings
+    const rawPostings = [];
+    try {
+      const res0 = await ComplianceService.safeFetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appliedFacets: {}, limit, offset: 0, searchText }),
+        timeout: 10000,
+      });
 
-        if (!res.ok) break;
-        const data = await res.json();
-        if (totalReported === null && typeof data.total === 'number') {
-          totalReported = data.total;
+      if (res0.ok) {
+        const data0 = await res0.json();
+        totalReported = typeof data0.total === 'number' ? data0.total : null;
+        if (Array.isArray(data0.jobPostings)) {
+          rawPostings.push(...data0.jobPostings);
         }
 
-        const postings = data.jobPostings || [];
-        if (postings.length === 0) break;
-
-        // Fetch full rich job details from Workday detail endpoint
-        const detailResults = await Promise.allSettled(
-          postings.map(item => {
-            if (!item.externalPath) return Promise.resolve(null);
-            const detailUrl = `https://${host}/wday/cxs/${tenant}/${site}${item.externalPath}`;
-            return ComplianceService.safeFetch(detailUrl, {
-              headers: { 'Accept': 'application/json' },
-              timeout: 6000
-            }).then(r => r.json());
-          })
-        );
-
-        for (let i = 0; i < postings.length; i++) {
-          const item = postings[i];
-          const detail = detailResults[i]?.status === 'fulfilled' ? detailResults[i].value : null;
-          const reqId = item.bulletFields?.[0] || item.externalPath || Math.random().toString(36).substring(7);
-          const location = item.locationsText || item.bulletFields?.[1] || 'Multiple Locations';
-          const title = item.title || 'Untitled Role';
-          const jobViewUrl = `https://${host}/en-US/${site}${item.externalPath}`;
-          const applyUrl = `https://${host}/en-US/${site}${item.externalPath}/apply`;
-          const isRemote = (title + ' ' + location).toLowerCase().includes('remote');
-
-          const rawDesc = detail?.jobPostingInfo?.jobDescription;
-          const cleanDesc = rawDesc
-            ? cleanHtmlToMarkdown(rawDesc)
-            : `Official opening at ${companyName} for ${title}.\n\nRequisition ID: ${reqId}\nLocation: ${location}\nPosted: ${item.postedOn || 'Recent'}\n\nPlease visit official career portal for full details: ${jobViewUrl}`;
-
-          allJobs.push({
-            external_job_id: String(reqId),
-            title,
-            location,
-            locations: [location],
-            work_mode: isRemote ? 'Remote' : 'On-site',
-            employment_type: detail?.jobPostingInfo?.timeType || item.timeType || 'Full-time',
-            department: item.bulletFields?.[2] || 'General',
-            experience: '',
-            salary: '',
-            skills: [],
-            description: cleanDesc,
-            original_job_url: jobViewUrl,
-            apply_url: applyUrl,
-            ats_provider: 'Workday',
-            confidence_score: 98,
-          });
+        // 2. Fetch remaining pages in parallel batches
+        const targetPages = Math.min(Math.ceil((totalReported || rawPostings.length) / limit), maxPages || 50);
+        const offsets = [];
+        for (let p = 1; p < targetPages; p++) {
+          offsets.push(p * limit);
         }
 
-        offset += limit;
-        if (totalReported && offset >= totalReported) break;
-      } catch (err) {
-        console.error('Workday page fetch error:', err.message);
-        break;
+        if (offsets.length > 0) {
+          const BATCH_SIZE = 6;
+          for (let b = 0; b < offsets.length; b += BATCH_SIZE) {
+            const batch = offsets.slice(b, b + BATCH_SIZE);
+            const batchResults = await Promise.allSettled(
+              batch.map(off =>
+                ComplianceService.safeFetch(apiUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ appliedFacets: {}, limit, offset: off, searchText }),
+                  timeout: 10000,
+                }).then(r => r.ok ? r.json() : null)
+              )
+            );
+            let gotAny = false;
+            for (const br of batchResults) {
+              if (br.status === 'fulfilled' && Array.isArray(br.value?.jobPostings)) {
+                rawPostings.push(...br.value.jobPostings);
+                gotAny = true;
+              }
+            }
+            if (!gotAny) break;
+          }
+        }
       }
+    } catch (err) {
+      console.warn('Workday initial fetch error:', err.message);
     }
 
-    if (allJobs.length === 0) {
+    if (rawPostings.length === 0) {
       throw new Error(`Workday API returned 0 postings from ${apiUrl}`);
+    }
+
+    // Optional detail enrichment for first 30 postings
+    const detailsMap = new Map();
+    const detailSubset = rawPostings.slice(0, 30);
+    const detailResults = await Promise.allSettled(
+      detailSubset.map(item => {
+        if (!item.externalPath) return Promise.resolve(null);
+        const detailUrl = `https://${host}/wday/cxs/${tenant}/${site}${item.externalPath}`;
+        return ComplianceService.safeFetch(detailUrl, {
+          headers: { 'Accept': 'application/json' },
+          timeout: 6000
+        }).then(r => r.ok ? r.json() : null);
+      })
+    );
+    detailResults.forEach((res, idx) => {
+      if (res.status === 'fulfilled' && res.value?.jobPostingInfo) {
+        detailsMap.set(detailSubset[idx].externalPath, res.value.jobPostingInfo);
+      }
+    });
+
+    for (let i = 0; i < rawPostings.length; i++) {
+      const item = rawPostings[i];
+      const detail = item.externalPath ? detailsMap.get(item.externalPath) : null;
+      const reqId = item.bulletFields?.[0] || item.externalPath || Math.random().toString(36).substring(7);
+      const location = item.locationsText || item.bulletFields?.[1] || 'Multiple Locations';
+      const title = item.title || 'Untitled Role';
+      const jobViewUrl = `https://${host}/en-US/${site}${item.externalPath}`;
+      const applyUrl = `https://${host}/en-US/${site}${item.externalPath}/apply`;
+      const isRemote = (title + ' ' + location).toLowerCase().includes('remote');
+
+      const rawDesc = detail?.jobDescription;
+      const cleanDesc = rawDesc
+        ? cleanHtmlToMarkdown(rawDesc)
+        : `Official opening at ${companyName} for ${title}.\n\nRequisition ID: ${reqId}\nLocation: ${location}\nPosted: ${item.postedOn || 'Recent'}\n\nPlease visit official career portal for full details: ${jobViewUrl}`;
+
+      allJobs.push({
+        external_job_id: String(reqId),
+        title,
+        location,
+        locations: [location],
+        work_mode: isRemote ? 'Remote' : 'On-site',
+        employment_type: detail?.timeType || item.timeType || 'Full-time',
+        department: item.bulletFields?.[2] || 'General',
+        experience: '',
+        salary: '',
+        skills: [],
+        description: cleanDesc,
+        original_job_url: jobViewUrl,
+        apply_url: applyUrl,
+        ats_provider: 'Workday',
+        confidence_score: 98,
+      });
     }
 
     return {
@@ -1058,7 +1084,13 @@ export const ATSAdapters = {
    * Guaranteed complete extraction for enterprise portals (e.g. Bosch 5,018+ jobs)
    */
   async extractSmartRecruiters(token, companyName) {
-    const baseUrl = `https://api.smartrecruiters.com/v1/companies/${token}/postings`;
+    let cleanToken = String(token || '')
+      .replace(/^https?:\/\/(?:careers\.)?smartrecruiters\.com\//i, '')
+      .replace(/^https?:\/\/[^/]+\//, '')
+      .replace(/[/?#].*$/, '')
+      .trim();
+    if (!cleanToken) cleanToken = companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const baseUrl = `https://api.smartrecruiters.com/v1/companies/${cleanToken}/postings`;
     const initialUrl = `${baseUrl}?limit=100`;
     const res = await ComplianceService.safeFetch(initialUrl, { timeout: 12000 });
     if (!res.ok) {
@@ -1215,6 +1247,73 @@ export const ATSAdapters = {
         total: totalFound,
         v: '1.0.0',
         chk: new Date().toISOString(),
+      }
+    };
+  },
+
+  /**
+   * Adapter: Darwinbox (Indian Enterprise ATS: Delhivery, Swiggy, Paytm, Kotak, Nykaa, BigBasket, etc.)
+   */
+  async extractDarwinbox(urlOrTenant, companyName, options = {}) {
+    let tenant = String(urlOrTenant || '').trim();
+    const match = tenant.match(/https?:\/\/([a-zA-Z0-9_-]+)\.darwinbox\.in/i);
+    if (match) tenant = match[1];
+    tenant = tenant.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!tenant) tenant = companyName.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+
+    const apiUrl = `https://${tenant}.darwinbox.in/ms/candidateapi/job/`;
+    const res = await ComplianceService.safeFetch(apiUrl, {
+      headers: {
+        'Accept': 'application/json, text/plain, */*',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      timeout: 12000
+    });
+
+    if (!res.ok) {
+      throw new Error(`Darwinbox candidate API responded with status ${res.status}`);
+    }
+
+    const data = await res.json();
+    const rawJobs = data.message?.jobs || [];
+    const reportedCount = typeof data.message?.jobscount === 'number' ? data.message.jobscount : rawJobs.length;
+
+    const jobs = rawJobs.map(j => {
+      const reqId = String(j.id || Math.random().toString(36).substring(7));
+      const title = (j.title || j.designation_display_name || 'Open Position').trim();
+      const loc = j.officelocation_show_arr || 'Multiple locations';
+      const dept = j.department || 'General';
+      const jobUrl = `https://${tenant}.darwinbox.in/ms/candidate/careers/${reqId}`;
+
+      return {
+        external_job_id: reqId,
+        title,
+        location: loc,
+        locations: [loc],
+        work_mode: (title + ' ' + loc).toLowerCase().includes('remote') ? 'Remote' : 'On-site',
+        employment_type: j.emp_type || 'Full-time',
+        department: dept,
+        experience: j.experience_from_num ? `${j.experience_from_num}-${j.experience_to_num || ''} yrs` : '',
+        salary: '',
+        skills: [],
+        description: `Official job opening at ${companyName} for ${title}.\n\nDepartment: ${dept}\nLocation: ${loc}\nReq ID: ${reqId}\n\nApply directly on official career portal: ${jobUrl}`,
+        original_job_url: jobUrl,
+        apply_url: jobUrl,
+        ats_provider: 'Darwinbox',
+        confidence_score: 98
+      };
+    });
+
+    return {
+      extractionMethod: 'Darwinbox Candidate API',
+      reportedCount,
+      jobs,
+      strategyMemory: {
+        s: 'Darwinbox Candidate API',
+        ep: apiUrl,
+        total: reportedCount,
+        v: '1.0.0',
+        chk: new Date().toISOString()
       }
     };
   },
@@ -1605,12 +1704,12 @@ export const ATSAdapters = {
           rawResults.push(...firstData.jobSearchResult);
         }
 
-        // Fetch additional pages in polite batches (up to 35 pages = 350 jobs)
-        const totalPages = Math.min(Math.ceil(totalReported / 10), 35);
+        // Fetch additional pages in polite batches (up to 120 pages = 1,200 jobs)
+        const totalPages = Math.min(Math.ceil(totalReported / 10), 120);
         const pages = [];
         for (let p = 1; p < totalPages; p++) pages.push(p);
 
-        const BATCH_SIZE = 7;
+        const BATCH_SIZE = 8;
         for (let b = 0; b < pages.length; b += BATCH_SIZE) {
           const batch = pages.slice(b, b + BATCH_SIZE);
           const batchRes = await Promise.allSettled(
@@ -3588,7 +3687,7 @@ export const ATSAdapters = {
       const wdMatch = (finalUrl + ' ' + html).match(/https?:\/\/([a-zA-Z0-9_.-]+)\.myworkdayjobs\.com\/([a-zA-Z0-9_/%-]+)/i);
       const wdUrl = wdMatch ? wdMatch[0].replace(/["';,].*$/, '').replace(/\/userHome.*$/, '') : finalUrl;
       try {
-        const res = await ATSAdapters.extractWorkday(wdUrl, companyName, 5, options);
+        const res = await ATSAdapters.extractWorkday(wdUrl, companyName, 50, options);
         if (res.jobs && res.jobs.length > 0) {
           return { ...res, atsProvider: 'Workday', resolvedUrl: wdUrl };
         }
@@ -3653,9 +3752,11 @@ export const ATSAdapters = {
       }
     }
 
-    // Protocol 9: SmartRecruiters (Visa, McDonald's, Bosch, LinkedIn, etc.)
-    if (combined.includes('smartrecruiters.com')) {
-      const srMatch = finalUrl.match(/careers\.smartrecruiters\.com\/([^/?&#]+)/i) || html.match(/careers\.smartrecruiters\.com\/([a-zA-Z0-9_-]+)/i);
+    // Protocol 9: SmartRecruiters (Visa, McDonald's, Bosch, Swiggy, PhonePe, LinkedIn, etc.)
+    if (combined.includes('smartrecruiters.com') || combined.includes('smrtr.io')) {
+      const srMatch = finalUrl.match(/(?:careers\.)?smartrecruiters\.com\/([^/?&#]+)/i) ||
+                      html.match(/(?:careers\.)?smartrecruiters\.com\/([a-zA-Z0-9_-]+)/i) ||
+                      html.match(/smrtr\.io\/([a-zA-Z0-9_-]+)/i);
       const token = srMatch ? srMatch[1] : companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
       try {
         const res = await ATSAdapters.extractSmartRecruiters(token, companyName);
@@ -3664,6 +3765,18 @@ export const ATSAdapters = {
         }
       } catch (err) {
         console.warn(`[Universal Common Adapter] SmartRecruiters error for ${companyName}:`, err.message);
+      }
+    }
+
+    // Protocol 9.5: Darwinbox (Delhivery, Swiggy, Paytm, Kotak, Nykaa, BigBasket, etc.)
+    if (combined.includes('.darwinbox.in')) {
+      try {
+        const res = await ATSAdapters.extractDarwinbox(finalUrl, companyName, options);
+        if (res.jobs && res.jobs.length > 0) {
+          return { ...res, atsProvider: 'Darwinbox', resolvedUrl: finalUrl };
+        }
+      } catch (err) {
+        console.warn(`[Universal Common Adapter] Darwinbox error for ${companyName}:`, err.message);
       }
     }
 

@@ -657,6 +657,19 @@ export const ScraperEngine = {
         }
       }
 
+      // 6.5. Try Darwinbox (Top Indian enterprise ATS)
+      if (!extractionSuccess && (atsLower.includes('darwinbox') || (careerUrl && careerUrl.includes('darwinbox.in')))) {
+        try {
+          const res = await ATSAdapters.extractDarwinbox(careerUrl || website || atsToken, company.name, options);
+          if (res.jobs && res.jobs.length > 0) {
+            extractedResult = res;
+            extractionSuccess = true;
+          }
+        } catch (err) {
+          console.warn(`Darwinbox error for ${company.name}, cascading:`, err.message);
+        }
+      }
+
       // 7. Multi-probe & Sitemaps & Generic Fallback
       if (!extractionSuccess) {
         // Probe Workday subdomains

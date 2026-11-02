@@ -297,11 +297,17 @@ export const DiscoveryService = {
       return { ats: 'Ashby', token: match ? match[1] : null };
     }
 
-    // 5. SmartRecruiters
-    if (combinedLower.includes('careers.smartrecruiters.com') || combinedLower.includes('smartrecruiters.com')) {
-      const match = url.match(/careers\.smartrecruiters\.com\/([^/?&#]+)/i) ||
-                    html.match(/careers\.smartrecruiters\.com\/([a-zA-Z0-9_-]+)/i);
+    // 5. SmartRecruiters (Bosch, Swiggy, PhonePe, Skechers, Publicis, etc.)
+    if (combinedLower.includes('smartrecruiters.com') || combinedLower.includes('smrtr.io')) {
+      const match = url.match(/(?:careers\.)?smartrecruiters\.com\/([^/?&#]+)/i) ||
+                    html.match(/(?:careers\.)?smartrecruiters\.com\/([a-zA-Z0-9_-]+)/i);
       return { ats: 'SmartRecruiters', token: match ? match[1] : null };
+    }
+
+    // 5.5 Darwinbox (Top Indian enterprise ATS: Delhivery, Swiggy, Paytm, Kotak, Nykaa, BigBasket, etc.)
+    if (combinedLower.includes('.darwinbox.in')) {
+      const match = combined.match(/https?:\/\/([a-zA-Z0-9_-]+)\.darwinbox\.in/i);
+      return { ats: 'Darwinbox', token: match ? match[1] : null, darwinboxUrl: match ? match[0] : url };
     }
 
     // 6. Workable
