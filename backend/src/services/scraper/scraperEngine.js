@@ -128,6 +128,14 @@ export const ScraperEngine = {
         // Reject single dummy / test postings
         if (jobs.length === 1 && /test\s*uat|sample\s*job|dummy\s*job/i.test(jobs[0].title || '')) return false;
 
+        // Extract key company identifiers (ignoring corporate suffixes like international, group, inc, etc.)
+        const coreWords = (companyName || '').toLowerCase()
+          .replace(/\b(the|company|inc|international|group|ltd|llc|plc|corporation|corp)\b/gi, '')
+          .replace(/[^a-z0-9\s]/g, '')
+          .split(/\s+/)
+          .filter(w => w.length >= 3);
+        const primaryKeyword = coreWords[0] || normName;
+
         const sample = jobs.slice(0, 10);
         let matches = 0;
         for (const j of sample) {
@@ -140,7 +148,7 @@ export const ScraperEngine = {
             (j.description || '')
           ).toLowerCase().replace(/[^a-z0-9]/g, '');
 
-          if (combined.includes(normName)) matches++;
+          if (combined.includes(normName) || combined.includes(primaryKeyword)) matches++;
         }
         return matches >= Math.min(1, sample.length);
       };
