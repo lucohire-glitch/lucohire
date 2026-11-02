@@ -328,5 +328,33 @@ export const ScraperController = {
       count: filtered.length,
       totalCount: totalCount || filtered.length,
     });
+  },
+
+  // Get scraper watchdog alerts (30%+ drop, zero jobs, count discrepancies)
+  async getAlerts(req, res) {
+    try {
+      const status = req.query.status || 'ACTIVE';
+      const severity = req.query.severity || null;
+      const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
+
+      const alerts = await ScraperModel.getAlerts({ status, severity, limit });
+      const stats = await ScraperModel.getAlertStats();
+
+      return res.json({ success: true, stats, alerts });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  },
+
+  // Resolve or acknowledge an alert
+  async resolveAlert(req, res) {
+    const { id } = req.params;
+    const { status = 'RESOLVED' } = req.body || {};
+    try {
+      const updated = await ScraperModel.updateAlertStatus(id, status);
+      return res.json({ success: true, alert: updated });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
   }
 };

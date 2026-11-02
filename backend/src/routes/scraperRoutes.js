@@ -26,6 +26,10 @@ router.get('/queue', requireAdmin, asyncHandler(ScraperController.getQueueStatus
 router.post('/queue/process-batch', requireAdmin, asyncHandler(ScraperController.processQueueBatch));
 router.post('/queue/retry-incomplete', requireAdmin, asyncHandler(ScraperController.retryIncompleteScans));
 
+// Watchdog Alerts (30%+ count drop, zero jobs, discrepancies)
+router.get('/alerts', requireAdmin, asyncHandler(ScraperController.getAlerts));
+router.put('/alerts/:id/resolve', requireAdmin, asyncHandler(ScraperController.resolveAlert));
+
 // Job management
 router.get('/jobs', requireAdmin, asyncHandler(ScraperController.getJobs));
 router.put('/jobs/:id/publish', requireAdmin, asyncHandler(ScraperController.toggleJobPublish));

@@ -96,6 +96,23 @@ export const ScraperModel = {
         created_at TIMESTAMPTZ DEFAULT now()
       );
 
+      -- 5. Scraper Health & Discrepancy Alerts (30%+ drop detection, zero-job alert, discrepancy tracker)
+      CREATE TABLE IF NOT EXISTS scraper_alerts (
+        id SERIAL PRIMARY KEY,
+        company_id INTEGER REFERENCES scraped_companies(id) ON DELETE CASCADE,
+        company_name TEXT NOT NULL,
+        alert_type TEXT NOT NULL, -- 'COUNT_DROP_30', 'ZERO_JOBS', 'COUNT_DISCREPANCY', 'PORTAL_BLOCKED'
+        severity TEXT NOT NULL DEFAULT 'WARNING', -- 'CRITICAL', 'WARNING', 'INFO'
+        previous_count INTEGER DEFAULT 0,
+        current_count INTEGER DEFAULT 0,
+        percentage_drop NUMERIC DEFAULT 0,
+        message TEXT NOT NULL,
+        status TEXT DEFAULT 'ACTIVE', -- 'ACTIVE', 'ACKNOWLEDGED', 'RESOLVED'
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT now(),
+        resolved_at TIMESTAMPTZ
+      );
+
       -- Indexes for high performance
       CREATE INDEX IF NOT EXISTS idx_scraped_companies_name ON scraped_companies(name);
       CREATE INDEX IF NOT EXISTS idx_scraped_jobs_company_id ON scraped_jobs(company_id);
@@ -105,6 +122,9 @@ export const ScraperModel = {
       CREATE INDEX IF NOT EXISTS idx_scraper_scan_runs_created_at ON scraper_scan_runs(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_scraper_queue_status_next_run ON scraper_queue(status, next_run_at);
       CREATE INDEX IF NOT EXISTS idx_scraper_queue_company_id ON scraper_queue(company_id);
+      CREATE INDEX IF NOT EXISTS idx_scraper_alerts_company_id ON scraper_alerts(company_id);
+      CREATE INDEX IF NOT EXISTS idx_scraper_alerts_status ON scraper_alerts(status);
+      CREATE INDEX IF NOT EXISTS idx_scraper_alerts_created_at ON scraper_alerts(created_at DESC);
     `);
     console.log('Scraper tables initialized successfully');
   },
@@ -671,5 +691,123 @@ export const ScraperModel = {
     `;
     const { rows } = await pool.query(query);
     return rows.filter(r => r.last_scan_status === 'INCOMPLETE' || r.last_coverage === 'PARTIAL');
+  },
+
+  // -------------------------------------------------------------
+  // Alert & Watchdog Engine (30%+ Drop, Zero-Job, Discrepancy)
+  // -------------------------------------------------------------
+  async createAlert({
+    companyId,
+    companyName,
+    alertType,
+    severity = 'WARNING',
+    previousCount = 0,
+    currentCount = 0,
+    percentageDrop = 0,
+    message,
+    metadata = {}
+  }) {
+    // Check if an identical active alert already exists to prevent spamming
+    const existing = await pool.query(
+      `SELECT id FROM scraper_alerts
+       WHERE company_id = $1 AND alert_type = $2 AND status = 'ACTIVE'
+       LIMIT 1`,
+      [companyId, alertType]
+    );
+
+    if (existing.rows.length > 0) {
+      // Update existing active alert with latest metrics
+      const res = await pool.query(
+        `UPDATE scraper_alerts
+         SET current_count = $2,
+             previous_count = $3,
+             percentage_drop = $4,
+             message = $5,
+             metadata = $6,
+             severity = $7,
+             created_at = now()
+         WHERE id = $1
+         RETURNING *`,
+        [existing.rows[0].id, currentCount, previousCount, percentageDrop, message, JSON.stringify(metadata), severity]
+      );
+      return res.rows[0];
+    }
+
+    const res = await pool.query(
+      `INSERT INTO scraper_alerts (
+        company_id, company_name, alert_type, severity, previous_count, current_count, percentage_drop, message, metadata
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *`,
+      [companyId, companyName, alertType, severity, previousCount, currentCount, percentageDrop, message, JSON.stringify(metadata)]
+    );
+    return res.rows[0];
+  },
+
+  async resolveAlertsForCompany(companyId, alertTypes = []) {
+    let query = `
+      UPDATE scraper_alerts
+      SET status = 'RESOLVED', resolved_at = now()
+      WHERE company_id = $1 AND status = 'ACTIVE'
+    `;
+    const params = [companyId];
+    if (alertTypes.length > 0) {
+      query += ` AND alert_type = ANY($2::text[])`;
+      params.push(alertTypes);
+    }
+    query += ` RETURNING *`;
+    const res = await pool.query(query, params);
+    return res.rows;
+  },
+
+  async getAlerts({ status = 'ACTIVE', severity = null, limit = 50 } = {}) {
+    let query = 'SELECT * FROM scraper_alerts';
+    let params = [];
+    let whereClauses = [];
+
+    if (status && status !== 'ALL') {
+      whereClauses.push(`status = $${params.length + 1}`);
+      params.push(status);
+    }
+    if (severity) {
+      whereClauses.push(`severity = $${params.length + 1}`);
+      params.push(severity);
+    }
+
+    if (whereClauses.length > 0) {
+      query += ' WHERE ' + whereClauses.join(' AND ');
+    }
+
+    query += ` ORDER BY created_at DESC LIMIT $${params.length + 1}`;
+    params.push(limit);
+
+    const { rows } = await pool.query(query, params);
+    return rows;
+  },
+
+  async getAlertStats() {
+    const res = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'ACTIVE')::int as active_alerts,
+        COUNT(*) FILTER (WHERE status = 'ACTIVE' AND severity = 'CRITICAL')::int as critical_alerts,
+        COUNT(*) FILTER (WHERE status = 'ACTIVE' AND severity = 'WARNING')::int as warning_alerts,
+        COUNT(*) FILTER (WHERE status = 'ACTIVE' AND alert_type = 'COUNT_DROP_30')::int as count_drop_alerts,
+        COUNT(*) FILTER (WHERE status = 'ACTIVE' AND alert_type = 'ZERO_JOBS')::int as zero_jobs_alerts,
+        COUNT(*) FILTER (WHERE status = 'RESOLVED')::int as resolved_alerts,
+        COUNT(*)::int as total_alerts
+      FROM scraper_alerts
+    `);
+    return res.rows[0];
+  },
+
+  async updateAlertStatus(alertId, status) {
+    const res = await pool.query(
+      `UPDATE scraper_alerts
+       SET status = $2,
+           resolved_at = CASE WHEN $2 = 'RESOLVED' THEN now() ELSE resolved_at END
+       WHERE id = $1
+       RETURNING *`,
+      [alertId, status]
+    );
+    return res.rows[0];
   }
 };

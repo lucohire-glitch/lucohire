@@ -2,6 +2,7 @@ import { ScraperModel } from '../../models/scraperModel.js';
 import { ComplianceService } from './complianceService.js';
 import { DiscoveryService } from './discoveryService.js';
 import { ATSAdapters } from './adapters.js';
+import { ScraperAlertService } from './alertService.js';
 
 export const ScraperEngine = {
   /**
@@ -887,6 +888,23 @@ export const ScraperEngine = {
           ? `Successfully scanned ${actualExtracted.toLocaleString()} verified jobs from official employer career portal.${extractedResult.duplicateCount ? ` ${extractedResult.duplicateCount} duplicate listings detected on employer portal.` : ''}`
           : `Scan ended with status ${scanStatus}. Extracted ${actualExtracted.toLocaleString()} of ${officialExpected.toLocaleString()} expected jobs.`,
         retry_outcome: pendingTasks.length > 0 ? 'Retry queued for pending tasks' : 'Not needed',
+      });
+
+      // Watchdog Alert Evaluation (30%+ drop, zero jobs, count discrepancy)
+      let prevCount = 0;
+      try {
+        const prevRuns = await ScraperModel.getScanRuns(company.id, 2);
+        prevCount = prevRuns[1]?.reported_job_count || prevRuns[1]?.jobs_found || 0;
+      } catch {}
+
+      await ScraperAlertService.evaluateScan({
+        companyId: company.id,
+        companyName: company.name,
+        previousCount: prevCount,
+        currentExtracted: actualExtracted,
+        reportedCount: officialExpected,
+        scanStatus,
+        coverage
       });
 
       return {
