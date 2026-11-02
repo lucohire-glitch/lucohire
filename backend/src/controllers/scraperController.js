@@ -324,22 +324,15 @@ export const ScraperController = {
       status: 'ACTIVE',
       is_published: true,
       search: search || null,
+      location: location || null,
+      work_mode: (work_mode && work_mode !== 'All') ? work_mode : null,
       limit: limit ? parseInt(limit, 10) : 60,
       offset: offset ? parseInt(offset, 10) : 0,
     });
 
-    // Filter by work mode or location if provided
-    let filtered = jobs;
-    if (work_mode && work_mode !== 'All') {
-      filtered = filtered.filter(j => j.work_mode?.toLowerCase() === work_mode.toLowerCase());
-    }
-    if (location) {
-      filtered = filtered.filter(j => j.location?.toLowerCase().includes(location.toLowerCase()));
-    }
-
     return res.json({
       success: true,
-      jobs: filtered.map(j => ({
+      jobs: jobs.map(j => ({
         id: j.id,
         title: j.title,
         company: j.company_name,
@@ -359,8 +352,8 @@ export const ScraperController = {
         last_verified: j.last_verified_at,
         created_at: j.created_at,
       })),
-      count: filtered.length,
-      totalCount: totalCount || filtered.length,
+      count: jobs.length,
+      totalCount: totalCount || jobs.length,
     });
   },
 

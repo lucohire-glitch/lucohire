@@ -425,7 +425,7 @@ export const ScraperModel = {
     return { savedCount, foundIds };
   },
 
-  async getAllJobs({ company_id, company_name, title, location, status, is_published, search, limit = 15000, offset = 0 } = {}) {
+  async getAllJobs({ company_id, company_name, title, location, work_mode, status, is_published, search, limit = 15000, offset = 0 } = {}) {
     let whereClauses = [];
     let values = [];
     let idx = 1;
@@ -446,6 +446,10 @@ export const ScraperModel = {
       whereClauses.push(`(j.location ILIKE $${idx} OR j.locations::text ILIKE $${idx})`);
       values.push(`%${location}%`);
       idx++;
+    }
+    if (work_mode && work_mode !== 'All') {
+      whereClauses.push(`j.work_mode ILIKE $${idx++}`);
+      values.push(work_mode);
     }
     if (status && status !== 'All') {
       whereClauses.push(`j.status = $${idx++}`);
