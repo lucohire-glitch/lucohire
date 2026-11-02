@@ -574,3 +574,65 @@ export const toggleScraperJobPublish = async (jobId: number, is_published: boole
 
 
 
+
+
+// 3. Watchdog Alerts & Background Queue APIs
+export interface ScraperAlert {
+  id: number;
+  company_id: number;
+  company_name: string;
+  alert_type: 'COUNT_DROP_30' | 'ZERO_JOBS' | 'COUNT_DISCREPANCY';
+  severity: 'CRITICAL' | 'WARNING' | 'INFO';
+  previous_count: number;
+  current_count: number;
+  percentage_drop: number;
+  message: string;
+  status: 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED';
+  created_at: string;
+  resolved_at?: string;
+}
+
+export const fetchScraperAlerts = async (status: string = 'ACTIVE') => {
+  const res = await fetch(`${API_URL}/scraper/alerts?status=${status}`, { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch alerts');
+  return data as { success: boolean; alerts: ScraperAlert[]; stats: any };
+};
+
+export const resolveScraperAlert = async (alertId: number) => {
+  const res = await fetch(`${API_URL}/scraper/alerts/${alertId}/resolve`, {
+    method: 'PUT',
+    headers: authHeaders()
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to resolve alert');
+  return data;
+};
+
+export const fetchScraperQueue = async () => {
+  const res = await fetch(`${API_URL}/scraper/queue`, { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch queue stats');
+  return data;
+};
+
+export const processScraperQueueBatch = async (concurrency: number = 2, maxTasks: number = 4) => {
+  const res = await fetch(`${API_URL}/scraper/queue/process-batch`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ concurrency, maxTasks })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to process queue batch');
+  return data;
+};
+
+export const retryIncompleteScrapes = async () => {
+  const res = await fetch(`${API_URL}/scraper/queue/retry-incomplete`, {
+    method: 'POST',
+    headers: authHeaders()
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to retry incomplete scans');
+  return data;
+};

@@ -560,7 +560,8 @@ export const ATSAdapters = {
     if (keyword) finderBase += `,keyword=${encodeURIComponent(keyword)}`;
     if (location) finderBase += `,location=${encodeURIComponent(location)}`;
 
-    const apiUrl = `https://${host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&${finderBase},limit=25,offset=0&expand=requisitionList.secondaryLocations`;
+    const PAGE_LIMIT = 200;
+    const apiUrl = `https://${host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&${finderBase},limit=${PAGE_LIMIT},offset=0&expand=requisitionList.secondaryLocations`;
     const res = await ComplianceService.safeFetch(apiUrl, {
       headers: { 'Accept': 'application/json' },
       timeout: 12000,
@@ -574,32 +575,35 @@ export const ATSAdapters = {
     const searchItem = data.items?.[0] || {};
     const totalReported = searchItem.TotalJobsCount || 0;
     const rawJobs = [...(searchItem.requisitionList || [])];
-    const pageSize = rawJobs.length || 25;
+    const pageSize = rawJobs.length || PAGE_LIMIT;
 
-    // Paginate through all Oracle Cloud HCM pages up to totalReported (max 600)
+    // Paginate through Oracle Cloud HCM pages in parallel chunks (up to 3,000 jobs per scan)
     if (totalReported > rawJobs.length && rawJobs.length > 0) {
-      const maxToFetch = Math.min(totalReported, 600);
+      const maxToFetch = Math.min(totalReported, 3000);
       const offsets = [];
       for (let off = pageSize; off < maxToFetch; off += pageSize) {
         offsets.push(off);
       }
-      const BATCH_SIZE = 6;
+      const BATCH_SIZE = 8;
       for (let b = 0; b < offsets.length; b += BATCH_SIZE) {
         const batch = offsets.slice(b, b + BATCH_SIZE);
         const pageResults = await Promise.allSettled(
           batch.map(off => {
-            const pageUrl = `https://${host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&${finderBase},limit=${pageSize},offset=${off}&expand=requisitionList.secondaryLocations`;
+            const pageUrl = `https://${host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&${finderBase},limit=${PAGE_LIMIT},offset=${off}&expand=requisitionList.secondaryLocations`;
             return ComplianceService.safeFetch(pageUrl, {
               headers: { 'Accept': 'application/json' },
-              timeout: 10000,
+              timeout: 12000,
             }).then(r => r.ok ? r.json() : null);
           })
         );
+        let gotAny = false;
         for (const pr of pageResults) {
           if (pr.status === 'fulfilled' && pr.value?.items?.[0]?.requisitionList) {
             rawJobs.push(...pr.value.items[0].requisitionList);
+            gotAny = true;
           }
         }
+        if (!gotAny) break;
       }
     }
 

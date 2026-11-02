@@ -19,6 +19,9 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
+  Bell,
+  Clock,
+  ListChecks,
 } from 'lucide-react';
 import {
   fetchScraperCompanies,
@@ -30,9 +33,15 @@ import {
   fetchScraperJobs,
   toggleScraperJobPublish,
   retryScraperPending,
+  fetchScraperAlerts,
+  resolveScraperAlert,
+  fetchScraperQueue,
+  processScraperQueueBatch,
+  retryIncompleteScrapes,
   ScrapedCompany,
   ScrapedJob,
   ScraperScanRun,
+  ScraperAlert,
 } from '../api';
 
 const checkJobPortal = (str: string): string | null => {
@@ -64,10 +73,13 @@ const checkJobPortal = (str: string): string | null => {
 };
 
 export default function AdminScraperView() {
-  const [activeSubTab, setActiveSubTab] = useState<'companies' | 'jobs' | 'scans' | 'debug'>('companies');
+  const [activeSubTab, setActiveSubTab] = useState<'companies' | 'jobs' | 'scans' | 'debug' | 'alerts' | 'queue'>('companies');
   const [companies, setCompanies] = useState<ScrapedCompany[]>([]);
   const [jobs, setJobs] = useState<ScrapedJob[]>([]);
   const [scans, setScans] = useState<ScraperScanRun[]>([]);
+  const [alerts, setAlerts] = useState<ScraperAlert[]>([]);
+  const [queueStats, setQueueStats] = useState<any>(null);
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -110,14 +122,18 @@ export default function AdminScraperView() {
 
   const loadDataSilent = async () => {
     try {
-      const [compRes, scansRes, jobsRes] = await Promise.all([
+      const [compRes, scansRes, jobsRes, alertsRes, queueRes] = await Promise.all([
         fetchScraperCompanies(),
         fetchScraperScans(),
         fetchScraperJobs(),
+        fetchScraperAlerts('ACTIVE').catch(() => ({ alerts: [] })),
+        fetchScraperQueue().catch(() => ({ stats: null })),
       ]);
       if (compRes?.companies) setCompanies(compRes.companies);
       if (scansRes?.scans) setScans(scansRes.scans);
       if (jobsRes?.jobs) setJobs(jobsRes.jobs);
+      if (alertsRes?.alerts) setAlerts(alertsRes.alerts);
+      if (queueRes?.stats) setQueueStats(queueRes.stats);
       return compRes?.companies || [];
     } catch (e: any) {
       console.error(e);
@@ -792,6 +808,76 @@ export default function AdminScraperView() {
         </div>
       </div>
 
+      {/* Watchdog Alert Notification Banner */}
+      {alerts.length > 0 && (
+        <div style={{
+          background: '#FEF2F2',
+          border: '1px solid #FCA5A5',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <AlertTriangle size={18} color="#DC2626" />
+            <div>
+              <div style={{ fontSize: '13px', color: '#991B1B', fontWeight: 700 }}>
+                Watchdog Alert: {alerts.length} Active System Alert{alerts.length > 1 ? 's' : ''} Detected
+              </div>
+              <div style={{ fontSize: '12px', color: '#B91C1C' }}>
+                {alerts[0]?.company_name}: {alerts[0]?.message}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('alerts')}
+              style={{
+                background: '#DC2626',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Review Alerts ({alerts.length})
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await retryIncompleteScrapes();
+                  showToast('Queued all incomplete scans for automated retry!');
+                  loadData();
+                } catch (e: any) {
+                  showToast(e.message);
+                }
+              }}
+              style={{
+                background: '#FFFFFF',
+                color: '#DC2626',
+                border: '1px solid #FCA5A5',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Auto-Retry Incomplete
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Tabs navigation */}
       <div style={{
         display: 'flex',
@@ -799,11 +885,14 @@ export default function AdminScraperView() {
         borderBottom: '1px solid #ECEAF9',
         paddingBottom: '10px',
         marginBottom: '16px',
+        overflowX: 'auto',
       }}>
         {[
           { key: 'companies', label: `Companies (${companies.length})` },
           { key: 'jobs', label: `Extracted Jobs (${(companies.reduce((sum, c) => sum + (c.latest_reported_count || c.active_jobs_count || 0), 0) || jobs.length).toLocaleString()})` },
           { key: 'scans', label: `Scan History & Coverage (${scans.length})` },
+          { key: 'alerts', label: `Watchdog Alerts ${alerts.length > 0 ? `(${alerts.length})` : ''}` },
+          { key: 'queue', label: `Task Queue ${queueStats?.pending_tasks_count ? `(${queueStats.pending_tasks_count})` : ''}` },
           { key: 'debug', label: 'Engine Debugging & Safety' },
         ].map(tab => (
           <button
@@ -1532,7 +1621,282 @@ export default function AdminScraperView() {
         </div>
       )}
 
-      {/* MODAL: ADD COMPANY */}
+      {/* TAB: WATCHDOG ALERTS */}
+      {activeSubTab === 'alerts' && (
+        <div style={{ display: 'grid', gap: '16px' }}>
+          <div style={{ background: '#FFFFFF', border: '1px solid #ECEAF9', borderRadius: '14px', padding: '18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 4px', color: 'var(--ink, #1C1733)' }}>
+                  Watchdog Alert Engine
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--ink-soft, #75708F)', margin: 0 }}>
+                  Monitors every scan run in real time. Flags sudden 30%+ count collapses, zero-job anomalies, and portal count discrepancies.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await retryIncompleteScrapes();
+                    showToast('Queued all incomplete scans for automated retry!');
+                    loadData();
+                  } catch (e: any) {
+                    showToast(e.message);
+                  }
+                }}
+                style={{
+                  background: 'var(--violet-700, #4A3AE0)',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <RotateCcw size={14} />
+                Retry Incomplete Scans
+              </button>
+            </div>
+
+            {alerts.length === 0 ? (
+              <div style={{ background: '#EAFBF1', borderRadius: '12px', padding: '24px', textAlign: 'center', color: '#16A34A' }}>
+                <CheckCircle2 size={32} style={{ margin: '0 auto 8px', display: 'block' }} />
+                <div style={{ fontWeight: 700, fontSize: '15px' }}>All Company Scraping Operations Are Healthy!</div>
+                <div style={{ fontSize: '12px', marginTop: '4px', color: '#15803D' }}>
+                  No active 30%+ drops or zero-job collapse alerts detected across any registered portal.
+                </div>
+              </div>
+            ) : (
+              <div style={{ border: '1px solid #ECEAF9', borderRadius: '10px', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ background: '#F8F9FA', borderBottom: '1px solid #ECEAF9', color: 'var(--ink-soft, #75708F)' }}>
+                      <th style={{ padding: '10px 14px' }}>Company</th>
+                      <th style={{ padding: '10px 14px' }}>Alert Type</th>
+                      <th style={{ padding: '10px 14px' }}>Severity</th>
+                      <th style={{ padding: '10px 14px' }}>Details &amp; Message</th>
+                      <th style={{ padding: '10px 14px' }}>Drop %</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {alerts.map(a => (
+                      <tr key={a.id} style={{ borderBottom: '1px solid #F1F0FA' }}>
+                        <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--ink, #1C1733)' }}>
+                          {a.company_name}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            background: a.alert_type === 'ZERO_JOBS' ? '#FEE2E2' : '#FEF3C7',
+                            color: a.alert_type === 'ZERO_JOBS' ? '#DC2626' : '#B45309'
+                          }}>
+                            {a.alert_type}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            background: a.severity === 'CRITICAL' ? '#DC2626' : '#F59E0B',
+                            color: '#FFFFFF'
+                          }}>
+                            {a.severity}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 14px', color: 'var(--ink, #1C1733)' }}>
+                          {a.message}
+                        </td>
+                        <td style={{ padding: '10px 14px', fontWeight: 600, color: a.percentage_drop >= 30 ? '#DC2626' : '#75708F' }}>
+                          {a.percentage_drop ? `${a.percentage_drop}%` : '-'}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await resolveScraperAlert(a.id);
+                                  showToast(`Alert for ${a.company_name} resolved`);
+                                  loadData();
+                                } catch (e: any) {
+                                  showToast(e.message);
+                                }
+                              }}
+                              style={{
+                                background: '#F3F4F6',
+                                border: '1px solid #D1D5DB',
+                                borderRadius: '6px',
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Resolve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  showToast(`Rescanning ${a.company_name}...`);
+                                  await triggerCompanyScan(a.company_id);
+                                  showToast(`Scan complete for ${a.company_name}`);
+                                  loadData();
+                                } catch (e: any) {
+                                  showToast(e.message);
+                                }
+                              }}
+                              style={{
+                                background: 'var(--violet-700, #4A3AE0)',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Rescan
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: BACKGROUND TASK QUEUE */}
+      {activeSubTab === 'queue' && (
+        <div style={{ display: 'grid', gap: '16px' }}>
+          <div style={{ background: '#FFFFFF', border: '1px solid #ECEAF9', borderRadius: '14px', padding: '18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 4px', color: 'var(--ink, #1C1733)' }}>
+                  Background Task Queue &amp; Auto-Retry Worker
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--ink-soft, #75708F)', margin: 0 }}>
+                  Prevents Vercel 15–30s serverless timeout errors by offloading scans into atomic asynchronous batches.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  disabled={isProcessingQueue}
+                  onClick={async () => {
+                    setIsProcessingQueue(true);
+                    try {
+                      showToast('Processing queue batch (concurrency = 2)...');
+                      const res = await processScraperQueueBatch(2, 4);
+                      showToast(`Processed ${res.processedCount || 0} tasks from background queue.`);
+                      loadData();
+                    } catch (e: any) {
+                      showToast(e.message);
+                    } finally {
+                      setIsProcessingQueue(false);
+                    }
+                  }}
+                  style={{
+                    background: isProcessingQueue ? '#9CA3AF' : 'var(--violet-700, #4A3AE0)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    padding: '8px 14px',
+                    borderRadius: '10px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: isProcessingQueue ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Play size={14} />
+                  {isProcessingQueue ? 'Processing...' : 'Process Next Batch'}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await retryIncompleteScrapes();
+                      showToast('Queued all incomplete scans for auto-retry.');
+                      loadData();
+                    } catch (e: any) {
+                      showToast(e.message);
+                    }
+                  }}
+                  style={{
+                    background: '#F3F4F6',
+                    border: '1px solid #D1D5DB',
+                    color: 'var(--ink, #1C1733)',
+                    padding: '8px 14px',
+                    borderRadius: '10px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <RotateCcw size={14} />
+                  Queue Incomplete
+                </button>
+              </div>
+            </div>
+
+            {/* Queue Metrics Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ background: '#F8F9FA', borderRadius: '10px', padding: '14px', border: '1px solid #ECEAF9' }}>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft, #75708F)', fontWeight: 600 }}>Queued Tasks</div>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--violet-700, #4A3AE0)', marginTop: '4px' }}>
+                  {queueStats?.queued_count || 0}
+                </div>
+              </div>
+              <div style={{ background: '#F8F9FA', borderRadius: '10px', padding: '14px', border: '1px solid #ECEAF9' }}>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft, #75708F)', fontWeight: 600 }}>Running Tasks</div>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: '#D97706', marginTop: '4px' }}>
+                  {queueStats?.running_count || 0}
+                </div>
+              </div>
+              <div style={{ background: '#F8F9FA', borderRadius: '10px', padding: '14px', border: '1px solid #ECEAF9' }}>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft, #75708F)', fontWeight: 600 }}>Retry Scheduled</div>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: '#DC2626', marginTop: '4px' }}>
+                  {queueStats?.retry_scheduled_count || 0}
+                </div>
+              </div>
+              <div style={{ background: '#F8F9FA', borderRadius: '10px', padding: '14px', border: '1px solid #ECEAF9' }}>
+                <div style={{ fontSize: '11px', color: 'var(--ink-soft, #75708F)', fontWeight: 600 }}>Completed Tasks</div>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: '#16A34A', marginTop: '4px' }}>
+                  {queueStats?.completed_count || 0}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ background: '#F8F9FA', borderRadius: '10px', padding: '12px 14px', fontSize: '12px', color: 'var(--ink-soft, #75708F)', lineHeight: 1.6 }}>
+              <div>⚡ <b>Concurrency Control:</b> Worker uses atomic <code>SKIP LOCKED</code> queries to guarantee zero duplicate executions.</div>
+              <div>⚡ <b>Exponential Backoff:</b> Failed scans automatically backoff with retries before being marked failed.</div>
+              <div>⚡ <b>Daily Automation:</b> Can be triggered on schedule via <code>GET /api/scraper/cron/daily</code>.</div>
+            </div>
+          </div>
+        </div>
+      )}
       {isAddModalOpen && (
         <div style={{
           position: 'fixed',
