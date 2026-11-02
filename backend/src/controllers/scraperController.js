@@ -223,6 +223,40 @@ export const ScraperController = {
     }
   },
 
+  // Daily Cron Rescan & Audit Job (Vercel Cron / External Scheduler / Admin)
+  async triggerDailyCron(req, res) {
+    const isVercelCron = Boolean(req.headers['x-vercel-cron']);
+    const authHeader = req.headers.authorization || '';
+    const cronSecret = process.env.CRON_SECRET;
+    const isSecretAuthorized = cronSecret && authHeader === `Bearer ${cronSecret}`;
+    const isAdmin = req.user?.role === 'admin';
+
+    if (!isVercelCron && !isSecretAuthorized && !isAdmin) {
+      return res.status(401).json({ error: 'Unauthorized cron request. Provide CRON_SECRET or run as admin.' });
+    }
+
+    try {
+      console.log('[Daily Cron] Triggering daily full audit and rescan...');
+      // 1. Enqueue all allowed companies for daily rescan
+      const allQueued = await ScraperQueueService.enqueueAllAllowed();
+      // 2. Enqueue any incomplete / failed retry jobs
+      const retries = await ScraperQueueService.enqueueIncompleteRetries();
+      // 3. Process immediate batch within serverless budget
+      const batchResult = await ScraperQueueService.processBatch(2, 4);
+
+      return res.json({
+        success: true,
+        cron: 'daily-rescan-audit',
+        enqueuedCompanies: allQueued.enqueuedCount,
+        incompleteRetries: retries.retriedCount,
+        immediateBatch: batchResult,
+        timestamp: new Date().toISOString()
+      });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  },
+
   // Get scan runs history
   async getScanRuns(req, res) {
     const companyId = req.query.company_id ? parseInt(req.query.company_id, 10) : null;

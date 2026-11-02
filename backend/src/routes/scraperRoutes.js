@@ -26,6 +26,10 @@ router.get('/queue', requireAdmin, asyncHandler(ScraperController.getQueueStatus
 router.post('/queue/process-batch', requireAdmin, asyncHandler(ScraperController.processQueueBatch));
 router.post('/queue/retry-incomplete', requireAdmin, asyncHandler(ScraperController.retryIncompleteScans));
 
+// Daily Scheduled Rescan & Audit Job (Vercel Cron / External Scheduler / Admin)
+router.get('/cron/daily', asyncHandler(ScraperController.triggerDailyCron));
+router.post('/cron/daily', asyncHandler(ScraperController.triggerDailyCron));
+
 // Watchdog Alerts (30%+ count drop, zero jobs, discrepancies)
 router.get('/alerts', requireAdmin, asyncHandler(ScraperController.getAlerts));
 router.put('/alerts/:id/resolve', requireAdmin, asyncHandler(ScraperController.resolveAlert));
