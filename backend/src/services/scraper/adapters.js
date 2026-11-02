@@ -254,8 +254,9 @@ export const ATSAdapters = {
   },
 
   /**
-   * Adapter: Eightfold AI (PCSX API)
-   * Used universally by HP (apply.hp.com), Micron, Vodafone, Dexcom, Amdocs, Starbucks, etc.
+   * Adapter: Eightfold AI (Universal PCSX & v2 Apply APIs)
+   * Used universally by HSBC (portal.careers.hsbc.com), Citi, HP (apply.hp.com), Micron, Vodafone, Dexcom, Amdocs, Starbucks, etc.
+   * Auto-bypasses Akamai/Cloudflare bot protections by trying candidate host variations and dual API endpoints.
    */
   async extractEightfold(portalUrl, companyName, options = {}) {
     let host = 'apply.hp.com';
@@ -270,8 +271,10 @@ export const ATSAdapters = {
       } else if (host.includes('.eightfold.ai')) {
         const sub = host.split('.')[0];
         domain = `${sub}.com`;
+      } else if (host.startsWith('portal.careers.')) {
+        domain = host.replace(/^portal\.careers\./, '');
       } else {
-        domain = host.replace(/^apply\./, '').replace(/^jobs\./, '').replace(/^careers\./, '');
+        domain = host.replace(/^apply\./, '').replace(/^jobs\./, '').replace(/^careers\./, '').replace(/^www\./, '');
       }
     } catch {}
 
@@ -280,64 +283,127 @@ export const ATSAdapters = {
 
     let allPositions = [];
     let totalReported = 0;
+    let activeEndpointType = 'pcsx'; // 'v2' or 'pcsx'
+    let activeHost = host;
 
-    // Fetch first page to get count and first 10 jobs (try alternate Eightfold host if primary is rate-limited)
+    // Build comprehensive candidate host list to bypass host-specific Akamai/Cloudflare restrictions
+    const cleanSub = domain.split('.')[0];
     const candidateHosts = [host];
-    const baseSub = domain.split('.')[0];
+    if (!candidateHosts.includes(`portal.careers.${domain}`)) candidateHosts.push(`portal.careers.${domain}`);
+    if (!candidateHosts.includes(`${cleanSub}.eightfold.ai`)) candidateHosts.push(`${cleanSub}.eightfold.ai`);
     if (!candidateHosts.includes(`apply.careers.${domain}`)) candidateHosts.push(`apply.careers.${domain}`);
-    if (!candidateHosts.includes(`${baseSub}.eightfold.ai`)) candidateHosts.push(`${baseSub}.eightfold.ai`);
+    if (!candidateHosts.includes(`jobs.${domain}`)) candidateHosts.push(`jobs.${domain}`);
 
-    let firstRes = null;
+    let firstData = null;
+
     for (const h of candidateHosts) {
+      // 1. Try apply/v2/jobs first (Bypasses Akamai/Cloudflare on HSBC & modern Eightfold instances)
       try {
-        const testUrl = `https://${h}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=0&sort_by=timestamp${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
-        const r = await ComplianceService.safeFetch(testUrl, {
-          headers: { 'Accept': 'application/json' },
+        const v2Url = `https://${h}/api/apply/v2/jobs?domain=${encodeURIComponent(domain)}&start=0&num=10${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
+        const r = await ComplianceService.safeFetch(v2Url, {
+          headers: { 'Accept': 'application/json, text/plain, */*' },
           timeout: 10000,
         });
         if (r.ok) {
-          const ct = r.headers.get('content-type') || '';
-          if (ct.includes('json')) {
-            host = h;
-            firstRes = r;
-            break;
-          }
+          const text = await r.text();
+          try {
+            const data = JSON.parse(text);
+            if (data && (Array.isArray(data.positions) || typeof data.count === 'number')) {
+              activeHost = h;
+              activeEndpointType = 'v2';
+              firstData = data;
+              break;
+            }
+          } catch {}
+        }
+      } catch {}
+
+      // 2. Try pcsx/search fallback (Used by Citi, HP, etc.)
+      try {
+        const testUrl = `https://${h}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=0&sort_by=timestamp${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
+        const r = await ComplianceService.safeFetch(testUrl, {
+          headers: { 'Accept': 'application/json, text/plain, */*' },
+          timeout: 10000,
+        });
+        if (r.ok) {
+          const text = await r.text();
+          try {
+            const data = JSON.parse(text);
+            if (data && (data.data?.positions || data.positions)) {
+              activeHost = h;
+              activeEndpointType = 'pcsx';
+              firstData = data;
+              break;
+            }
+          } catch {}
         }
       } catch {}
     }
 
     try {
-      if (firstRes && firstRes.ok) {
-        const firstData = await firstRes.json();
-        const pos0 = firstData?.data?.positions || [];
-        totalReported = firstData?.data?.count || pos0.length;
-        allPositions.push(...pos0);
+      if (firstData) {
+        if (activeEndpointType === 'v2') {
+          const pos0 = firstData.positions || [];
+          totalReported = typeof firstData.count === 'number' ? firstData.count : pos0.length;
+          allPositions.push(...pos0);
 
-        // Fetch active jobs in polite batches of 10 to prevent Eightfold HTTP 429 rate-limiting
-        const maxJobsToFetch = Math.min(totalReported, 1000);
-        const offsets = [];
-        for (let offset = 10; offset < maxJobsToFetch; offset += 10) {
-          offsets.push(offset);
-        }
+          const maxJobsToFetch = Math.min(totalReported, 1500);
+          const offsets = [];
+          for (let offset = 10; offset < maxJobsToFetch; offset += 10) {
+            offsets.push(offset);
+          }
 
-        if (offsets.length > 0) {
-          const BATCH_SIZE = 10;
-          for (let b = 0; b < offsets.length; b += BATCH_SIZE) {
-            const batch = offsets.slice(b, b + BATCH_SIZE);
-            const results = await Promise.allSettled(
-              batch.map(offset => {
-                const u = `https://${host}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=${offset}&sort_by=timestamp${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
-                return ComplianceService.safeFetch(u, { headers: { 'Accept': 'application/json' }, timeout: 8000 }).then(r => r.ok ? r.json() : null);
-              })
-            );
-            let batchGotAny = false;
-            for (const r of results) {
-              if (r.status === 'fulfilled' && r.value?.data?.positions) {
-                allPositions.push(...r.value.data.positions);
-                batchGotAny = true;
+          if (offsets.length > 0) {
+            const BATCH_SIZE = 10;
+            for (let b = 0; b < offsets.length; b += BATCH_SIZE) {
+              const batch = offsets.slice(b, b + BATCH_SIZE);
+              const results = await Promise.allSettled(
+                batch.map(offset => {
+                  const u = `https://${activeHost}/api/apply/v2/jobs?domain=${encodeURIComponent(domain)}&start=${offset}&num=10${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
+                  return ComplianceService.safeFetch(u, { headers: { 'Accept': 'application/json' }, timeout: 8000 }).then(r => r.ok ? r.json() : null);
+                })
+              );
+              let batchGotAny = false;
+              for (const r of results) {
+                if (r.status === 'fulfilled' && r.value?.positions) {
+                  allPositions.push(...r.value.positions);
+                  batchGotAny = true;
+                }
               }
+              if (!batchGotAny) break;
             }
-            if (!batchGotAny) break; // Stop pagination cleanly if rate-limited
+          }
+        } else {
+          // pcsx endpoint
+          const pos0 = firstData?.data?.positions || firstData?.positions || [];
+          totalReported = firstData?.data?.count || firstData?.count || pos0.length;
+          allPositions.push(...pos0);
+
+          const maxJobsToFetch = Math.min(totalReported, 1500);
+          const offsets = [];
+          for (let offset = 10; offset < maxJobsToFetch; offset += 10) {
+            offsets.push(offset);
+          }
+
+          if (offsets.length > 0) {
+            const BATCH_SIZE = 10;
+            for (let b = 0; b < offsets.length; b += BATCH_SIZE) {
+              const batch = offsets.slice(b, b + BATCH_SIZE);
+              const results = await Promise.allSettled(
+                batch.map(offset => {
+                  const u = `https://${activeHost}/api/pcsx/search?domain=${encodeURIComponent(domain)}&start=${offset}&sort_by=timestamp${keyword ? `&query=${encodeURIComponent(keyword)}` : ''}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
+                  return ComplianceService.safeFetch(u, { headers: { 'Accept': 'application/json' }, timeout: 8000 }).then(r => r.ok ? r.json() : null);
+                })
+              );
+              let batchGotAny = false;
+              for (const r of results) {
+                if (r.status === 'fulfilled' && r.value?.data?.positions) {
+                  allPositions.push(...r.value.data.positions);
+                  batchGotAny = true;
+                }
+              }
+              if (!batchGotAny) break;
+            }
           }
         }
       }
@@ -353,15 +419,15 @@ export const ATSAdapters = {
     const seenIds = new Set();
 
     for (const pos of allPositions) {
-      const id = String(pos.id || pos.atsJobId || pos.displayJobId || pos.name);
+      const id = String(pos.id || pos.ats_job_id || pos.atsJobId || pos.display_job_id || pos.displayJobId || pos.name);
       if (seenIds.has(id)) {
         duplicateEntries.push({
-          title: pos.name || 'Position',
+          title: pos.name || pos.posting_name || 'Position',
           external_job_id: id,
-          location: (pos.locations && pos.locations.length > 0) ? pos.locations.join(', ') : 'Not Specified',
+          location: (pos.locations && pos.locations.length > 0) ? pos.locations.join(', ') : (pos.location || 'Not Specified'),
           department: pos.department || 'General',
-          work_mode: pos.workLocationOption || 'Full-time',
-          url: pos.positionUrl ? (pos.positionUrl.startsWith('http') ? pos.positionUrl : `https://${host}${pos.positionUrl}`) : portalUrl,
+          work_mode: pos.work_location_option || pos.workLocationOption || 'Full-time',
+          url: pos.canonicalPositionUrl || (pos.positionUrl ? (pos.positionUrl.startsWith('http') ? pos.positionUrl : `https://${activeHost}${pos.positionUrl}`) : portalUrl),
           reason: 'Duplicate listing indexed multiple times on employer portal'
         });
       } else {
@@ -369,46 +435,49 @@ export const ATSAdapters = {
       }
     }
 
-    // Fetch live full job descriptions directly from Eightfold position_details endpoint for top positions
+    // Detail enrichment for pcsx endpoints
     const detailsMap = new Map();
-    const DETAIL_CHUNK_SIZE = 15;
-    const maxDetailFetches = Math.min(allPositions.length, 30);
-    for (let i = 0; i < maxDetailFetches; i += DETAIL_CHUNK_SIZE) {
-      const chunk = allPositions.slice(i, i + DETAIL_CHUNK_SIZE);
-      const detailResults = await Promise.allSettled(
-        chunk.map(pos => {
-          const u = `https://${host}/api/pcsx/position_details?position_id=${pos.id}`;
-          return ComplianceService.safeFetch(u, {
-            headers: { 'Accept': 'application/json' },
-            timeout: 6000
-          }).then(r => r.json());
-        })
-      );
-      detailResults.forEach((res, idx) => {
-        if (res.status === 'fulfilled' && res.value?.data) {
-          detailsMap.set(chunk[idx].id, res.value.data);
-        }
-      });
+    if (activeEndpointType === 'pcsx') {
+      const DETAIL_CHUNK_SIZE = 15;
+      const maxDetailFetches = Math.min(allPositions.length, 30);
+      for (let i = 0; i < maxDetailFetches; i += DETAIL_CHUNK_SIZE) {
+        const chunk = allPositions.slice(i, i + DETAIL_CHUNK_SIZE);
+        const detailResults = await Promise.allSettled(
+          chunk.map(pos => {
+            const u = `https://${activeHost}/api/pcsx/position_details?position_id=${pos.id}`;
+            return ComplianceService.safeFetch(u, {
+              headers: { 'Accept': 'application/json' },
+              timeout: 6000
+            }).then(r => r.json());
+          })
+        );
+        detailResults.forEach((res, idx) => {
+          if (res.status === 'fulfilled' && res.value?.data) {
+            detailsMap.set(chunk[idx].id, res.value.data);
+          }
+        });
+      }
     }
 
     return {
-      extractionMethod: 'API (Eightfold AI)',
+      extractionMethod: `API (Eightfold AI ${activeEndpointType.toUpperCase()})`,
       reportedCount: totalReported || allPositions.length,
       duplicateCount: duplicateEntries.length,
       duplicates: duplicateEntries,
       jobs: allPositions.map((pos, idx) => {
-        const title = pos.name || 'Position';
-        const rawId = String(pos.id || pos.atsJobId || pos.displayJobId || pos.name);
-        const locSlug = (pos.locations && pos.locations.length > 0) ? pos.locations[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) : '';
+        const title = pos.name || pos.posting_name || 'Position';
+        const rawId = String(pos.id || pos.ats_job_id || pos.atsJobId || pos.display_job_id || pos.displayJobId || pos.name);
+        const locList = Array.isArray(pos.locations) && pos.locations.length > 0 ? pos.locations : (pos.location ? [pos.location] : []);
+        const locSlug = locList.length > 0 ? locList[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) : '';
         const uniqueJobId = `${rawId}${idx > 0 ? `_${locSlug || idx}` : ''}`;
-        const locs = (pos.locations && pos.locations.length > 0)
-          ? pos.locations.join(', ')
+        const locs = locList.length > 0
+          ? locList.join(', ')
           : (pos.standardizedLocations && pos.standardizedLocations.length > 0
               ? pos.standardizedLocations.join(', ')
-              : 'Not Specified');
-        const jobUrl = pos.positionUrl
-          ? (pos.positionUrl.startsWith('http') ? pos.positionUrl : `https://${host}${pos.positionUrl}`)
-          : portalUrl;
+              : (pos.location || 'Not Specified'));
+        const jobUrl = pos.canonicalPositionUrl || (pos.positionUrl
+          ? (pos.positionUrl.startsWith('http') ? pos.positionUrl : `https://${activeHost}${pos.positionUrl}`)
+          : `https://${activeHost}/careers/job/${rawId}`);
 
         const detail = detailsMap.get(pos.id);
         let richDescription = '';
@@ -425,16 +494,17 @@ export const ATSAdapters = {
             }
           }
         }
+        const workOption = pos.work_location_option || pos.workLocationOption || 'Full-time';
         if (!richDescription || richDescription.length < 30) {
-          richDescription = `Official verified opening at ${companyName} for ${title}.\n\n• Requisition ID: ${pos.displayJobId || pos.id}\n• Department: ${pos.department || 'General'}\n• Location: ${locs}\n• Work Mode: ${pos.workLocationOption || 'Full-time'}\n\nPlease visit the official career portal for full details & application: ${jobUrl}`;
+          richDescription = `Official verified opening at ${companyName} for ${title}.\n\n• Requisition ID: ${pos.display_job_id || pos.displayJobId || pos.id}\n• Department: ${pos.department || 'General'}\n• Location: ${locs}\n• Work Mode: ${workOption}\n\nPlease visit the official career portal for full details & application: ${jobUrl}`;
         }
 
         return {
           external_job_id: uniqueJobId,
           title,
           location: locs,
-          locations: pos.locations || [locs],
-          employment_type: pos.workLocationOption || 'Full-time',
+          locations: locList.length > 0 ? locList : [locs],
+          employment_type: workOption,
           department: pos.department || 'General',
           experience: '',
           salary: '',
@@ -447,9 +517,9 @@ export const ATSAdapters = {
         };
       }),
       strategyMemory: {
-        s: 'Eightfold PCSX API',
+        s: `Eightfold ${activeEndpointType.toUpperCase()} API`,
         totalFound: totalReported,
-        v: '1.0.0',
+        v: '2.0.0',
         chk: new Date().toISOString(),
       }
     };
@@ -3480,12 +3550,29 @@ export const ATSAdapters = {
       }
     }
 
-    // Protocol 3: Eightfold AI (Citi, NVIDIA, HP, Micron, Starbucks, etc.)
-    if (combined.includes('.eightfold.ai') || combined.includes('/api/pcsx/') || combined.includes('_ef_group_id')) {
+    // Protocol 3: Eightfold AI (Citi, HSBC, NVIDIA, HP, Micron, Starbucks, etc.)
+    const isEightfoldDomain = combined.includes('.eightfold.ai') ||
+      combined.includes('/api/pcsx/') ||
+      combined.includes('_ef_group_id') ||
+      combined.includes('portal.careers.hsbc.com') ||
+      /portal\.careers\.[a-z0-9.-]+/i.test(combined) ||
+      companyName.toLowerCase().includes('hsbc');
+
+    if (isEightfoldDomain) {
       try {
-        const res = await ATSAdapters.extractEightfold(finalUrl, companyName, options);
+        let efTarget = finalUrl;
+        if (combined.includes('portal.careers.hsbc.com') || companyName.toLowerCase().includes('hsbc')) {
+          efTarget = 'https://portal.careers.hsbc.com/careers?domain=hsbc.com';
+        } else {
+          const efMatch = (finalUrl + ' ' + html).match(/https?:\/\/[a-zA-Z0-9.-]+\.eightfold\.ai\/careers[^\s"'>]*/i) ||
+                          (finalUrl + ' ' + html).match(/https?:\/\/portal\.careers\.[a-zA-Z0-9.-]+\/careers[^\s"'>]*/i);
+          if (efMatch) {
+            efTarget = efMatch[0].replace(/["';,].*$/, '');
+          }
+        }
+        const res = await ATSAdapters.extractEightfold(efTarget, companyName, options);
         if (res.jobs && res.jobs.length > 0) {
-          return { ...res, atsProvider: 'Eightfold AI', resolvedUrl: finalUrl };
+          return { ...res, atsProvider: 'Eightfold AI', resolvedUrl: efTarget };
         }
       } catch (err) {
         console.warn(`[Universal Common Adapter] Eightfold error for ${companyName}:`, err.message);

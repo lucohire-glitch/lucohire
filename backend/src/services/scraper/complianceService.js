@@ -5,8 +5,36 @@
 
 const robotsCache = new Map(); // domain -> { rules, crawlDelay, timestamp }
 
+const STEALTH_USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:130.0) Gecko/20100101 Firefox/130.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0'
+];
+
 export const ComplianceService = {
-  USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  USER_AGENT: STEALTH_USER_AGENTS[0],
+  STEALTH_USER_AGENTS,
+
+  getRandomUserAgent() {
+    return STEALTH_USER_AGENTS[Math.floor(Math.random() * STEALTH_USER_AGENTS.length)];
+  },
+
+  getStealthHeaders() {
+    return {
+      'User-Agent': this.getRandomUserAgent(),
+      'Accept': 'text/html,application/xhtml+xml,application/xml,application/json;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'sec-ch-ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
+      'sec-fetch-dest': 'empty',
+      'sec-fetch-mode': 'cors',
+      'sec-fetch-site': 'same-origin',
+      'cache-control': 'no-cache',
+    };
+  },
 
   /**
    * SSRF Protection: Blocks requests to localhost, internal IPs, cloud metadata endpoints
@@ -162,19 +190,29 @@ export const ComplianceService = {
     const timeoutMs = options.timeout || 12000;
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+    const defaultStealth = this.getStealthHeaders();
     const headers = {
-      'User-Agent': this.USER_AGENT,
-      'Accept': 'text/html,application/xhtml+xml,application/xml,application/json;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
+      ...defaultStealth,
       ...(options.headers || {}),
     };
 
+    const fetchOptions = {
+      ...options,
+      headers,
+      signal: controller.signal,
+    };
+
+    // Proxy support (Residential / Datacenter rotation via SCRAPER_PROXY_URL, HTTPS_PROXY, or HTTP_PROXY)
+    const proxyUrl = process.env.SCRAPER_PROXY_URL || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+    if (proxyUrl && !fetchOptions.dispatcher) {
+      try {
+        const { ProxyAgent } = await import('undici');
+        fetchOptions.dispatcher = new ProxyAgent(proxyUrl);
+      } catch {}
+    }
+
     try {
-      const res = await fetch(url, {
-        ...options,
-        headers,
-        signal: controller.signal,
-      });
+      const res = await fetch(url, fetchOptions);
       return res;
     } catch (err) {
       // Fallback: if bare domain fails (e.g. SSL cert only on www. or *corp.com like aptara.com -> www.aptaracorp.com), retry once
