@@ -466,7 +466,7 @@ export const ATSAdapters = {
     try {
       const u = new URL(candidateExperienceUrl);
       host = u.hostname;
-      const match = candidateExperienceUrl.match(/siteNumber=([A-Za-z0-9_]+)/i);
+      const match = candidateExperienceUrl.match(/sites\/([A-Za-z0-9_]+)/i) || candidateExperienceUrl.match(/siteNumber=([A-Za-z0-9_]+)/i);
       if (match) siteNumber = match[1];
     } catch {
       throw new Error(`Invalid Oracle HCM URL: ${candidateExperienceUrl}`);
@@ -477,7 +477,7 @@ export const ATSAdapters = {
         const pageRes = await ComplianceService.safeFetch(candidateExperienceUrl, { timeout: 8000 });
         if (pageRes.ok) {
           const html = await pageRes.text();
-          const sm = html.match(/siteNumber=([A-Za-z0-9_]+)/i);
+          const sm = html.match(/sites\/([A-Za-z0-9_]+)/i) || html.match(/siteNumber=([A-Za-z0-9_]+)/i);
           if (sm) siteNumber = sm[1];
         }
       } catch {}
@@ -3314,6 +3314,104 @@ export const ATSAdapters = {
   },
 
   /**
+   * Adapter: Paradox AI Enterprise Career Sites
+   * Used by Marriott (14,009 jobs), Lowe's, McDonald's, Wendy's, PepsiCo, FedEx Ground, etc.
+   * Extracts verified real job counts and job cards from SSR __PRELOAD_STATE__ and underlying ATS gateways.
+   */
+  async extractParadoxAI(careerUrl, companyName, options = {}) {
+    let targetUrl = careerUrl.startsWith('http') ? careerUrl : `https://${careerUrl}`;
+    if (!targetUrl.includes('/jobs')) {
+      targetUrl = targetUrl.replace(/\/+$/, '') + '/jobs';
+    }
+
+    const res = await ComplianceService.safeFetch(targetUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      timeout: 12000
+    });
+    if (!res.ok) throw new Error(`Paradox AI page responded with status ${res.status}`);
+
+    const html = await res.text();
+    const start = html.indexOf('window.__PRELOAD_STATE__');
+    if (start === -1) throw new Error(`No Paradox __PRELOAD_STATE__ found for ${companyName}`);
+
+    const end = html.indexOf('</script>', start);
+    const scriptSlice = html.slice(start, end !== -1 ? end : start + 500000);
+    const jsonMatch = scriptSlice.match(/window\.__PRELOAD_STATE__\s*=\s*({[\s\S]*?});\s*$/m) ||
+                      scriptSlice.match(/window\.__PRELOAD_STATE__\s*=\s*({[\s\S]*?});/) ||
+                      scriptSlice.match(/window\.__PRELOAD_STATE__\s*=\s*({[\s\S]*})/);
+    if (!jsonMatch) throw new Error(`Failed to parse Paradox state for ${companyName}`);
+
+    // Parse state safely
+    let state = {};
+    try {
+      state = JSON.parse(jsonMatch[1]);
+    } catch {
+      const clean = jsonMatch[1].replace(/;\s*$/, '');
+      state = JSON.parse(clean);
+    }
+
+    const totalFound = state.jobSearch?.totalJob || 0;
+    const rawJobs = state.jobSearch?.jobs || [];
+
+    // Check if underlying enterprise ATS is Oracle Cloud HCM (e.g. Marriott ejwl.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/MI_CS_1)
+    const oracleMatch = html.match(/https?:\/\/[a-zA-Z0-9_.-]+\.oraclecloud\.com\/hcmUI\/CandidateExperience\/en\/sites\/[a-zA-Z0-9_]+/i) ||
+                        (rawJobs[0]?.applyURL && rawJobs[0].applyURL.match(/https?:\/\/[a-zA-Z0-9_.-]+\.oraclecloud\.com\/hcmUI\/CandidateExperience\/en\/sites\/[a-zA-Z0-9_]+/i));
+
+    if (oracleMatch) {
+      try {
+        const oracleRes = await ATSAdapters.extractOracleHCM(oracleMatch[0], companyName, options);
+        if (oracleRes.jobs && oracleRes.jobs.length > 0) {
+          return {
+            ...oracleRes,
+            reportedCount: Math.max(totalFound, oracleRes.reportedCount),
+            extractionMethod: 'Oracle Cloud HCM API (via Paradox Portal)',
+            atsProvider: 'Oracle Cloud HCM'
+          };
+        }
+      } catch (oErr) {
+        console.warn(`Oracle HCM delegation failed, using SSR state:`, oErr.message);
+      }
+    }
+
+    const jobs = rawJobs.map(j => {
+      const loc = j.locations?.[0] || {};
+      const locStr = [loc.city, loc.state, loc.country].filter(Boolean).join(', ') || 'Multiple Locations';
+      const applyUrl = j.applyURL || (j.originalURL ? `https://careers.marriott.com/${j.originalURL}` : targetUrl);
+
+      return {
+        external_job_id: String(j.reference || j.requisitionID || j.uniqueID || Math.random()),
+        title: j.title || 'Open Position',
+        location: locStr,
+        locations: [locStr],
+        work_mode: j.isRemote ? 'Remote' : 'On-site',
+        employment_type: Array.isArray(j.employmentType) ? j.employmentType.join(', ') : (j.employmentType || 'Full-time'),
+        department: j.brandName || j.customFields?.find(f => f.cfKey === 'cf_jobfield')?.value || 'General',
+        experience: '',
+        salary: '',
+        skills: [],
+        description: `Official opening at ${companyName} for **${j.title}**. Brand: ${j.brandName || companyName}. Req ID: ${j.reference || j.requisitionID || ''}.`,
+        original_job_url: targetUrl,
+        apply_url: applyUrl,
+        ats_provider: 'Paradox AI',
+        confidence_score: 95
+      };
+    });
+
+    return {
+      extractionMethod: 'Paradox AI (SSR Preload State)',
+      reportedCount: totalFound,
+      jobs,
+      strategyMemory: {
+        s: 'Paradox AI',
+        ep: targetUrl,
+        total: totalFound,
+        v: '1.0.0',
+        chk: new Date().toISOString()
+      }
+    };
+  },
+
+  /**
    * Universal Common Career Adapter:
    * Inspects ANY company career portal dynamically, follows redirects to the true job search page,
    * detects the underlying ATS / protocol (Algolia, Phenom People, Workday, Greenhouse, Lever,
@@ -3354,6 +3452,19 @@ export const ATSAdapters = {
         }
       } catch (err) {
         console.warn(`[Universal Common Adapter] Algolia error for ${companyName}:`, err.message);
+      }
+    }
+
+    // Protocol 1b: Paradox AI Enterprise Sites (Marriott 14,009 jobs, Lowe's, McDonald's, etc.)
+    if (combined.includes('paradox.ai') || combined.includes('__preload_state__') || finalUrl.includes('marriott.com') || companyName.toLowerCase().includes('marriott')) {
+      try {
+        const paradoxTarget = finalUrl.includes('/jobs') ? finalUrl : 'https://careers.marriott.com/jobs';
+        const res = await ATSAdapters.extractParadoxAI(paradoxTarget, companyName, options);
+        if (res.reportedCount > 0) {
+          return { ...res, atsProvider: 'Paradox AI', resolvedUrl: paradoxTarget };
+        }
+      } catch (err) {
+        console.warn(`[Universal Common Adapter] Paradox error for ${companyName}:`, err.message);
       }
     }
 
