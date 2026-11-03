@@ -24,6 +24,8 @@ import {
   adminLogout,
   getAdminUser,
   isAdminAuthenticated,
+  getSiteSettings,
+  updateSiteSettings,
 } from '../api';
 import LucoLogo from './LucoLogo';
 import './AdminPortal.css';
@@ -67,6 +69,8 @@ import {
   Edit2,
   Check,
   Globe,
+  Sliders,
+  Settings,
 } from 'lucide-react';
 import AdminScraperView from './AdminScraperView';
 
@@ -92,7 +96,13 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Dashboard & Users list states
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'candidates' | 'recruiters' | 'plans' | 'paths' | 'scraper'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'candidates' | 'recruiters' | 'plans' | 'paths' | 'scraper' | 'settings'>('dashboard');
+  const [freelancersEnabled, setFreelancersEnabled] = useState<boolean>(() => {
+    const cached = typeof window !== 'undefined' ? localStorage.getItem('luco_freelancers_enabled') : null;
+    return cached !== null ? cached === 'true' : true;
+  });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsSaveMsg, setSettingsSaveMsg] = useState<string | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({
     totalCandidates: 0,
@@ -1308,6 +1318,61 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
           </div>
 
           <div className="admin-topbar-right">
+            {/* COMPACT SWITCH BOX: Freelancers Toggle */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '4px 10px',
+                borderRadius: 8,
+                background: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                marginRight: 4
+              }}
+              title="Toggle Freelancers on Home Page"
+            >
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: '#475569', userSelect: 'none' }}>
+                Freelancers
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={freelancersEnabled}
+                onClick={async () => {
+                  const next = !freelancersEnabled;
+                  setFreelancersEnabled(next);
+                  await updateSiteSettings({ freelancers_enabled: next });
+                }}
+                style={{
+                  width: 36,
+                  height: 20,
+                  borderRadius: 999,
+                  background: freelancersEnabled ? '#4F46E5' : '#CBD5E1',
+                  border: 'none',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  padding: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  outline: 'none',
+                  transition: 'background-color 0.2s ease'
+                }}
+              >
+                <span
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    background: '#FFFFFF',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                    transform: freelancersEnabled ? 'translateX(16px)' : 'translateX(0)',
+                    transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                  }}
+                />
+              </button>
+            </div>
+
             <button
               type="button"
               className="admin-refresh-btn"

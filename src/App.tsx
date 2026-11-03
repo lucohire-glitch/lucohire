@@ -15,7 +15,7 @@ import EmployerDashboard from './components/EmployerDashboard';
 import ResumeCheckView from './components/ResumeCheckView';
 import FreelancersView from './components/FreelancersView';
 import AdminPortal from './components/AdminPortal';
-import { logout, getCurrentUser, getUserRole } from './api';
+import { logout, getCurrentUser, getUserRole, getSiteSettings } from './api';
 
 const SKILLS = [
   "Logo Design", "React Developer", "Video Editing", "Content Writing", "SEO Expert",
@@ -91,6 +91,7 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isFreelancersViewOpen, setIsFreelancersViewOpen] = useState(false);
   const [isResumeCheckOpen, setIsResumeCheckOpen] = useState(false);
+  const [resumeSearchQuery, setResumeSearchQuery] = useState('');
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const p = window.location.pathname.toLowerCase();
@@ -111,6 +112,35 @@ export default function App() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [authToast, setAuthToast] = useState<string | null>(null);
   const [upgradeSuccessModal, setUpgradeSuccessModal] = useState<any>(null);
+  const [freelancersEnabled, setFreelancersEnabled] = useState<boolean>(() => {
+    const cached = typeof window !== 'undefined' ? localStorage.getItem('luco_freelancers_enabled') : null;
+    return cached !== null ? cached === 'true' : true;
+  });
+
+  useEffect(() => {
+    const syncSetting = () => {
+      getSiteSettings().then((s) => {
+        if (s && typeof s.freelancers_enabled === 'boolean') {
+          setFreelancersEnabled(s.freelancers_enabled);
+        }
+      }).catch(() => {});
+    };
+    syncSetting();
+    window.addEventListener('luco_settings_updated', syncSetting);
+    window.addEventListener('storage', syncSetting);
+    window.addEventListener('focus', syncSetting);
+    const onVisChange = () => { if (!document.hidden) syncSetting(); };
+    document.addEventListener('visibilitychange', onVisChange);
+    const pollTimer = setInterval(syncSetting, 2500);
+
+    return () => {
+      window.removeEventListener('luco_settings_updated', syncSetting);
+      window.removeEventListener('storage', syncSetting);
+      window.removeEventListener('focus', syncSetting);
+      document.removeEventListener('visibilitychange', onVisChange);
+      clearInterval(pollTimer);
+    };
+  }, []);
 
   const handleUpgradePlan = (plan: any) => {
     localStorage.setItem('luco_plan_upgraded', 'true');
@@ -293,122 +323,6 @@ export default function App() {
   // If Admin Portal is open (/admin or #admin)
   if (isAdminOpen) {
     return <AdminPortal onBackToSite={handleBackFromAdmin} />;
-  }
-
-  // If user clicked "Why am I not getting hired?", open the exact Resume Check HTML view
-  if (isResumeCheckOpen) {
-    return (
-      <>
-        <ResumeCheckView
-          currentUser={currentUser}
-          userRole={userRole}
-          onLogout={handleLogout}
-          onOpenProfile={() => setIsProfileHomeOpen(true)}
-          onOpenEmployerDashboard={() => setIsEmployerDashboardOpen(true)}
-          onBack={() => setIsResumeCheckOpen(false)}
-          onGoToFreelancers={() => {
-            setIsResumeCheckOpen(false);
-            setTimeout(() => {
-              const el = document.getElementById('frlSection');
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
-          }}
-          onOpenCandidateReg={() => setIsCandidateRegOpen(true)}
-          onOpenRoleChooser={() => setIsRoleChooserOpen(true)}
-          onOpenAuth={() => setIsAuthOpen(true)}
-          onGoToPricing={() => {
-            setIsResumeCheckOpen(false);
-            window.location.hash = 'pricingSection';
-            setTimeout(() => {
-              const el = document.getElementById('pricingSection');
-              if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            }, 120);
-          }}
-        />
-        <AuthModal
-          isOpen={isAuthOpen}
-          onClose={() => {
-            setIsAuthOpen(false);
-            if (window.location.hash === '#signin' || window.location.hash === '#auth') {
-              history.replaceState(null, '', ' ');
-            }
-          }}
-          onOpenRoleChooser={() => {
-            setIsAuthOpen(false);
-            setIsRoleChooserOpen(true);
-          }}
-          onLoginSuccess={handleLoginSuccess}
-        />
-        <RoleChooserModal
-          isOpen={isRoleChooserOpen}
-          onClose={() => setIsRoleChooserOpen(false)}
-          onChooseCandidate={() => setIsCandidateRegOpen(true)}
-          onChooseRecruiter={() => setIsRecruiterRegOpen(true)}
-        />
-        <CandidateRegistration
-          isOpen={isCandidateRegOpen}
-          onClose={() => setIsCandidateRegOpen(false)}
-          onComplete={(data: any) => {
-            setCandidateData(data);
-            const u = getCurrentUser() || data;
-            setCurrentUser(u);
-            setUserRole('candidate');
-            setIsCandidateRegOpen(false);
-            setIsProfileHomeOpen(true);
-            triggerAuthToast('Profile created successfully!');
-          }}
-          onSwitchToRecruiter={() => {
-            setIsCandidateRegOpen(false);
-            setIsRecruiterRegOpen(true);
-          }}
-        />
-        <RecruiterRegistration
-          isOpen={isRecruiterRegOpen}
-          onClose={() => setIsRecruiterRegOpen(false)}
-          onComplete={(data: any) => {
-            setCandidateData(data);
-            const u = getCurrentUser() || data;
-            setCurrentUser(u);
-            setUserRole('recruiter');
-            setIsRecruiterRegOpen(false);
-            setIsEmployerDashboardOpen(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            triggerAuthToast('Employer account created successfully!');
-          }}
-          onSwitchToCandidate={() => {
-            setIsRecruiterRegOpen(false);
-            setIsCandidateRegOpen(true);
-          }}
-        />
-        <CandidateDashboard
-          isOpen={isProfileHomeOpen}
-          userData={candidateData || currentUser || {}}
-          onClose={() => setIsProfileHomeOpen(false)}
-          onOpenResumeCheck={() => {
-            setIsProfileHomeOpen(false);
-            setIsResumeCheckOpen(true);
-            window.scrollTo({ top: 0, behavior: 'auto' });
-          }}
-          onOpenAuth={() => {
-            setIsProfileHomeOpen(false);
-            setIsAuthOpen(true);
-          }}
-          onLogout={handleLogout}
-        />
-        <EmployerDashboard
-          isOpen={isEmployerDashboardOpen}
-          userData={candidateData || currentUser || {}}
-          onClose={() => setIsEmployerDashboardOpen(false)}
-          onOpenAuth={() => {
-            setIsEmployerDashboardOpen(false);
-            setIsAuthOpen(true);
-          }}
-          onLogout={handleLogout}
-        />
-      </>
-    );
   }
 
   // If user clicked "Find Freelancer", open the exact FreelancersView
@@ -1064,17 +978,57 @@ export default function App() {
         </div>
       </div>
 
-      {/* MAIN LANDING PAGE COMPONENT */}
-      <LandingPage 
-        onOpenResumeCheck={() => setIsResumeCheckOpen(true)}
-        onOpenRoleChooser={() => setIsRoleChooserOpen(true)}
-        onOpenFreelancerSearch={() => {
-          setIsFreelancersViewOpen(true);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        currentUser={currentUser}
-        onUpgradePlan={handleUpgradePlan}
-      />
+      {/* MAIN CONTENT AREA: JOBS / RESUME CHECK OR LANDING PAGE */}
+      {isResumeCheckOpen ? (
+        <ResumeCheckView
+          initialSearch={resumeSearchQuery}
+          currentUser={currentUser}
+          userRole={userRole}
+          onLogout={handleLogout}
+          onOpenProfile={() => setIsProfileHomeOpen(true)}
+          onOpenEmployerDashboard={() => setIsEmployerDashboardOpen(true)}
+          onBack={() => {
+            setIsResumeCheckOpen(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onGoToFreelancers={() => {
+            setIsResumeCheckOpen(false);
+            setTimeout(() => {
+              const el = document.getElementById('freelancerSection');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+          }}
+          onOpenCandidateReg={() => setIsCandidateRegOpen(true)}
+          onOpenRoleChooser={() => setIsRoleChooserOpen(true)}
+          onOpenAuth={() => setIsAuthOpen(true)}
+          onGoToPricing={() => {
+            setIsResumeCheckOpen(false);
+            window.location.hash = 'pricingSection';
+            setTimeout(() => {
+              const el = document.getElementById('pricingSection');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 120);
+          }}
+        />
+      ) : (
+        <LandingPage 
+          freelancersEnabled={freelancersEnabled}
+          onOpenResumeCheck={(q?: string) => {
+            setResumeSearchQuery(q || '');
+            setIsResumeCheckOpen(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onOpenRoleChooser={() => setIsRoleChooserOpen(true)}
+          onOpenFreelancerSearch={() => {
+            setIsFreelancersViewOpen(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          currentUser={currentUser}
+          onUpgradePlan={handleUpgradePlan}
+        />
+      )}
 
       {/* PLAN UPGRADE SUCCESS MODAL */}
       {upgradeSuccessModal && (

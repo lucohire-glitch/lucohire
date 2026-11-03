@@ -7,6 +7,8 @@ import {
   getAllUsers,
   deleteUser,
   getStats,
+  getSiteSettings,
+  updateSiteSettings,
 } from '../controllers/adminController.js';
 import {
   getAllPlans,
@@ -58,6 +60,10 @@ router.get('/skills', requireAdmin, asyncHandler(getAdminSkills));
 router.post('/skills', requireAdmin, asyncHandler(createSkill));
 router.put('/skills/:id', requireAdmin, asyncHandler(updateSkill));
 router.delete('/skills/:id', requireAdmin, asyncHandler(deleteSkill));
+
+// Site Settings Management (Freelancer Switch etc.)
+router.get('/settings', asyncHandler(getSiteSettings));
+router.put('/settings', requireAdmin, asyncHandler(updateSiteSettings));
 
 export default router;
 

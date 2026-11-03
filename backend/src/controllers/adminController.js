@@ -135,3 +135,22 @@ export const getStats = async (_req, res) => {
   const stats = await AdminModel.getStats();
   res.json(stats);
 };
+
+export const getSiteSettings = async (_req, res) => {
+  const val = await AdminModel.getSetting('freelancers_enabled', true);
+  const enabled = val === true || val === 'true' || val === 1;
+  res.json({
+    freelancers_enabled: enabled,
+  });
+};
+
+export const updateSiteSettings = async (req, res) => {
+  const { freelancers_enabled } = req.body;
+  const isEnabled = freelancers_enabled === true || freelancers_enabled === 'true' || freelancers_enabled === 1;
+  await AdminModel.setSetting('freelancers_enabled', isEnabled);
+  res.json({
+    success: true,
+    freelancers_enabled: isEnabled,
+    message: `Freelancer section is now ${isEnabled ? 'enabled' : 'disabled'}.`,
+  });
+};

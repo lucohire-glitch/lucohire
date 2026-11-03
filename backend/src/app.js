@@ -9,6 +9,7 @@ import resumeSkillRoutes from './routes/resumeSkillRoutes.js';
 import resumeAnalysisRoutes from './routes/resumeAnalysisRoutes.js';
 import scraperRoutes from './routes/scraperRoutes.js';
 import { errorHandler } from './middleware/auth.js';
+import { getSiteSettings } from './controllers/adminController.js';
 
 const app = express();
 app.use(cors({ origin: env.nodeEnv === 'development' ? true : env.corsOrigins, credentials: true }));
@@ -23,6 +24,7 @@ app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
   }
 });
+app.get('/api/settings', getSiteSettings);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/plans', planRoutes);

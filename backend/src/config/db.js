@@ -41,6 +41,11 @@ export async function initSchema() {
       role TEXT DEFAULT 'admin',
       created_at TIMESTAMPTZ DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS site_settings (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT now()
+    );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_candidates_mobile ON candidates(mobile) WHERE mobile IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_recruiters_mobile ON recruiters(mobile) WHERE mobile IS NOT NULL;
   `);

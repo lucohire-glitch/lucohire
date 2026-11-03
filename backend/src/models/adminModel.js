@@ -95,4 +95,34 @@ export const AdminModel = {
       totalAdmins: admins,
     };
   },
+
+  async getSetting(key, defaultValue = null) {
+    try {
+      const { rows } = await pool.query('SELECT value FROM site_settings WHERE key = $1', [key]);
+      if (rows.length > 0 && rows[0].value !== undefined) {
+        return rows[0].value;
+      }
+      return defaultValue;
+    } catch (err) {
+      console.warn('AdminModel.getSetting fallback:', err.message);
+      return defaultValue;
+    }
+  },
+
+  async setSetting(key, value) {
+    try {
+      const { rows } = await pool.query(
+        `INSERT INTO site_settings (key, value, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (key) DO UPDATE
+         SET value = EXCLUDED.value, updated_at = now()
+         RETURNING *`,
+        [key, JSON.stringify(value)]
+      );
+      return rows[0]?.value;
+    } catch (err) {
+      console.error('AdminModel.setSetting error:', err);
+      throw err;
+    }
+  },
 };

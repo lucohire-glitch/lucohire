@@ -1,14 +1,15 @@
 import { FREELANCERS_DATA, FreelancerItem } from './FreelancersView';
 import React, { useState, useEffect } from 'react';
-import { getPublicPlans, PlanItem, fetchPublicScrapedJobs, ScrapedPublicJob } from '../api';
+import { getPublicPlans, PlanItem, fetchPublicScrapedJobs, ScrapedPublicJob, getSiteSettings } from '../api';
 import './LandingPage.css';
 
 interface LandingPageProps {
-  onOpenResumeCheck: () => void;
+  onOpenResumeCheck: (query?: string) => void;
   onOpenRoleChooser: () => void;
   onOpenFreelancerSearch: () => void;
   currentUser?: any;
   onUpgradePlan?: (plan: any) => void;
+  freelancersEnabled?: boolean;
 }
 
 export default function LandingPage({
@@ -16,8 +17,16 @@ export default function LandingPage({
   onOpenRoleChooser,
   onOpenFreelancerSearch,
   currentUser,
-  onUpgradePlan
+  onUpgradePlan,
+  freelancersEnabled: propFreelancersEnabled,
 }: LandingPageProps) {
+  const [localFreelancersEnabled, setLocalFreelancersEnabled] = useState<boolean>(() => {
+    const cached = typeof window !== 'undefined' ? localStorage.getItem('luco_freelancers_enabled') : null;
+    return cached !== null ? cached === 'true' : true;
+  });
+
+  const freelancersEnabled = propFreelancersEnabled !== undefined ? propFreelancersEnabled : localFreelancersEnabled;
+  const [jobSearchText, setJobSearchText] = useState('');
   const [scrapedJobs, setScrapedJobs] = useState<ScrapedPublicJob[]>([]);
   const [scrapedTotal, setScrapedTotal] = useState<number>(858);
   const [pricingTab, setPricingTab] = useState<'freelancer' | 'recruiter'>('freelancer');
@@ -86,6 +95,33 @@ export default function LandingPage({
     if (activeFrlFilter === 'all') return true;
     return f.cat === activeFrlFilter;
   });
+
+  useEffect(() => {
+    // Sync site settings (Freelancer toggle) immediately on mount
+    const handleSync = () => {
+      getSiteSettings().then((s) => {
+        if (s && typeof s.freelancers_enabled === 'boolean') {
+          setLocalFreelancersEnabled(s.freelancers_enabled);
+        }
+      }).catch(() => {});
+    };
+    handleSync();
+
+    window.addEventListener('luco_settings_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('focus', handleSync);
+    const onVisChange = () => { if (!document.hidden) handleSync(); };
+    document.addEventListener('visibilitychange', onVisChange);
+    const pollTimer = setInterval(handleSync, 2500);
+
+    return () => {
+      window.removeEventListener('luco_settings_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('focus', handleSync);
+      document.removeEventListener('visibilitychange', onVisChange);
+      clearInterval(pollTimer);
+    };
+  }, []);
 
   useEffect(() => {
     getPublicPlans().then((res) => {
@@ -231,29 +267,62 @@ export default function LandingPage({
               </svg>
             </button>
 
-            <div className="hero-cta-label">Freelance marketplace — hire, or get hired</div>
-            <div className="hero-btn-row">
-              <button className="hero-btn secondary" onClick={onOpenFreelancerSearch}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
-                  <circle cx="11" cy="11" r="7" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                Find Freelancer
-                <span className="hero-btn-sub">I'm hiring</span>
-              </button>
-              <button className="hero-btn secondary" onClick={onOpenRoleChooser}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                Register as Freelancer
-                <span className="hero-btn-sub">I want work</span>
-              </button>
-            </div>
+            {/* When Checkbox is OFF, hide Find Freelancer and show prominent Search jobs bar */}
+            {!freelancersEnabled ? (
+              <div className="hero-prominent-search-wrap">
+                <form 
+                  className="hero-prominent-search-bar"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (onOpenResumeCheck) onOpenResumeCheck(jobSearchText);
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: 'none' }}>
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                  <input 
+                    type="text" 
+                    className="hero-prominent-search-input" 
+                    placeholder="Search jobs..."
+                    value={jobSearchText}
+                    onChange={(e) => setJobSearchText(e.target.value)}
+                  />
+                  <button type="submit" className="hero-prominent-search-btn" aria-label="Search jobs">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M5 12h14M13 6l6 6-6 6" />
+                    </svg>
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <>
+                <div className="hero-cta-label">Freelance marketplace — hire, or get hired</div>
+                <div className="hero-btn-row">
+                  <button className="hero-btn secondary" onClick={onOpenFreelancerSearch}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                      <circle cx="11" cy="11" r="7" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Find Freelancer
+                    <span className="hero-btn-sub">I'm hiring</span>
+                  </button>
+                  <button className="hero-btn secondary" onClick={onOpenRoleChooser}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Register as Freelancer
+                    <span className="hero-btn-sub">I want work</span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>
 
       {/* FREELANCER CARDS */}
+      {freelancersEnabled && (
       <div className="frl-section" id="freelancerSection">
         <div className="frl-head">
           <h3 className="sec-title">Freelancers on LucoHire</h3>
@@ -395,6 +464,7 @@ export default function LandingPage({
 
         </div>
       </div>
+      )}
 
       {/* HOW LUCOHIRE WORKS — PERSONA CARDS */}
       <div className="persona-section" id="howItWorksSection">

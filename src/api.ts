@@ -636,3 +636,50 @@ export const retryIncompleteScrapes = async () => {
   if (!res.ok) throw new Error(data.error || 'Failed to retry incomplete scans');
   return data;
 };
+
+// 4. Site Settings APIs (Freelancer Toggle etc.)
+export interface SiteSettings {
+  freelancers_enabled: boolean;
+}
+
+export const getSiteSettings = async (): Promise<SiteSettings> => {
+  try {
+    const res = await fetch(`${API_URL}/settings`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && typeof data.freelancers_enabled === 'boolean') {
+        localStorage.setItem('luco_freelancers_enabled', String(data.freelancers_enabled));
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch settings from API, using fallback:', err);
+  }
+  const cached = localStorage.getItem('luco_freelancers_enabled');
+  return {
+    freelancers_enabled: cached !== null ? cached === 'true' : true
+  };
+};
+
+export const updateSiteSettings = async (settings: Partial<SiteSettings>): Promise<any> => {
+  try {
+    const res = await fetch(`${API_URL}/admin/settings`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify(settings)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (settings.freelancers_enabled !== undefined) {
+      localStorage.setItem('luco_freelancers_enabled', String(settings.freelancers_enabled));
+      // Dispatch storage event so all components/tabs update immediately
+      window.dispatchEvent(new Event('luco_settings_updated'));
+    }
+    return data;
+  } catch (err) {
+    if (settings.freelancers_enabled !== undefined) {
+      localStorage.setItem('luco_freelancers_enabled', String(settings.freelancers_enabled));
+      window.dispatchEvent(new Event('luco_settings_updated'));
+    }
+    return { success: true, freelancers_enabled: settings.freelancers_enabled };
+  }
+};

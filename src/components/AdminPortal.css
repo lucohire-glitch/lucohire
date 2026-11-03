@@ -2348,3 +2348,220 @@
   line-height: 1.35;
 }
 
+
+
+/* ==========================================================================
+   PLATFORM & FREELANCER SETTINGS VIEW
+   Strictly scoped to .admin-portal-root - Zero collision with other pages
+   ========================================================================== */
+.admin-portal-root .admin-settings-container {
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.admin-portal-root .admin-settings-header {
+  margin-bottom: 24px;
+}
+
+.admin-portal-root .admin-settings-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink, #1C1733);
+  margin-bottom: 6px;
+  letter-spacing: -0.3px;
+}
+
+.admin-portal-root .admin-settings-desc {
+  font-size: 14px;
+  color: var(--ink-soft, #75708F);
+  line-height: 1.5;
+}
+
+.admin-portal-root .admin-settings-card {
+  background: #FFFFFF;
+  border: 1.5px solid var(--line, #ECEAF9);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px -4px rgba(20, 15, 80, 0.05);
+  margin-bottom: 20px;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.admin-portal-root .admin-settings-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.admin-portal-root .admin-settings-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-portal-root .admin-settings-item-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink, #1C1733);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-portal-root .admin-status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.admin-portal-root .admin-status-pill.on {
+  background: #EAFBF1;
+  color: #16A34A;
+  border: 1px solid #BBF7D0;
+}
+
+.admin-portal-root .admin-status-pill.off {
+  background: #FFF1F2;
+  color: #E11D48;
+  border: 1px solid #FECDD3;
+}
+
+.admin-portal-root .admin-settings-item-desc {
+  font-size: 13.5px;
+  color: var(--ink-soft, #75708F);
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+/* Modern Accessible iOS/Material Switch */
+.admin-portal-root .admin-switch-btn {
+  position: relative;
+  width: 58px;
+  height: 32px;
+  flex: none;
+  background: #CBD5E1;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.25s ease;
+  padding: 0;
+  outline: none;
+}
+
+.admin-portal-root .admin-switch-btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(74, 58, 224, 0.25);
+}
+
+.admin-portal-root .admin-switch-btn.active {
+  background: #4F46E5;
+}
+
+.admin-portal-root .admin-switch-slider {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 26px;
+  height: 26px;
+  background: #FFFFFF;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-portal-root .admin-switch-btn.active .admin-switch-slider {
+  transform: translateX(26px);
+}
+
+.admin-portal-root .admin-settings-preview-box {
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: #F8FAFC;
+  border-radius: 12px;
+  border: 1px dashed #CBD5E1;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.admin-portal-root .admin-settings-preview-box strong {
+  color: #0F172A;
+}
+
+.admin-portal-root .admin-settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.admin-portal-root .admin-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #4F46E5;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 11px 22px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+  transition: all 0.18s ease;
+}
+
+.admin-portal-root .admin-save-btn:hover {
+  background: #4338CA;
+  transform: translateY(-1px);
+}
+
+.admin-portal-root .admin-save-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.admin-portal-root .admin-settings-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #16A34A;
+  background: #EAFBF1;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #BBF7D0;
+  animation: fadeIn 0.2s ease;
+}
+
+@media (max-width: 640px) {
+  .admin-portal-root .admin-settings-container {
+    padding: 16px;
+  }
+  .admin-portal-root .admin-settings-card {
+    padding: 16px;
+  }
+  .admin-portal-root .admin-settings-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .admin-portal-root .admin-settings-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-portal-root .admin-save-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
