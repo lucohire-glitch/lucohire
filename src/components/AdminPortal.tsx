@@ -26,6 +26,8 @@ import {
   isAdminAuthenticated,
   getSiteSettings,
   updateSiteSettings,
+  fetchAdminSubscriptions,
+  SubscriptionItem,
 } from '../api';
 import LucoLogo from './LucoLogo';
 import './AdminPortal.css';
@@ -71,6 +73,10 @@ import {
   Globe,
   Sliders,
   Settings,
+  CreditCard,
+  Receipt,
+  Download,
+  Copy,
 } from 'lucide-react';
 import AdminScraperView from './AdminScraperView';
 
@@ -96,7 +102,30 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Dashboard & Users list states
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'candidates' | 'recruiters' | 'plans' | 'paths' | 'scraper' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'all' | 'candidates' | 'recruiters' | 'plans' | 'paths' | 'scraper' | 'settings' | 'subscriptions'>('dashboard');
+  // Subscriptions & Payment state
+  const [subscriptions, setSubscriptions] = useState<SubscriptionItem[]>([]);
+  const [isLoadingSubscriptions, setIsLoadingSubscriptions] = useState(false);
+  const [subFilter, setSubFilter] = useState<'all' | 'captured' | 'created' | 'failed'>('all');
+  const [subSearch, setSubSearch] = useState('');
+  const [subPage, setSubPage] = useState<number>(1);
+  const [subPageSize, setSubPageSize] = useState<number>(10);
+  const [selectedReceipt, setSelectedReceipt] = useState<SubscriptionItem | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  // Auto-fetch subscriptions when tab is opened
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'subscriptions') {
+      setIsLoadingSubscriptions(true);
+      fetchAdminSubscriptions()
+        .then(subs => {
+          if (Array.isArray(subs)) setSubscriptions(subs);
+        })
+        .catch(err => console.warn('Error loading subscriptions:', err))
+        .finally(() => setIsLoadingSubscriptions(false));
+    }
+  }, [activeTab, isAuthenticated]);
+
+
   const [freelancersEnabled, setFreelancersEnabled] = useState<boolean>(() => {
     const cached = typeof window !== 'undefined' ? localStorage.getItem('luco_freelancers_enabled') : null;
     return cached !== null ? cached === 'true' : true;
@@ -601,12 +630,13 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
     if (!isAuthenticated) return;
     setIsLoadingData(true);
     try {
-      const [usersRes, statsRes, plansRes, pathsRes, skillsRes] = await Promise.all([
+      const [usersRes, statsRes, plansRes, pathsRes, skillsRes, subsRes] = await Promise.all([
         adminGetUsers(),
         adminGetStats().catch(() => null),
         adminGetPlans().catch(() => null),
         adminGetCareerPaths().catch(() => null),
         adminGetResumeSkills().catch(() => null),
+        fetchAdminSubscriptions().catch(() => []),
       ]);
 
       if (usersRes?.users) {
@@ -617,6 +647,9 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
       }
       if (pathsRes?.paths) {
         setCareerPaths(pathsRes.paths);
+      }
+      if (Array.isArray(subsRes)) {
+        setSubscriptions(subsRes);
       }
       if (skillsRes?.skills) {
         setResumeSkills(skillsRes.skills);
@@ -1239,6 +1272,25 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
 
           <button
             type="button"
+            className={`admin-nav-item ${activeTab === 'subscriptions' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('subscriptions');
+              setIsMobileSidebarOpen(false);
+            }}
+          >
+            <div className="admin-nav-left">
+              <span className="admin-nav-icon-badge" style={{ background: '#EFF6FF', color: '#2563EB' }}>
+                <CreditCard size={15} />
+              </span>
+              <span>Subscriptions</span>
+            </div>
+            <span className="admin-nav-count" style={{ background: '#EAFBF1', color: '#16A34A', fontWeight: 700 }}>
+              {subscriptions.filter(s => s.status === 'captured').length}
+            </span>
+          </button>
+
+          <button
+            type="button"
             className={`admin-nav-item ${activeTab === 'paths' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('paths');
@@ -1390,6 +1442,8 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
                 ? 'Plans & Pricing Management'
                 : activeTab === 'paths'
                 ? 'Career Paths Management'
+                : activeTab === 'subscriptions'
+                ? 'Subscriptions & Orders (Razorpay)'
                 : 'All Registered Users'}
             </h1>
           </div>
@@ -2585,6 +2639,594 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
                       ))}
                   </div>
                 )
+              )}
+            </div>
+          ) : activeTab === 'subscriptions' ? (
+            /* ========================================================
+               VIEW: SUBSCRIPTIONS & PAYMENT TRANSACTIONS (RAZORPAY)
+               ======================================================== */
+            <div className="admin-plans-container" style={{ padding: '0 2px' }}>
+              {/* Summary Stats Cards */}
+              <div className="admin-stats-grid" style={{ marginBottom: 16 }}>
+                <div className="admin-stat-card">
+                  <div className="admin-stat-icon-wrapper candidates" style={{ background: '#EAFBF1', color: '#16A34A' }}>
+                    <TrendingUp size={22} />
+                  </div>
+                  <div className="admin-stat-info">
+                    <span className="admin-stat-label">Total Revenue (INR)</span>
+                    <span className="admin-stat-value" style={{ color: '#16A34A' }}>
+                      ₹{(subscriptions.filter(s => s.status === 'captured').reduce((acc, s) => acc + (s.amount || 0), 0) / 100).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="admin-stat-card">
+                  <div className="admin-stat-icon-wrapper total" style={{ background: '#EFF6FF', color: '#2563EB' }}>
+                    <CheckCircle2 size={22} />
+                  </div>
+                  <div className="admin-stat-info">
+                    <span className="admin-stat-label">Paid Subscriptions</span>
+                    <span className="admin-stat-value">
+                      {subscriptions.filter(s => s.status === 'captured').length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="admin-stat-card">
+                  <div className="admin-stat-icon-wrapper recruiters" style={{ background: '#FFFBEB', color: '#D97706' }}>
+                    <Clock size={22} />
+                  </div>
+                  <div className="admin-stat-info">
+                    <span className="admin-stat-label">Pending / Incomplete</span>
+                    <span className="admin-stat-value">
+                      {subscriptions.filter(s => s.status === 'created').length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="admin-stat-card">
+                  <div className="admin-stat-icon-wrapper admins" style={{ background: '#F5F3FF', color: 'var(--violet-700)' }}>
+                    <CreditCard size={22} />
+                  </div>
+                  <div className="admin-stat-info">
+                    <span className="admin-stat-label">Total Orders Created</span>
+                    <span className="admin-stat-value">
+                      {subscriptions.length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transactions Table Container */}
+              <div className="admin-table-container">
+                {/* Toolbar */}
+                <div className="admin-table-toolbar">
+                  <div className="admin-search-box">
+                    <Search size={14} className="admin-search-icon" />
+                    <input
+                      type="text"
+                      className="admin-search-input"
+                      placeholder="Search by name, email, phone, pay_id, order_id, plan..."
+                      value={subSearch}
+                      onChange={(e) => {
+                        setSubSearch(e.target.value);
+                        setSubPage(1);
+                      }}
+                    />
+                  </div>
+
+                  <div className="admin-filter-tabs">
+                    <button
+                      type="button"
+                      className={`admin-tab-btn ${subFilter === 'all' ? 'active' : ''}`}
+                      onClick={() => {
+                        setSubFilter('all');
+                        setSubPage(1);
+                      }}
+                    >
+                      All ({subscriptions.length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-tab-btn ${subFilter === 'captured' ? 'active' : ''}`}
+                      onClick={() => {
+                        setSubFilter('captured');
+                        setSubPage(1);
+                      }}
+                    >
+                      Paid ({subscriptions.filter(s => s.status === 'captured').length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-tab-btn ${subFilter === 'created' ? 'active' : ''}`}
+                      onClick={() => {
+                        setSubFilter('created');
+                        setSubPage(1);
+                      }}
+                    >
+                      Pending ({subscriptions.filter(s => s.status === 'created').length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-tab-btn ${subFilter === 'failed' ? 'active' : ''}`}
+                      onClick={() => {
+                        setSubFilter('failed');
+                        setSubPage(1);
+                      }}
+                    >
+                      Failed ({subscriptions.filter(s => s.status === 'failed').length})
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="admin-add-plan-btn"
+                    style={{ background: '#FFFFFF', color: '#1C1733', border: '1px solid #ECEAF9', boxShadow: 'none' }}
+                    onClick={() => {
+                      if (subscriptions.length === 0) return;
+                      const headers = ['ID', 'Customer Name', 'Email', 'Mobile', 'Role', 'Plan Name', 'Amount (INR)', 'Status', 'Razorpay Payment ID', 'Razorpay Order ID', 'Receipt', 'Date'];
+                      const rows = subscriptions.map(s => [
+                        s.id,
+                        `"${(s.user_name || '').replace(/"/g, '""')}"`,
+                        s.user_email || '',
+                        s.user_mobile || '',
+                        s.user_role || '',
+                        `"${(s.plan_name || '').replace(/"/g, '""')}"`,
+                        (s.amount / 100).toFixed(2),
+                        s.status,
+                        s.razorpay_payment_id || '',
+                        s.razorpay_order_id || '',
+                        s.receipt || '',
+                        s.created_at ? new Date(s.created_at).toLocaleString() : ''
+                      ]);
+                      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+                      const link = document.createElement('a');
+                      link.setAttribute('href', encodeURI(csvContent));
+                      link.setAttribute('download', `lucohire_subscriptions_${Date.now()}.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    title="Export subscriptions list to CSV"
+                  >
+                    <Download size={14} />
+                    <span>Export CSV</span>
+                  </button>
+                </div>
+
+                {/* Subscriptions Table */}
+                {(() => {
+                  let filtered = subscriptions;
+                  if (subFilter !== 'all') {
+                    filtered = filtered.filter(s => s.status === subFilter);
+                  }
+                  if (subSearch.trim()) {
+                    const q = subSearch.toLowerCase().trim();
+                    filtered = filtered.filter(s =>
+                      (s.user_name && s.user_name.toLowerCase().includes(q)) ||
+                      (s.user_email && s.user_email.toLowerCase().includes(q)) ||
+                      (s.user_mobile && s.user_mobile.includes(q)) ||
+                      (s.plan_name && s.plan_name.toLowerCase().includes(q)) ||
+                      (s.razorpay_payment_id && s.razorpay_payment_id.toLowerCase().includes(q)) ||
+                      (s.razorpay_order_id && s.razorpay_order_id.toLowerCase().includes(q))
+                    );
+                  }
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="admin-empty-state">
+                        <div className="admin-empty-icon" style={{ background: '#EFF6FF', color: '#2563EB' }}>
+                          <CreditCard size={26} />
+                        </div>
+                        <h3>No Subscriptions or Transactions Found</h3>
+                        <p>{subSearch ? 'No payments match your search criteria.' : 'When users purchase plans via Razorpay, their orders and payment receipts will appear here in real-time.'}</p>
+                      </div>
+                    );
+                  }
+
+                  const totalSubPages = Math.ceil(filtered.length / subPageSize) || 1;
+                  const currentSubPage = Math.min(subPage, totalSubPages);
+                  const paginatedSubs = filtered.slice((currentSubPage - 1) * subPageSize, currentSubPage * subPageSize);
+
+                  return (
+                    <>
+                      <div className="admin-table-responsive">
+                        <table className="admin-users-table" style={{ minWidth: 850 }}>
+                          <thead>
+                            <tr>
+                              <th>Customer & Role</th>
+                              <th>Contact Info</th>
+                              <th>Plan Purchased</th>
+                              <th>Amount</th>
+                              <th>Razorpay Payment ID</th>
+                              <th>Order ID</th>
+                              <th>Status</th>
+                              <th>Date & Time</th>
+                              <th style={{ textAlign: 'center' }}>Receipt</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {paginatedSubs.map((sub) => {
+                            const isPaid = sub.status === 'captured';
+                            const isCreated = sub.status === 'created';
+                            return (
+                              <tr key={sub.id}>
+                                {/* Customer & Role */}
+                                <td>
+                                  <div className="admin-user-cell">
+                                    <div className={`admin-user-avatar ${sub.user_role === 'recruiter' ? 'recruiter' : 'candidate'}`}>
+                                      {(sub.user_name || 'U').charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <div style={{ fontWeight: 700, color: '#1C1733' }}>
+                                        {sub.user_name || 'Customer'}
+                                      </div>
+                                      <span
+                                        style={{
+                                          fontSize: 10.5,
+                                          fontWeight: 700,
+                                          padding: '1px 6px',
+                                          borderRadius: 4,
+                                          background: sub.user_role === 'recruiter' ? '#EFF6FF' : '#F0FDF4',
+                                          color: sub.user_role === 'recruiter' ? '#1D4ED8' : '#15803D',
+                                          display: 'inline-block',
+                                          marginTop: 2,
+                                        }}
+                                      >
+                                        {sub.user_role === 'recruiter' ? 'Recruiter' : 'Candidate'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+
+                                {/* Contact Info */}
+                                <td>
+                                  <div style={{ fontSize: 13, color: '#1C1733' }}>
+                                    {sub.user_email ? (
+                                      <a href={`mailto:${sub.user_email}`} style={{ color: 'var(--violet-700)', textDecoration: 'none' }}>
+                                        {sub.user_email}
+                                      </a>
+                                    ) : (
+                                      <span style={{ color: '#9AA0B4' }}>—</span>
+                                    )}
+                                  </div>
+                                  {sub.user_mobile && (
+                                    <div style={{ fontSize: 11.5, color: '#75708F', marginTop: 2 }}>
+                                      📞 {sub.user_mobile}
+                                    </div>
+                                  )}
+                                </td>
+
+                                {/* Plan Name */}
+                                <td>
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      fontWeight: 700,
+                                      fontSize: 12.5,
+                                      color: '#1C1733',
+                                      background: '#F8FAFC',
+                                      padding: '3px 8px',
+                                      borderRadius: 6,
+                                      border: '1px solid #E2E8F0',
+                                    }}
+                                  >
+                                    {sub.plan_name || 'LucoHire Plan'}
+                                  </span>
+                                </td>
+
+                                {/* Amount */}
+                                <td>
+                                  <div style={{ fontWeight: 800, fontSize: 14, color: isPaid ? '#16A34A' : '#1C1733' }}>
+                                    ₹{((sub.amount || 0) / 100).toLocaleString('en-IN')}
+                                  </div>
+                                  <span style={{ fontSize: 10.5, color: '#9AA0B4', textTransform: 'uppercase' }}>
+                                    {sub.currency || 'INR'}
+                                  </span>
+                                </td>
+
+                                {/* Razorpay Payment ID */}
+                                <td>
+                                  {sub.razorpay_payment_id ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(sub.razorpay_payment_id || '');
+                                        setCopiedId(sub.razorpay_payment_id);
+                                        setTimeout(() => setCopiedId(null), 1500);
+                                      }}
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 5,
+                                        fontFamily: 'monospace',
+                                        fontSize: 11.5,
+                                        padding: '3px 8px',
+                                        borderRadius: 6,
+                                        background: '#F1F5F9',
+                                        border: '1px solid #CBD5E1',
+                                        color: '#334155',
+                                        cursor: 'pointer',
+                                      }}
+                                      title="Click to copy payment ID"
+                                    >
+                                      {copiedId === sub.razorpay_payment_id ? '✓ Copied' : sub.razorpay_payment_id}
+                                    </button>
+                                  ) : (
+                                    <span style={{ fontSize: 11.5, color: '#9AA0B4', fontStyle: 'italic' }}>Pending checkout</span>
+                                  )}
+                                </td>
+
+                                {/* Razorpay Order ID */}
+                                <td>
+                                  <span style={{ fontFamily: 'monospace', fontSize: 11.5, color: '#64748B' }}>
+                                    {sub.razorpay_order_id || '—'}
+                                  </span>
+                                </td>
+
+                                {/* Status */}
+                                <td>
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 5,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      padding: '3px 8px',
+                                      borderRadius: 999,
+                                      background: isPaid ? '#DCFCE7' : isCreated ? '#FEF3C7' : '#FEE2E2',
+                                      color: isPaid ? '#15803D' : isCreated ? '#B45309' : '#B91C1C',
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        width: 6,
+                                        height: 6,
+                                        borderRadius: '50%',
+                                        background: isPaid ? '#16A34A' : isCreated ? '#D97706' : '#DC2626',
+                                      }}
+                                    />
+                                    {isPaid ? 'Paid' : isCreated ? 'Pending' : 'Failed'}
+                                  </span>
+                                </td>
+
+                                {/* Date */}
+                                <td>
+                                  <span className="admin-date-badge">
+                                    <Calendar size={11} color="var(--ink-soft)" />
+                                    {sub.created_at ? new Date(sub.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                                  </span>
+                                </td>
+
+                                {/* Action: View Receipt */}
+                                <td style={{ textAlign: 'center' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedReceipt(sub)}
+                                    style={{
+                                      padding: '4px 10px',
+                                      borderRadius: 6,
+                                      background: 'var(--lavender-50)',
+                                      color: 'var(--violet-700)',
+                                      border: '1px solid var(--violet-200)',
+                                      fontSize: 11.5,
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                    }}
+                                    title="View full transaction receipt & payment details"
+                                  >
+                                    <Receipt size={12} />
+                                    <span>Receipt</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* PAGINATION TOOLBAR FOR SUBSCRIPTIONS */}
+                    {filtered.length > 0 && (
+                      <div className="admin-pagination-toolbar">
+                        <div className="admin-pagination-info">
+                          Showing {(currentSubPage - 1) * subPageSize + 1} to{' '}
+                          {Math.min(currentSubPage * subPageSize, filtered.length)} of {filtered.length} transactions
+                        </div>
+
+                        <div className="admin-pagination-controls">
+                          {/* Rows per page selector */}
+                          <div className="admin-rows-selector">
+                            <span>Rows per page:</span>
+                            <select
+                              value={subPageSize}
+                              onChange={(e) => {
+                                setSubPageSize(Number(e.target.value));
+                                setSubPage(1);
+                              }}
+                              className="admin-pagesize-select"
+                            >
+                              <option value={5}>5</option>
+                              <option value={10}>10</option>
+                              <option value={25}>25</option>
+                              <option value={50}>50</option>
+                            </select>
+                          </div>
+
+                          {/* Prev Page */}
+                          <button
+                            type="button"
+                            className="admin-page-nav-btn"
+                            disabled={currentSubPage === 1}
+                            onClick={() => setSubPage((p) => Math.max(1, p - 1))}
+                            title="Previous Page"
+                          >
+                            <ChevronLeft size={15} />
+                          </button>
+
+                          {/* Page Numbers */}
+                          <div className="admin-page-numbers">
+                            {Array.from({ length: totalSubPages }, (_, i) => i + 1).map((num) => (
+                              <button
+                                key={num}
+                                type="button"
+                                className={`admin-page-num-btn ${currentSubPage === num ? 'active' : ''}`}
+                                onClick={() => setSubPage(num)}
+                              >
+                                {num}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Next Page */}
+                          <button
+                            type="button"
+                            className="admin-page-nav-btn"
+                            disabled={currentSubPage === totalSubPages}
+                            onClick={() => setSubPage((p) => Math.min(totalSubPages, p + 1))}
+                            title="Next Page"
+                          >
+                            <ChevronRight size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+                })()}
+              </div>
+
+              {/* Transaction Receipt Modal */}
+              {selectedReceipt && (
+                <div className="admin-modal-backdrop" onClick={() => setSelectedReceipt(null)}>
+                  <div
+                    className="admin-modal-card"
+                    style={{ maxWidth: 480, padding: 24, borderRadius: 18 }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #ECEAF9', paddingBottom: 14, marginBottom: 16 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 38, height: 38, borderRadius: 10, background: '#EAFBF1', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Receipt size={20} />
+                        </div>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#1C1733' }}>Razorpay Payment Receipt</h3>
+                          <span style={{ fontSize: 11, color: '#75708F' }}>Transaction #{selectedReceipt.id} · Verified Checkout</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedReceipt(null)}
+                        style={{ background: 'none', border: 'none', color: '#75708F', cursor: 'pointer', padding: 4 }}
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 14, marginBottom: 16 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Plan Purchased:</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>{selectedReceipt.plan_name}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Total Paid:</span>
+                        <span style={{ fontSize: 18, fontWeight: 800, color: selectedReceipt.status === 'captured' ? '#16A34A' : '#0F172A' }}>
+                          ₹{((selectedReceipt.amount || 0) / 100).toLocaleString('en-IN')} {selectedReceipt.currency || 'INR'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Payment Status:</span>
+                        <span style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          background: selectedReceipt.status === 'captured' ? '#DCFCE7' : '#FEF3C7',
+                          color: selectedReceipt.status === 'captured' ? '#15803D' : '#B45309',
+                        }}>
+                          {selectedReceipt.status === 'captured' ? 'SUCCESS / CAPTURED' : selectedReceipt.status.toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5, color: '#334155', marginBottom: 18 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748B' }}>Customer Name:</span>
+                        <span style={{ fontWeight: 600 }}>{selectedReceipt.user_name || 'Customer'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748B' }}>Customer Email:</span>
+                        <span style={{ fontWeight: 600 }}>{selectedReceipt.user_email || '—'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748B' }}>Customer Mobile:</span>
+                        <span style={{ fontWeight: 600 }}>{selectedReceipt.user_mobile || '—'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748B' }}>User Role:</span>
+                        <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{selectedReceipt.user_role || 'User'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748B' }}>Razorpay Payment ID:</span>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--violet-700)' }}>
+                          {selectedReceipt.razorpay_payment_id || 'Not Yet Captured'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748B' }}>Razorpay Order ID:</span>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{selectedReceipt.razorpay_order_id}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748B' }}>Receipt Number:</span>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{selectedReceipt.receipt || '—'}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748B' }}>Payment Timestamp:</span>
+                        <span style={{ fontWeight: 600 }}>{selectedReceipt.created_at ? new Date(selectedReceipt.created_at).toLocaleString() : '—'}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => window.print()}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          borderRadius: 10,
+                          background: 'var(--violet-700)',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          fontWeight: 700,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Print Receipt
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedReceipt(null)}
+                        style={{
+                          padding: '10px 18px',
+                          borderRadius: 10,
+                          background: '#F1F5F9',
+                          color: '#334155',
+                          border: '1px solid #CBD5E1',
+                          fontWeight: 600,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           ) : activeTab === 'scraper' ? (

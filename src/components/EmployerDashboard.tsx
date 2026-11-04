@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { fetchUserSubscriptions, SubscriptionItem, UserSubscriptionResponse, createPaymentOrder, verifyPaymentSignature, loadRazorpayScript, getRazorpayKeyId } from '../api';
 import './CandidateDashboard.css';
 
 interface EmployerDashboardProps {
@@ -11,8 +12,83 @@ interface EmployerDashboardProps {
 
 export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAuth, onLogout }: EmployerDashboardProps) {
   const [currentView, setCurrentView] = useState<'jobs' | 'leads'>('jobs');
+  const [userSubscription, setUserSubscription] = useState<UserSubscriptionResponse | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<SubscriptionItem | null>(null);
+  const [isUpgradingPlan, setIsUpgradingPlan] = useState(false);
+
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastTimer, setToastTimer] = useState<any>(null);
+
+  // Load Recruiter Subscription & Payment History
+  useEffect(() => {
+    if (isOpen) {
+      const email = userData?.email || (typeof window !== 'undefined' ? localStorage.getItem('lucohire_user_email') : null);
+      fetchUserSubscriptions(email || undefined)
+        .then(res => {
+          if (res) setUserSubscription(res);
+        })
+        .catch(err => console.warn('Could not load recruiter subscription:', err));
+    }
+  }, [isOpen, userData]);
+
+  const handleUpgradeRecruiterPlan = async (planName = 'Recruiter Pro Verified', amount = 499) => {
+    try {
+      setIsUpgradingPlan(true);
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        alert('Payment gateway failed to load.');
+        return;
+      }
+
+      const orderData = await createPaymentOrder({
+        planName,
+        amount,
+        role: 'recruiter',
+        userEmail: userData?.email || localStorage.getItem('lucohire_user_email') || ''
+      });
+
+      const keyId = await getRazorpayKeyId();
+
+      const options = {
+        key: keyId,
+        amount: orderData.amount,
+        currency: orderData.currency || 'INR',
+        name: 'LucoHire',
+        description: `Subscription: ${planName}`,
+        order_id: orderData.orderId,
+        handler: async (response: any) => {
+          try {
+            await verifyPaymentSignature({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              planName,
+            });
+            const updated = await fetchUserSubscriptions(userData?.email);
+            setUserSubscription(updated);
+            alert('🎉 Payment verified and Recruiter Plan activated successfully!');
+          } catch (err: any) {
+            alert('Payment verification failed: ' + err.message);
+          }
+        },
+        prefill: {
+          name: userData?.name || 'Recruiter',
+          email: userData?.email || '',
+          contact: userData?.mobile || '',
+        },
+        theme: {
+          color: '#4A3AE0',
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    } catch (err: any) {
+      alert('Could not start checkout: ' + err.message);
+    } finally {
+      setIsUpgradingPlan(false);
+    }
+  };
 
   // Boost banner state
   const [isBoosted, setIsBoosted] = useState(false);
@@ -812,6 +888,136 @@ export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAut
               );
             })}
           </section>
+
+          {/* RECRUITER SUBSCRIPTION & RAZORPAY PAYMENT RECEIPTS */}
+          <section style={{ marginTop: 24 }}>
+            <div className="section-head">
+              <p className="section-title">My Recruiter Subscription &amp; Plans</p>
+              {userSubscription?.isPaid && (
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: '#DCFCE7', color: '#15803D' }}>
+                  ✓ Active Plan
+                </span>
+              )}
+            </div>
+
+            <div className="plan-card" style={{ border: userSubscription?.isPaid ? '2px solid #10B981' : '1px solid #ECEAF9', background: '#FFFFFF' }}>
+              <div className="plan-top">
+                <div>
+                  <div className="plan-badge" style={{ background: userSubscription?.isPaid ? '#10B981' : '#4A3AE0', color: '#FFFFFF' }}>
+                    {userSubscription?.isPaid ? 'Verified Recruiter Plan' : 'Standard Recruiter'}
+                  </div>
+                  <div className="plan-name" style={{ fontSize: 18, marginTop: 4 }}>
+                    {userSubscription?.activePlan || userSubscription?.latestPayment?.plan_name || 'Hiring Pro & Verified Badge'}
+                  </div>
+                </div>
+                <div className="plan-price">
+                  <div className="amt" style={{ color: userSubscription?.isPaid ? '#059669' : '#1C1733' }}>
+                    {userSubscription?.latestPayment ? `₹${((userSubscription.latestPayment.amount || 0) / 100).toLocaleString('en-IN')}` : '₹499'}
+                  </div>
+                  <div className="per">One-time / Monthly</div>
+                </div>
+              </div>
+
+              <p className="plan-desc">
+                {userSubscription?.isPaid
+                  ? 'Your verified employer status is live. Direct WhatsApp contacts, job posts, and candidate profiles unlocked.'
+                  : 'Upgrade to verified employer status to unlock verified candidate applications, priority job indexing, and direct contacts.'}
+              </p>
+
+              {userSubscription?.latestPayment && (
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: 12, margin: '12px 0', fontSize: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ color: '#64748B' }}>Payment ID:</span>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#4A3AE0' }}>
+                      {userSubscription.latestPayment.razorpay_payment_id || userSubscription.latestPayment.razorpay_order_id}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Status:</span>
+                    <span style={{ fontWeight: 700, color: '#16A34A' }}>
+                      {userSubscription.latestPayment.status.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                {userSubscription?.latestPayment && (
+                  <button
+                    type="button"
+                    className="x-b x-out"
+                    style={{ flex: 1 }}
+                    onClick={() => setSelectedReceipt(userSubscription.latestPayment)}
+                  >
+                    🧾 View Receipt
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="x-b x-pri"
+                  style={{ flex: 1 }}
+                  onClick={() => handleUpgradeRecruiterPlan('Recruiter Verified Pro', 499)}
+                  disabled={isUpgradingPlan}
+                >
+                  {isUpgradingPlan ? 'Connecting...' : userSubscription?.isPaid ? 'Renew / Change Plan' : 'Upgrade Plan — ₹499'}
+                </button>
+              </div>
+            </div>
+
+            {/* Recruiter Payment History */}
+            {userSubscription?.payments && userSubscription.payments.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>
+                  Transaction History &amp; Receipts
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {userSubscription.payments.map(p => (
+                    <div
+                      key={p.id}
+                      style={{
+                        background: '#FFFFFF',
+                        border: '1px solid #ECEAF9',
+                        borderRadius: 10,
+                        padding: '10px 14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: 12.5
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#1C1733' }}>{p.plan_name}</div>
+                        <div style={{ color: '#75708F', fontSize: 11, marginTop: 2 }}>
+                          {new Date(p.created_at).toLocaleDateString('en-IN')} · <code style={{ fontFamily: 'monospace' }}>{p.razorpay_payment_id || p.razorpay_order_id}</code>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontWeight: 700, color: p.status === 'captured' ? '#16A34A' : '#D97706' }}>
+                          ₹{((p.amount || 0) / 100).toLocaleString('en-IN')}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedReceipt(p)}
+                          style={{
+                            padding: '3px 8px',
+                            background: '#F1EFFC',
+                            color: '#4A3AE0',
+                            border: 'none',
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Receipt
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
         </div>
       )}
 
@@ -1118,6 +1324,85 @@ export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAut
       )}
 
       {/* EXACT HTML SPEC BOTTOM NAV (Dashboard [disabled], Jobs [active], Recruiter Message, Resume [disabled]) */}
+
+      {/* RECRUITER PAYMENT RECEIPT MODAL */}
+      {selectedReceipt && (
+        <div
+          className="profile-modal open"
+          onClick={() => setSelectedReceipt(null)}
+          style={{ zIndex: 1300 }}
+        >
+          <div
+            className="profile-modal-sheet"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '440px', padding: 22 }}
+          >
+            <div className="profile-modal-close" onClick={() => setSelectedReceipt(null)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </div>
+            
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#DCFCE7', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px', fontSize: 20 }}>
+                ✓
+              </div>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1C1733' }}>
+                Employer Payment Receipt
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#75708F' }}>
+                Official Transaction Summary · Secured by Razorpay
+              </p>
+            </div>
+
+            <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
+                <span style={{ color: '#64748B' }}>Plan Name:</span>
+                <span style={{ fontWeight: 700, color: '#0F172A' }}>{selectedReceipt.plan_name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
+                <span style={{ color: '#64748B' }}>Amount Paid:</span>
+                <span style={{ fontWeight: 800, color: '#16A34A', fontSize: 16 }}>
+                  ₹{((selectedReceipt.amount || 0) / 100).toLocaleString('en-IN')} {selectedReceipt.currency || 'INR'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                <span style={{ color: '#64748B' }}>Payment Status:</span>
+                <span style={{ fontWeight: 700, color: selectedReceipt.status === 'captured' ? '#15803D' : '#B45309', background: selectedReceipt.status === 'captured' ? '#DCFCE7' : '#FEF3C7', padding: '1px 8px', borderRadius: 999, fontSize: 11 }}>
+                  {selectedReceipt.status === 'captured' ? 'SUCCESS / CAPTURED' : selectedReceipt.status.toUpperCase()}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, color: '#334155', marginBottom: 18 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748B' }}>Transaction ID:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>#{selectedReceipt.id}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748B' }}>Razorpay Payment ID:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#4A3AE0' }}>{selectedReceipt.razorpay_payment_id || '—'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748B' }}>Razorpay Order ID:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{selectedReceipt.razorpay_order_id}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748B' }}>Date &amp; Time:</span>
+                <span>{new Date(selectedReceipt.created_at).toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="x-b x-pri x-full"
+              style={{ padding: '10px', fontSize: 13, fontWeight: 700 }}
+              onClick={() => window.print()}
+            >
+              Print / Save Receipt
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="bottom-nav">
         <div className="nav-item disabled" aria-disabled="true">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>

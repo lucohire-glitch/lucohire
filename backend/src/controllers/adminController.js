@@ -154,3 +154,11 @@ export const updateSiteSettings = async (req, res) => {
     message: `Freelancer section is now ${isEnabled ? 'enabled' : 'disabled'}.`,
   });
 };
+
+export const getAllSubscriptions = async (_req, res) => {
+  const subscriptions = await AdminModel.getAllSubscriptions();
+  res.json({
+    success: true,
+    subscriptions,
+  });
+};

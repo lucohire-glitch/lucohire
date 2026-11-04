@@ -77,6 +77,35 @@ export const AdminModel = {
     return rows[0] || null;
   },
 
+  async getAllSubscriptions() {
+    const { rows } = await pool.query(`
+      SELECT 
+        p.id,
+        p.user_id,
+        COALESCE(p.user_email, c.email, r.email, 'guest-checkout@lucohire.com') AS user_email,
+        COALESCE(p.user_role, CASE WHEN c.id IS NOT NULL THEN 'candidate' WHEN r.id IS NOT NULL THEN 'recruiter' ELSE 'user' END) AS user_role,
+        p.plan_id,
+        p.plan_name,
+        p.amount,
+        p.currency,
+        p.razorpay_order_id,
+        p.razorpay_payment_id,
+        p.razorpay_signature,
+        p.status,
+        p.receipt,
+        p.created_at,
+        p.updated_at,
+        COALESCE(c.name, r.name, CASE WHEN p.user_email IS NOT NULL AND p.user_email != '' THEN split_part(p.user_email, '@', 1) ELSE 'Guest Customer' END) AS user_name,
+        COALESCE(c.mobile, r.mobile, '') AS user_mobile,
+        COALESCE(r.company, '') AS company_name
+      FROM payments p
+      LEFT JOIN candidates c ON (p.user_id = c.id OR (p.user_email IS NOT NULL AND LOWER(p.user_email) = LOWER(c.email)))
+      LEFT JOIN recruiters r ON (p.user_id = r.id OR (p.user_email IS NOT NULL AND LOWER(p.user_email) = LOWER(r.email)))
+      ORDER BY p.created_at DESC
+    `);
+    return rows;
+  },
+
   async getStats() {
     const [cRes, rRes, aRes] = await Promise.all([
       pool.query('SELECT COUNT(*)::int AS count FROM candidates'),

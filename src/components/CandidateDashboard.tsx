@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './CandidateDashboard.css';
+import { fetchUserSubscriptions, SubscriptionItem, UserSubscriptionResponse, createPaymentOrder, verifyPaymentSignature, loadRazorpayScript, getRazorpayKeyId } from '../api';
 
 interface CandidateDashboardProps {
   isOpen: boolean;
@@ -12,6 +13,11 @@ interface CandidateDashboardProps {
 
 export default function CandidateDashboard({ isOpen, userData, onClose, onOpenResumeCheck, onOpenAuth, onLogout }: CandidateDashboardProps) {
   const [currentView, setCurrentView] = useState<'dashboard' | 'leads' | 'jobs' | 'resume' | 'signup'>('dashboard');
+  const [userSubscription, setUserSubscription] = useState<UserSubscriptionResponse | null>(null);
+  const [isLoadingSub, setIsLoadingSub] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<SubscriptionItem | null>(null);
+  const [isUpgradingPlan, setIsUpgradingPlan] = useState(false);
+
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [openManagePanel, setOpenManagePanel] = useState<string | null>(null);
   const [openQuotePanel, setOpenQuotePanel] = useState<string | null>(null);
@@ -22,6 +28,82 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(2);
+
+  // Load User Subscription & Payment History from Backend
+  useEffect(() => {
+    if (isOpen) {
+      const email = userData?.email || (typeof window !== 'undefined' ? localStorage.getItem('lucohire_user_email') : null);
+      setIsLoadingSub(true);
+      fetchUserSubscriptions(email || undefined)
+        .then(res => {
+          if (res) setUserSubscription(res);
+        })
+        .catch(err => console.warn('Could not load user subscription:', err))
+        .finally(() => setIsLoadingSub(false));
+    }
+  }, [isOpen, userData]);
+
+  // Handle in-dashboard plan upgrade via Razorpay
+  const handleUpgradeToPro = async (planName = 'LucoHire Pro', amount = 399) => {
+    try {
+      setIsUpgradingPlan(true);
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        alert('Payment gateway failed to load. Please check your internet connection.');
+        return;
+      }
+
+      const orderData = await createPaymentOrder({
+        planName,
+        amount,
+        role: 'candidate',
+        userEmail: userData?.email || localStorage.getItem('lucohire_user_email') || ''
+      });
+
+      const keyId = await getRazorpayKeyId();
+
+      const options = {
+        key: keyId,
+        amount: orderData.amount,
+        currency: orderData.currency || 'INR',
+        name: 'LucoHire',
+        description: `Subscription: ${planName}`,
+        order_id: orderData.orderId,
+        handler: async (response: any) => {
+          try {
+            await verifyPaymentSignature({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              planName,
+            });
+            // Reload subscriptions
+            const updated = await fetchUserSubscriptions(userData?.email);
+            setUserSubscription(updated);
+            alert('🎉 Congratulations! Your plan has been activated successfully.');
+          } catch (err: any) {
+            alert('Payment verification failed: ' + err.message);
+          }
+        },
+        prefill: {
+          name: userData?.name || 'LucoHire User',
+          email: userData?.email || '',
+          contact: userData?.mobile || userData?.phone || '',
+        },
+        theme: {
+          color: '#4A3AE0',
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    } catch (err: any) {
+      alert('Could not start checkout: ' + err.message);
+    } finally {
+      setIsUpgradingPlan(false);
+    }
+  };
+
   const [notifications, setNotifications] = useState([
     {
       id: 'n1',
@@ -589,37 +671,328 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
             );
           })()}
 
-          <section>
+                    {/* DYNAMIC USER SUBSCRIPTION & RAZORPAY TRANSACTION HISTORY */}
+          <section id="userSubscriptionSection">
             <div className="section-head">
-              <p className="section-title">Subscription</p>
+              <p className="section-title">My Subscription &amp; Plans</p>
+              {userSubscription?.isPaid && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '3px 10px',
+                    borderRadius: 999,
+                    background: 'var(--lavender-50, #F7F6FF)',
+                    color: 'var(--violet-700, #4A3AE0)',
+                    border: '1px solid var(--violet-200, #D8D2FA)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5
+                  }}
+                >
+                  👑 Active Subscriber
+                </span>
+              )}
             </div>
-            <div className="plan-card">
-              <div className="plan-top">
-                <div>
-                  <div className="plan-badge">LucoHire Pro</div>
-                  <div className="plan-name">Get seen first</div>
+
+            {userSubscription?.isPaid ? (
+              /* ACTIVE SUBSCRIBER CARD - MATCHES LUCOHIRE DEEP INDIGO GRADIENT THEME */
+              <div className="plan-card">
+                <div className="plan-top">
+                  <div>
+                    <div
+                      className="plan-badge"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        background: 'rgba(255, 255, 255, 0.16)',
+                        border: '1px solid rgba(255, 255, 255, 0.25)',
+                        color: '#FFFFFF',
+                        padding: '3px 10px',
+                        borderRadius: 999,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: '0.04em',
+                        textTransform: 'uppercase'
+                      }}
+                    >
+                      👑 Active Pro Plan · Verified
+                    </div>
+                    <div
+                      className="plan-name"
+                      style={{
+                        fontFamily: "'Space Grotesk', 'Fraunces', sans-serif",
+                        fontSize: 22,
+                        fontWeight: 800,
+                        color: '#FFFFFF',
+                        marginTop: 8
+                      }}
+                    >
+                      {userSubscription.activePlan || userSubscription.latestPayment?.plan_name || 'Paid (RECOMMENDED)'}
+                    </div>
+                  </div>
+                  <div className="plan-price">
+                    <div className="amt" style={{ color: '#FFFFFF', fontSize: 24, fontWeight: 800 }}>
+                      ₹{(((userSubscription.latestPayment?.amount || 4900)) / 100).toLocaleString('en-IN')}
+                    </div>
+                    <div className="per" style={{ color: '#D8D2FA', fontSize: 11.5 }}>
+                      One-time · Razorpay Verified
+                    </div>
+                  </div>
                 </div>
-                <div className="plan-price">
-                  <div className="amt">₹399</div>
-                  <div className="per">per month</div>
+
+                <p className="plan-desc" style={{ color: '#E2DFF5', fontSize: 13, maxWidth: '100%', margin: '10px 0 14px' }}>
+                  Your premium access is unlocked. Your profile is boosted at the top of category searches and verified by recruiters.
+                </p>
+
+                {/* Glassmorphic Razorpay Reference Box */}
+                {userSubscription.latestPayment && (
+                  <div
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: 12,
+                      padding: '12px 16px',
+                      margin: '14px 0',
+                      fontSize: 12.5,
+                      color: '#FFFFFF',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#C0BCDE' }}>Payment Reference:</span>
+                      <code style={{ color: '#FFFFFF', fontWeight: 700, fontFamily: 'monospace', fontSize: 12 }}>
+                        {userSubscription.latestPayment.razorpay_payment_id || userSubscription.latestPayment.razorpay_order_id}
+                      </code>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#C0BCDE' }}>Payment Status:</span>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 11,
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          background: 'rgba(34, 197, 94, 0.25)',
+                          color: '#86EFAC',
+                          border: '1px solid rgba(134, 239, 172, 0.4)'
+                        }}
+                      >
+                        ✓ {userSubscription.latestPayment.status.toUpperCase()} (VERIFIED)
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#C0BCDE' }}>Purchased On:</span>
+                      <span style={{ color: '#FFFFFF', fontWeight: 600 }}>
+                        {new Date(userSubscription.latestPayment.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="plan-feats">
+                  <div className="plan-feat">
+                    <span className="check">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                    Unlimited WhatsApp client leads, zero monthly cap
+                  </div>
+                  <div className="plan-feat">
+                    <span className="check">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                    Priority search placement across all categories
+                  </div>
+                  <div className="plan-feat">
+                    <span className="check">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                    Official Verified badge on your profile card
+                  </div>
+                  <div className="plan-feat">
+                    <span className="check">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                    Full AI Resume Check intelligence &amp; match analytics
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                  {userSubscription.latestPayment && (
+                    <button
+                      type="button"
+                      className="plan-cta"
+                      style={{ flex: 1, margin: 0, cursor: 'pointer' }}
+                      onClick={() => setSelectedReceipt(userSubscription.latestPayment)}
+                    >
+                      🧾 View Payment Receipt
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    style={{
+                      flex: 1,
+                      margin: 0,
+                      background: 'rgba(255, 255, 255, 0.14)',
+                      color: '#FFFFFF',
+                      border: '1px solid rgba(255, 255, 255, 0.28)',
+                      borderRadius: 'var(--radius-sm, 10px)',
+                      padding: '12px 18px',
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onClick={() => handleUpgradeToPro('LucoHire Pro Annual', 149)}
+                  >
+                    Manage / Upgrade
+                  </button>
                 </div>
               </div>
-              <p className="plan-desc">Move to the top of category search and clear your WhatsApp lead cap for the month.</p>
+            ) : (
+              /* FREE PLAN CARD */
+              <div className="plan-card">
+                <div className="plan-top">
+                  <div>
+                    <div className="plan-badge">LucoHire Pro</div>
+                    <div className="plan-name">Get seen first</div>
+                  </div>
+                  <div className="plan-price">
+                    <div className="amt">₹399</div>
+                    <div className="per">per month</div>
+                  </div>
+                </div>
+                <p className="plan-desc">Move to the top of category search and clear your WhatsApp lead cap for the month.</p>
 
-              <div className="plan-feats">
-                <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Unlimited WhatsApp leads, no monthly cap</div>
-                <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Priority placement in Design & Creative search</div>
-                <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Featured verified badge on your card</div>
-                <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Platform fee drops from 10% to 5%</div>
+                <div className="plan-feats">
+                  <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Unlimited WhatsApp leads, no monthly cap</div>
+                  <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Priority placement in Design &amp; Creative search</div>
+                  <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Featured verified badge on your card</div>
+                  <div className="plan-feat"><span className="check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Platform fee drops from 10% to 5%</div>
+                </div>
+
+                <div className="plan-current">
+                  <span>Currently on <b>Free plan</b></span>
+                  <span><b>2</b> of 3 leads used</span>
+                </div>
+
+                <button
+                  type="button"
+                  className="plan-cta"
+                  onClick={() => handleUpgradeToPro('LucoHire Pro', 399)}
+                  disabled={isUpgradingPlan}
+                >
+                  {isUpgradingPlan ? 'Connecting to Razorpay...' : 'Upgrade to Pro — ₹399'}
+                </button>
               </div>
+            )}
 
-              <div className="plan-current">
-                <span>Currently on <b>Free plan</b></span>
-                <span><b>2</b> of 3 leads used</span>
+            {/* PAYMENT RECEIPTS & TRANSACTION HISTORY LIST */}
+            {userSubscription?.payments && userSubscription.payments.length > 0 && (
+              <div style={{ marginTop: 26 }}>
+                <div className="section-head" style={{ marginBottom: 12 }}>
+                  <p className="section-title">Order &amp; Payment Receipts ({userSubscription.payments.length})</p>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {userSubscription.payments.map((p) => {
+                    const isSuccess = p.status === 'captured';
+                    return (
+                      <div
+                        key={p.id}
+                        style={{
+                          background: '#FFFFFF',
+                          border: '1px solid var(--line, #ECEAF9)',
+                          borderRadius: 14,
+                          padding: '14px 18px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 14,
+                          boxShadow: '0 2px 8px rgba(28, 23, 51, 0.03)',
+                          flexWrap: 'wrap'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div
+                            style={{
+                              width: 38,
+                              height: 38,
+                              borderRadius: 10,
+                              background: isSuccess ? 'var(--lavender-50, #F7F6FF)' : '#FFFBEB',
+                              color: isSuccess ? 'var(--violet-700, #4A3AE0)' : '#D97706',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              fontSize: 16,
+                              flexShrink: 0
+                            }}
+                          >
+                            ₹
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--ink, #1C1733)' }}>
+                                {p.plan_name}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: 10.5,
+                                  fontWeight: 700,
+                                  padding: '2px 8px',
+                                  borderRadius: 999,
+                                  background: isSuccess ? '#DCFCE7' : '#FEF3C7',
+                                  color: isSuccess ? '#15803D' : '#B45309'
+                                }}
+                              >
+                                {isSuccess ? 'PAID' : p.status.toUpperCase()}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--ink-soft, #75708F)', marginTop: 3 }}>
+                              Ref: <code style={{ fontFamily: 'monospace', color: 'var(--ink, #1C1733)' }}>{p.razorpay_payment_id || p.razorpay_order_id}</code> · {new Date(p.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                          <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--ink, #1C1733)' }}>
+                            ₹{((p.amount || 0) / 100).toLocaleString('en-IN')}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedReceipt(p)}
+                            style={{
+                              background: 'var(--lavender-50, #F7F6FF)',
+                              border: '1px solid var(--violet-200, #D8D2FA)',
+                              color: 'var(--violet-700, #4A3AE0)',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              padding: '7px 14px',
+                              borderRadius: 8,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            View Receipt
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-
-              <button className="plan-cta">Upgrade to Pro</button>
-            </div>
+            )}
           </section>
 
           <section>
@@ -1212,6 +1585,85 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
         </div>
       )}
 
+
+      {/* USER PAYMENT RECEIPT MODAL */}
+      {selectedReceipt && (
+        <div
+          className="profile-modal open"
+          onClick={() => setSelectedReceipt(null)}
+          style={{ zIndex: 1300 }}
+        >
+          <div
+            className="profile-modal-sheet"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '440px', padding: 22 }}
+          >
+            <div className="profile-modal-close" onClick={() => setSelectedReceipt(null)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </div>
+            
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#DCFCE7', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px', fontSize: 20 }}>
+                ✓
+              </div>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1C1733' }}>
+                Payment Receipt
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#75708F' }}>
+                Official Transaction Summary · Secured by Razorpay
+              </p>
+            </div>
+
+            <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
+                <span style={{ color: '#64748B' }}>Plan Name:</span>
+                <span style={{ fontWeight: 700, color: '#0F172A' }}>{selectedReceipt.plan_name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
+                <span style={{ color: '#64748B' }}>Amount Paid:</span>
+                <span style={{ fontWeight: 800, color: '#16A34A', fontSize: 16 }}>
+                  ₹{((selectedReceipt.amount || 0) / 100).toLocaleString('en-IN')} {selectedReceipt.currency || 'INR'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                <span style={{ color: '#64748B' }}>Payment Status:</span>
+                <span style={{ fontWeight: 700, color: selectedReceipt.status === 'captured' ? '#15803D' : '#B45309', background: selectedReceipt.status === 'captured' ? '#DCFCE7' : '#FEF3C7', padding: '1px 8px', borderRadius: 999, fontSize: 11 }}>
+                  {selectedReceipt.status === 'captured' ? 'SUCCESS / CAPTURED' : selectedReceipt.status.toUpperCase()}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, color: '#334155', marginBottom: 18 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748B' }}>Transaction ID:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>#{selectedReceipt.id}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748B' }}>Razorpay Payment ID:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#4A3AE0' }}>{selectedReceipt.razorpay_payment_id || '—'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748B' }}>Razorpay Order ID:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{selectedReceipt.razorpay_order_id}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748B' }}>Date &amp; Time:</span>
+                <span>{new Date(selectedReceipt.created_at).toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '10px', fontSize: 13, fontWeight: 700 }}
+              onClick={() => window.print()}
+            >
+              Print / Save Receipt
+            </button>
+          </div>
+        </div>
+      )}
+
       {(currentView === 'dashboard' || currentView === 'leads') && (
         <div className="bottom-nav">
           <div className={`nav-item ${currentView === 'dashboard' ? 'active' : ''}`} onClick={() => {
@@ -1233,6 +1685,13 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
           <div className="nav-item" onClick={() => onOpenResumeCheck?.()}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M9 13h6M9 17h6" /></svg>
             Resume Journey
+          </div>
+          <div className="nav-item" onClick={() => {
+            const sec = document.getElementById('userSubscriptionSection');
+            if (sec) sec.scrollIntoView({ behavior: 'smooth' });
+          }}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
+            My Plan
           </div>
         </div>
       )}

@@ -761,3 +761,56 @@ export const loadRazorpayScript = (): Promise<boolean> => {
     document.body.appendChild(script);
   });
 };
+
+
+// 6. Subscriptions & Payments API
+export interface SubscriptionItem {
+  id: number;
+  user_id: number | null;
+  user_email: string;
+  user_role: string;
+  plan_id: string | null;
+  plan_name: string;
+  amount: number; // in paise
+  currency: string;
+  razorpay_order_id: string;
+  razorpay_payment_id: string | null;
+  razorpay_signature: string | null;
+  status: 'captured' | 'created' | 'failed' | string;
+  receipt: string | null;
+  created_at: string;
+  updated_at: string;
+  user_name: string;
+  user_mobile?: string;
+  company_name?: string;
+}
+
+export interface UserSubscriptionResponse {
+  success: boolean;
+  activePlan: string | null;
+  isPaid: boolean;
+  payments: SubscriptionItem[];
+  latestPayment: SubscriptionItem | null;
+}
+
+export const fetchAdminSubscriptions = async (): Promise<SubscriptionItem[]> => {
+  const data = await adminApiRequest<{ success: boolean; subscriptions: SubscriptionItem[] }>(
+    '/admin/subscriptions'
+  );
+  return data.subscriptions || [];
+};
+
+export const fetchUserSubscriptions = async (email?: string): Promise<UserSubscriptionResponse> => {
+  const url = new URL(`${API_URL}/payment/history`);
+  if (email) url.searchParams.set('email', email);
+  const res = await fetch(url.toString(), {
+    headers: {
+      ...authHeaders(),
+    }
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to fetch user subscriptions');
+  }
+  return data;
+};

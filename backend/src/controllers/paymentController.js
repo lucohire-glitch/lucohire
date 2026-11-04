@@ -166,19 +166,51 @@ export async function getRazorpayKey(req, res) {
  */
 export async function getUserPayments(req, res) {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
+    const userId = req.user ? req.user.id : null;
+    const userEmail = (req.user && req.user.email) ? req.user.email : (req.query.email ? String(req.query.email).toLowerCase().trim() : null);
+
+    if (!userId && !userEmail) {
+      return res.status(401).json({ success: false, error: 'Authentication or user email required' });
     }
+
     const result = await pool.query(
-      `SELECT id, plan_name, amount, currency, status, razorpay_payment_id, created_at 
+      `SELECT id, plan_name, plan_id, amount, currency, status, razorpay_order_id, razorpay_payment_id, receipt, created_at, updated_at 
        FROM payments 
-       WHERE user_id = $1 OR user_email = $2 
+       WHERE (user_id IS NOT NULL AND user_id = $1) OR (user_email IS NOT NULL AND LOWER(user_email) = LOWER($2))
        ORDER BY created_at DESC`,
-      [req.user.id, req.user.email]
+      [userId, userEmail]
     );
-    return res.json({ payments: result.rows });
+
+    // Find active plan
+    let activePlan = null;
+    let isPaid = false;
+
+    if (userId) {
+      const table = (req.user && req.user.role === 'recruiter') ? 'recruiters' : 'candidates';
+      const uRes = await pool.query(`SELECT id, is_paid, plan FROM ${table} WHERE id = $1`, [userId]).catch(() => ({ rows: [] }));
+      if (uRes.rows.length > 0 && uRes.rows[0].is_paid) {
+        isPaid = true;
+        activePlan = uRes.rows[0].plan;
+      }
+    }
+
+    // Fallback: check latest captured payment
+    const latestCaptured = result.rows.find(p => p.status === 'captured');
+    if (!activePlan && latestCaptured) {
+      activePlan = latestCaptured.plan_name;
+      isPaid = true;
+    }
+
+    return res.json({
+      success: true,
+      activePlan,
+      isPaid,
+      payments: result.rows,
+      latestPayment: latestCaptured || result.rows[0] || null
+    });
   } catch (err) {
-    return res.status(500).json({ error: 'Failed to fetch payments' });
+    console.error('Error in getUserPayments:', err);
+    return res.status(500).json({ success: false, error: 'Failed to fetch payments' });
   }
 }
 

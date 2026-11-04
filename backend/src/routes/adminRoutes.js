@@ -9,6 +9,7 @@ import {
   getStats,
   getSiteSettings,
   updateSiteSettings,
+  getAllSubscriptions,
 } from '../controllers/adminController.js';
 import {
   getAllPlans,
@@ -64,6 +65,9 @@ router.delete('/skills/:id', requireAdmin, asyncHandler(deleteSkill));
 // Site Settings Management (Freelancer Switch etc.)
 router.get('/settings', asyncHandler(getSiteSettings));
 router.put('/settings', requireAdmin, asyncHandler(updateSiteSettings));
+
+// Subscriptions & Payment Transactions
+router.get('/subscriptions', requireAdmin, asyncHandler(getAllSubscriptions));
 
 export default router;
 
