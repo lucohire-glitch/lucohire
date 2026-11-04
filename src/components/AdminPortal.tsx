@@ -1073,14 +1073,82 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
               </div>
             </div>
 
-            <span className="admin-sidebar-tag">
-              <span className="admin-live-dot" />
-              Live Admin
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="admin-sidebar-tag">
+                <span className="admin-live-dot" />
+                Live Admin
+              </span>
+              <button
+                type="button"
+                className="admin-sidebar-close-btn"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                aria-label="Close menu"
+                title="Close Navigation"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
         </div>
 
         <nav className="admin-sidebar-nav">
+          {/* Quick Freelancers Toggle in Sidebar (Always visible on mobile & desktop) */}
+          <div className="admin-sidebar-quick-switch">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>
+                Freelancers
+              </span>
+              <span style={{
+                fontSize: 10,
+                fontWeight: 700,
+                padding: '2px 6px',
+                borderRadius: 4,
+                background: freelancersEnabled ? '#DCFCE7' : '#F1F5F9',
+                color: freelancersEnabled ? '#15803D' : '#64748B'
+              }}>
+                {freelancersEnabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={freelancersEnabled}
+              onClick={async () => {
+                const next = !freelancersEnabled;
+                setFreelancersEnabled(next);
+                await updateSiteSettings({ freelancers_enabled: next });
+              }}
+              style={{
+                width: 36,
+                height: 20,
+                borderRadius: 999,
+                background: freelancersEnabled ? '#4F46E5' : '#CBD5E1',
+                border: 'none',
+                cursor: 'pointer',
+                position: 'relative',
+                padding: 2,
+                display: 'flex',
+                alignItems: 'center',
+                outline: 'none',
+                transition: 'background-color 0.2s ease',
+                flexShrink: 0
+              }}
+              title="Toggle Freelancers on Home Page"
+            >
+              <span
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: '50%',
+                  background: '#FFFFFF',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                  transform: freelancersEnabled ? 'translateX(16px)' : 'translateX(0)',
+                  transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+              />
+            </button>
+          </div>
+
           <div className="admin-menu-section-label">Platform Navigation</div>
 
           <button
@@ -1290,6 +1358,15 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
         </div>
       </aside>
 
+      {/* Mobile Drawer Backdrop */}
+      {isMobileSidebarOpen && (
+        <div
+          className="admin-sidebar-backdrop"
+          onClick={() => setIsMobileSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Main Content Area */}
       <main className="admin-main-area">
         {/* Top Header Bar */}
@@ -1320,19 +1397,10 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
           <div className="admin-topbar-right">
             {/* COMPACT SWITCH BOX: Freelancers Toggle */}
             <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '4px 10px',
-                borderRadius: 8,
-                background: '#F8FAFC',
-                border: '1px solid #E2E8F0',
-                marginRight: 4
-              }}
+              className="admin-topbar-freelancer-switch"
               title="Toggle Freelancers on Home Page"
             >
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: '#475569', userSelect: 'none' }}>
+              <span className="admin-switch-title">
                 Freelancers
               </span>
               <button
@@ -1356,7 +1424,8 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
                   display: 'flex',
                   alignItems: 'center',
                   outline: 'none',
-                  transition: 'background-color 0.2s ease'
+                  transition: 'background-color 0.2s ease',
+                  flexShrink: 0
                 }}
               >
                 <span
@@ -1378,14 +1447,20 @@ export default function AdminPortal({ onBackToSite }: AdminPortalProps) {
               className="admin-refresh-btn"
               onClick={loadDashboardData}
               disabled={isLoadingData}
+              title="Refresh Data"
             >
               <RefreshCw size={13} className={isLoadingData ? 'animate-spin' : ''} />
-              <span>{isLoadingData ? 'Refreshing...' : 'Refresh'}</span>
+              <span className="admin-btn-label">{isLoadingData ? 'Refreshing...' : 'Refresh'}</span>
             </button>
 
-            <button type="button" className="admin-view-site-btn" onClick={onBackToSite}>
+            <button 
+              type="button" 
+              className="admin-view-site-btn" 
+              onClick={onBackToSite}
+              title="Return to Main Website"
+            >
               <ArrowLeft size={13} />
-              <span>Back to Site</span>
+              <span className="admin-btn-label">Back to Site</span>
             </button>
           </div>
         </header>

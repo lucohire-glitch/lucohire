@@ -761,7 +761,7 @@ export default function AdminScraperView() {
       </div>
 
       {/* Metric Cards Row */}
-      <div style={{
+      <div className="admin-scraper-metrics-grid" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
         gap: '12px',
@@ -886,6 +886,7 @@ export default function AdminScraperView() {
         paddingBottom: '10px',
         marginBottom: '16px',
         overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
       }}>
         {[
           { key: 'companies', label: `Companies (${companies.length})` },
@@ -908,6 +909,8 @@ export default function AdminScraperView() {
               border: 'none',
               background: activeSubTab === tab.key ? 'var(--violet-700, #4A3AE0)' : 'transparent',
               color: activeSubTab === tab.key ? '#FFFFFF' : 'var(--ink-soft, #75708F)',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             {tab.label}

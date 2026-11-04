@@ -1862,31 +1862,372 @@
 }
 
 /* =========================================
-   RESPONSIVE DESIGN
+   RESPONSIVE DESIGN & MOBILE DRAWER
 ========================================= */
+.admin-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 998;
+}
+
+.admin-sidebar-close-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--ink-soft, #75708F);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-sidebar-close-btn:hover {
+  background: var(--lavender-50, #F7F6FF);
+  color: var(--ink, #1C1733);
+}
+
+.admin-sidebar-quick-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  margin: 0 0 14px;
+  background: var(--lavender-50, #F7F6FF);
+  border: 1px solid var(--line, #ECEAF9);
+  border-radius: 10px;
+}
+
+.admin-topbar-freelancer-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  flex-shrink: 0;
+}
+
+.admin-switch-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475569;
+  user-select: none;
+}
+
 @media (max-width: 900px) {
   .admin-sidebar {
     transform: translateX(-100%);
+    width: 280px;
+    max-width: 85vw;
+    z-index: 1000;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .admin-sidebar.open {
     transform: translateX(0);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.25);
+  }
+
+  .admin-sidebar-close-btn {
+    display: inline-flex !important;
   }
 
   .admin-main-area {
-    margin-left: 0;
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-width: 0 !important;
+    overflow-x: hidden;
   }
 
   .admin-mobile-toggle {
-    display: block;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 6px !important;
+    border-radius: 8px;
+    background: #F1EFFC;
+    border: none;
+    color: var(--violet-700, #4A3AE0);
   }
 
   .admin-topbar {
-    padding: 0 16px;
+    height: auto !important;
+    min-height: 56px;
+    padding: 8px 12px !important;
+    gap: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .admin-topbar-left {
+    gap: 8px;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  .admin-page-heading {
+    font-size: 15px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .admin-topbar-right {
+    gap: 6px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  .admin-topbar-freelancer-switch {
+    padding: 3px 8px !important;
+    gap: 6px !important;
+  }
+
+  .admin-switch-title {
+    font-size: 11.5px !important;
+  }
+
+  .admin-refresh-btn,
+  .admin-view-site-btn {
+    padding: 0 8px !important;
+    height: 32px !important;
+    gap: 0 !important;
+    min-width: 32px !important;
+    justify-content: center;
+  }
+
+  .admin-btn-label {
+    display: none !important;
   }
 
   .admin-content-body {
-    padding: 16px;
+    padding: 14px 10px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .admin-stat-card {
+    padding: 10px 12px !important;
+  }
+
+  .admin-stat-value {
+    font-size: 18px !important;
+  }
+
+  .admin-stat-label {
+    font-size: 11px !important;
+  }
+
+  /* OVERVIEW DASHBOARD GRIDS & CARDS */
+  .admin-analytics-grid,
+  .admin-overview-bottom-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  .admin-charts-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .admin-card-panel {
+    padding: 16px 14px !important;
+    border-radius: 14px !important;
+  }
+
+  .admin-panel-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .admin-chart-controls {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-chart-btn {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .admin-chart-wrapper {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .admin-growth-svg {
+    width: 100% !important;
+    height: 180px !important;
+  }
+
+  .admin-chart-legend-bar {
+    gap: 10px !important;
+    margin-top: 10px !important;
+    padding-top: 10px !important;
+  }
+
+  .admin-legend-item {
+    font-size: 11px !important;
+  }
+
+  .admin-donut-svg-box {
+    max-width: 100% !important;
+  }
+
+  /* USER MANAGEMENT TABLE */
+  .admin-table-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+  }
+
+  .admin-search-box {
+    max-width: 100% !important;
+  }
+
+  .admin-filter-tabs {
+    overflow-x: auto !important;
+    width: 100% !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .admin-table-responsive {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .admin-table-responsive table,
+  .admin-users-table,
+  .admin-plans-container table {
+    min-width: 620px !important;
+  }
+
+  .admin-pagination-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+  }
+
+  .admin-pagination-controls {
+    width: 100% !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  /* PLANS & PRICING + CAREER PATHS MANAGEMENT */
+  .admin-plans-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  .admin-plans-top-card {
+    padding: 16px 14px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+  }
+
+  .admin-plans-actions-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  .admin-plan-cat-pills {
+    width: 100% !important;
+    display: flex !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .admin-plan-cat-pill {
+    flex: 1 0 auto !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    font-size: 11.5px !important;
+    padding: 6px 10px !important;
+  }
+
+  .admin-add-plan-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .admin-plan-card {
+    padding: 18px 14px !important;
+  }
+
+  /* SCRAPER ENGINE METRICS ON MOBILE */
+  .admin-scraper-metrics-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  /* MODALS RESPONSIVENESS */
+  .admin-modal-card,
+  .admin-plan-form-modal {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    padding: 18px 14px !important;
+    max-height: 88vh !important;
+    box-sizing: border-box !important;
+  }
+
+  /* SETTINGS */
+  .admin-portal-root .admin-settings-container {
+    padding: 14px 10px !important;
+    width: 100% !important;
+  }
+  .admin-portal-root .admin-settings-card {
+    padding: 16px 14px !important;
+  }
+  .admin-portal-root .admin-settings-item {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+  .admin-portal-root .admin-settings-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+  }
+  .admin-portal-root .admin-save-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-topbar-freelancer-switch .admin-switch-title {
+    display: none; /* Only show toggle switch button on ultra-small screens */
+  }
+
+  .admin-topbar-freelancer-switch {
+    padding: 3px 6px !important;
   }
 }
 
