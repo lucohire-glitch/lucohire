@@ -185,9 +185,10 @@ export default function ResumeCheckView({
   onOpenAuth,
   onOpenRoleChooser,
   onOpenCandidateReg,
-  onGoToPricing
+  onGoToPricing,
+  onUpgradePlan
 }: any) {
-  const [searchQuery, setSearchQuery] = useState(initialSearch || '');
+  const [searchQuery, setSearchQuery] = useState<string>(() => (typeof initialSearch === 'string' ? initialSearch : ''));
   const [locationFilter, setLocationFilter] = useState<'all' | 'Remote' | 'Hybrid' | 'Onsite'>('all');
   const [expFilter, setExpFilter] = useState<'all' | '0-2 yrs' | '2+ yrs' | '5+ yrs'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'Full-time' | 'Contract'>('all');
@@ -199,15 +200,24 @@ export default function ResumeCheckView({
 
   const [liveJobs, setLiveJobs] = useState<JobItem[]>(DEFAULT_JOBS);
 
+  // Keep search query synced if initialSearch updates
+  useEffect(() => {
+    if (typeof initialSearch === 'string') {
+      setSearchQuery(initialSearch);
+    }
+  }, [initialSearch]);
+
   // Sync with live jobs from scraper API if available
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     fetchPublicScrapedJobs({ limit: 46 })
       .then((res) => {
-        if (res && res.jobs && res.jobs.length > 0) {
+        if (res && res.jobs && Array.isArray(res.jobs) && res.jobs.length > 0) {
           const mapped: JobItem[] = res.jobs.map((j: ScrapedPublicJob, idx: number) => {
-            const firstChar = (j.company || j.title || 'J').charAt(0).toUpperCase();
+            const companyName = j.company || 'Tech Company';
+            const jobTitle = j.title || 'Role';
+            const firstChar = (companyName || jobTitle).charAt(0).toUpperCase() || 'J';
             const colors = [
               { bg: '#FFF7ED', color: '#C2410C' },
               { bg: '#EFF6FF', color: '#1A73E8' },
@@ -219,9 +229,9 @@ export default function ResumeCheckView({
             const c = colors[idx % colors.length];
             return {
               id: `scraped-${j.id || idx}`,
-              title: j.title,
-              company: j.company || 'Tech Company',
-              meta: `${j.company || 'Tech Company'} · ${j.work_mode || 'Hybrid'} · ${j.experience_level || '2+ yrs'} · Recently`,
+              title: jobTitle,
+              company: companyName,
+              meta: `${companyName} · ${j.work_mode || 'Hybrid'} · ${j.experience_level || '2+ yrs'} · Recently`,
               salary: j.salary || '₹10–25L',
               logo: firstChar,
               logoBg: c.bg,
@@ -230,7 +240,7 @@ export default function ResumeCheckView({
               exp: j.experience_level || '2+ yrs',
               location: j.location || 'India',
               type: j.job_type || 'Full-time',
-              description: j.description || `${j.title} role at ${j.company}. Work with cutting edge tools and collaborate with product teams.`
+              description: j.description || `${jobTitle} at ${companyName}. Work with high-growth teams and cutting-edge tools.`
             };
           });
           setLiveJobs([...DEFAULT_JOBS, ...mapped]);
@@ -277,39 +287,55 @@ export default function ResumeCheckView({
     }
   };
 
-  // Filter jobs based on search query and chips
+  // Safe filter jobs based on search query and chips
   const filteredJobs = useMemo(() => {
-    return liveJobs.filter((job) => {
+    const q = (typeof searchQuery === 'string' ? searchQuery : '').trim().toLowerCase();
+    const locFilter = (locationFilter || 'all').toLowerCase();
+    const expF = (expFilter || 'all').toLowerCase();
+    const typF = (typeFilter || 'all').toLowerCase();
+
+    return (liveJobs || []).filter((job) => {
+      if (!job) return false;
+
       // Query filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
+      if (q) {
+        const title = String(job.title || '').toLowerCase();
+        const company = String(job.company || '').toLowerCase();
+        const meta = String(job.meta || '').toLowerCase();
+        const location = String(job.location || '').toLowerCase();
+        const desc = String(job.description || '').toLowerCase();
+
         const matchesQuery =
-          job.title.toLowerCase().includes(q) ||
-          job.company.toLowerCase().includes(q) ||
-          job.meta.toLowerCase().includes(q) ||
-          job.location.toLowerCase().includes(q) ||
-          job.description.toLowerCase().includes(q);
+          title.includes(q) ||
+          company.includes(q) ||
+          meta.includes(q) ||
+          location.includes(q) ||
+          desc.includes(q);
+
         if (!matchesQuery) return false;
       }
 
       // Location filter
-      if (locationFilter !== 'all') {
-        if (!job.mode.toLowerCase().includes(locationFilter.toLowerCase()) &&
-            !job.location.toLowerCase().includes(locationFilter.toLowerCase())) {
+      if (locFilter !== 'all') {
+        const mode = String(job.mode || '').toLowerCase();
+        const loc = String(job.location || '').toLowerCase();
+        if (!mode.includes(locFilter) && !loc.includes(locFilter)) {
           return false;
         }
       }
 
       // Experience filter
-      if (expFilter !== 'all') {
-        if (!job.exp.toLowerCase().includes(expFilter.toLowerCase())) {
+      if (expF !== 'all') {
+        const exp = String(job.exp || '').toLowerCase();
+        if (!exp.includes(expF)) {
           return false;
         }
       }
 
       // Type filter
-      if (typeFilter !== 'all') {
-        if (!job.type.toLowerCase().includes(typeFilter.toLowerCase())) {
+      if (typF !== 'all') {
+        const type = String(job.type || '').toLowerCase();
+        if (!type.includes(typF)) {
           return false;
         }
       }
@@ -422,7 +448,7 @@ export default function ResumeCheckView({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-              {searchQuery && (
+              {Boolean(searchQuery) && (
                 <button
                   className="clear-srch"
                   onClick={() => setSearchQuery('')}
@@ -469,7 +495,7 @@ export default function ResumeCheckView({
           <span>
             <b>{filteredJobs.length} jobs</b> found {filteredJobs.length > 0 && `(Showing ${startIndex + 1}–${endIndex})`}
           </span>
-          {searchQuery && (
+          {Boolean(searchQuery) && (
             <span style={{ fontSize: '13px', color: '#4F46E5', cursor: 'pointer' }} onClick={resetFilters}>
               Clear search &times;
             </span>

@@ -36,4 +36,8 @@ export const env = {
     apiSecret: process.env.CLOUDINARY_API_SECRET,
     folder: process.env.CLOUDINARY_UPLOAD_FOLDER || 'lucohire',
   },
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID || 'rzp_live_Tvz3wSEVcPeHFv',
+    keySecret: process.env.RAZORPAY_KEY_SECRET || 'vjCrSopVqc8565Ub8k77iNsM',
+  },
 };

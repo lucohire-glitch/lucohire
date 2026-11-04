@@ -683,3 +683,81 @@ export const updateSiteSettings = async (settings: Partial<SiteSettings>): Promi
     return { success: true, freelancers_enabled: settings.freelancers_enabled };
   }
 };
+
+
+// 5. Razorpay Payment Gateway APIs
+export interface CreateOrderParams {
+  planId?: string | number;
+  planName: string;
+  amount: number;
+  role?: string;
+  userEmail?: string;
+}
+
+export interface VerifyPaymentParams {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  planName?: string;
+  planId?: string | number;
+}
+
+export const getRazorpayKeyId = async (): Promise<string> => {
+  try {
+    const res = await fetch(`${API_URL}/payment/key`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.keyId) return data.keyId;
+    }
+  } catch (e) {}
+  return 'rzp_live_Tvz3wSEVcPeHFv';
+};
+
+export const createPaymentOrder = async (params: CreateOrderParams) => {
+  const res = await fetch(`${API_URL}/payment/create-order`, {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to create payment order');
+  }
+  return data;
+};
+
+export const verifyPaymentSignature = async (params: VerifyPaymentParams) => {
+  const res = await fetch(`${API_URL}/payment/verify`, {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Payment verification failed');
+  }
+  return data;
+};
+
+export const loadRazorpayScript = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') {
+      return resolve(false);
+    }
+    if ((window as any).Razorpay) {
+      return resolve(true);
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};

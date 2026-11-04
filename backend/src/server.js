@@ -1,3 +1,4 @@
+// Razorpay Test mode active
 import { env } from './config/env.js';
 import { initSchema } from './config/db.js';
 import { PlanModel } from './models/planModel.js';

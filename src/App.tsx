@@ -13,9 +13,10 @@ import RecruiterRegistration from './components/RecruiterRegistration';
 import CandidateDashboard from './components/CandidateDashboard';
 import EmployerDashboard from './components/EmployerDashboard';
 import ResumeCheckView from './components/ResumeCheckView';
+import ResumeAnalyzerView from './components/ResumeAnalyzerView';
 import FreelancersView from './components/FreelancersView';
 import AdminPortal from './components/AdminPortal';
-import { logout, getCurrentUser, getUserRole, getSiteSettings } from './api';
+import { logout, getCurrentUser, getUserRole, getSiteSettings, createPaymentOrder, verifyPaymentSignature, loadRazorpayScript } from './api';
 
 const SKILLS = [
   "Logo Design", "React Developer", "Video Editing", "Content Writing", "SEO Expert",
@@ -91,6 +92,8 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isFreelancersViewOpen, setIsFreelancersViewOpen] = useState(false);
   const [isResumeCheckOpen, setIsResumeCheckOpen] = useState(false);
+  const [isJobsSearchOpen, setIsJobsSearchOpen] = useState(false);
+  const [jobsSearchQuery, setJobsSearchQuery] = useState('');
   const [resumeSearchQuery, setResumeSearchQuery] = useState('');
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -142,18 +145,117 @@ export default function App() {
     };
   }, []);
 
-  const handleUpgradePlan = (plan: any) => {
-    localStorage.setItem('luco_plan_upgraded', 'true');
-    localStorage.setItem('luco_is_premium', 'true');
-    if (currentUser) {
-      const updated = { ...currentUser, plan: 'paid', is_paid: true };
-      setCurrentUser(updated);
-      try { localStorage.setItem('user', JSON.stringify(updated)); } catch(e){}
+    const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [pendingPlanToUpgrade, setPendingPlanToUpgrade] = useState<any>(null);
+
+  const handleUpgradePlan = async (plan: any) => {
+    // Strict authentication check: Do not open Razorpay unless signed in / registered
+    const isLoggedIn = !!(currentUser || localStorage.getItem('token') || localStorage.getItem('luco_token'));
+    if (!isLoggedIn) {
+      setPendingPlanToUpgrade(plan);
+      setIsRoleChooserOpen(true);
+      triggerAuthToast('Please Sign In or Register to purchase this plan.');
+      return;
     }
-    const pTitle = plan?.badge ? `Paid (${plan.badge})` : 'Verified Plan (₹49/month)';
-    setUpgradeSuccessModal({
-      planName: pTitle
-    });
+
+    try {
+      setIsPaymentLoading(true);
+
+      // 1. Ensure Razorpay checkout script is loaded
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        alert('Could not load Razorpay Payment Gateway. Please check your internet connection.');
+        setIsPaymentLoading(false);
+        return;
+      }
+
+      // 2. Determine price and title
+      let priceNum = 149;
+      if (typeof plan?.price === 'number') {
+        priceNum = plan.price;
+      } else if (plan?.premAmt) {
+        const match = String(plan.premAmt).match(/\d[\d,]*/);
+        if (match) priceNum = Number(match[0].replace(/,/g, ''));
+      } else if (plan?.price) {
+        const match = String(plan.price).match(/\d[\d,]*/);
+        if (match) priceNum = Number(match[0].replace(/,/g, ''));
+      }
+
+      const planTitle = plan?.name || (plan?.badge ? `Paid (${plan.badge})` : (pricingTab === 'recruiter' ? 'Recruiter Pro' : 'Freelancer Verified'));
+
+      // 3. Create order from backend
+      const orderData = await createPaymentOrder({
+        planId: plan?.id || 'verified',
+        planName: planTitle,
+        amount: priceNum,
+        role: userRole || (pricingTab === 'recruiter' ? 'recruiter' : 'candidate'),
+        userEmail: currentUser?.email
+      });
+
+      // 4. Open Razorpay Checkout modal
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency || 'INR',
+        name: 'LucoHire',
+        description: `Upgrade to ${planTitle}`,
+        order_id: orderData.orderId,
+        prefill: {
+          name: currentUser?.name || '',
+          email: currentUser?.email || '',
+          contact: currentUser?.mobile || ''
+        },
+        theme: {
+          color: '#4F46E5'
+        },
+        handler: async (response: any) => {
+          try {
+            // 5. Verify payment signature on backend
+            await verifyPaymentSignature({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              planName: planTitle
+            });
+
+            // 6. Update local state & storage
+            localStorage.setItem('luco_plan_upgraded', 'true');
+            localStorage.setItem('luco_is_premium', 'true');
+            if (currentUser) {
+              const updated = { ...currentUser, plan: planTitle, is_paid: true };
+              setCurrentUser(updated);
+              try { localStorage.setItem('user', JSON.stringify(updated)); } catch(e){}
+            }
+
+            setUpgradeSuccessModal({
+              planName: planTitle,
+              paymentId: response.razorpay_payment_id
+            });
+            triggerAuthToast('Payment successful! Plan upgraded.');
+          } catch (verifyErr: any) {
+            triggerAuthToast(verifyErr.message || 'Payment verification failed. Please contact support.');
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsPaymentLoading(false);
+          }
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', (failRes: any) => {
+        setIsPaymentLoading(false);
+        const reason = failRes.error?.description || 'Transaction cancelled';
+        triggerAuthToast(`Payment: ${reason}`);
+      });
+      rzp.open();
+    } catch (err: any) {
+      console.error('Payment initiation error:', err);
+      triggerAuthToast(err.message || 'Could not initiate payment. Please try again.');
+    } finally {
+      setIsPaymentLoading(false);
+    }
   };
 
   const triggerAuthToast = (msg: string) => {
@@ -166,6 +268,16 @@ export default function App() {
     setUserRole(data.role);
     setCandidateData(data.user);
     triggerAuthToast(`Welcome back, ${data.user?.name || 'User'}!`);
+
+    if (pendingPlanToUpgrade) {
+      const p = pendingPlanToUpgrade;
+      setPendingPlanToUpgrade(null);
+      setTimeout(() => {
+        handleUpgradePlan(p);
+      }, 500);
+      return;
+    }
+
     if (data.role === 'recruiter') {
       setIsEmployerDashboardOpen(true);
     } else {
@@ -239,6 +351,12 @@ export default function App() {
       if (h === '#freelancers-page' || h === '#find-freelancer' || h === '#find-freelancers') {
         setIsFreelancersViewOpen(true);
       }
+      if (h === '#jobs' || h === '#jobsearch' || h === '#search-jobs') {
+        setIsJobsSearchOpen(true);
+      }
+      if (h === '#resume-check' || h === '#resumecheck' || h === '#resume') {
+        setIsResumeCheckOpen(true);
+      }
     };
     handleNavigation();
     window.addEventListener('hashchange', handleNavigation);
@@ -281,8 +399,9 @@ export default function App() {
   };
 
   const scrollTo = (id: string) => {
-    if (isResumeCheckOpen) {
+    if (isResumeCheckOpen || isJobsSearchOpen) {
       setIsResumeCheckOpen(false);
+      setIsJobsSearchOpen(false);
       setTimeout(() => {
         performScroll(id);
       }, 80);
@@ -370,8 +489,16 @@ export default function App() {
             setCurrentUser(u);
             setUserRole('candidate');
             setIsCandidateRegOpen(false);
-            setIsProfileHomeOpen(true);
             triggerAuthToast('Profile created successfully!');
+            if (pendingPlanToUpgrade) {
+              const p = pendingPlanToUpgrade;
+              setPendingPlanToUpgrade(null);
+              setTimeout(() => {
+                handleUpgradePlan(p);
+              }, 500);
+            } else {
+              setIsProfileHomeOpen(true);
+            }
           }}
           onSwitchToRecruiter={() => {
             setIsCandidateRegOpen(false);
@@ -387,9 +514,17 @@ export default function App() {
             setCurrentUser(u);
             setUserRole('recruiter');
             setIsRecruiterRegOpen(false);
-            setIsEmployerDashboardOpen(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
             triggerAuthToast('Employer account created successfully!');
+            if (pendingPlanToUpgrade) {
+              const p = pendingPlanToUpgrade;
+              setPendingPlanToUpgrade(null);
+              setTimeout(() => {
+                handleUpgradePlan(p);
+              }, 500);
+            } else {
+              setIsEmployerDashboardOpen(true);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
           }}
           onSwitchToCandidate={() => {
             setIsRecruiterRegOpen(false);
@@ -402,8 +537,9 @@ export default function App() {
           onClose={() => setIsProfileHomeOpen(false)}
           onOpenResumeCheck={() => {
             setIsProfileHomeOpen(false);
+            setResumeSearchQuery('');
             setIsResumeCheckOpen(true);
-            window.scrollTo({ top: 0, behavior: 'auto' });
+            window.scrollTo({ top: 0, behavior: 'instant' });
           }}
           onOpenAuth={() => {
             setIsProfileHomeOpen(false);
@@ -425,6 +561,216 @@ export default function App() {
       </>
     );
   }
+
+  // If user clicked "Why am I not getting hired?" or "Start My Resume Check", open the exact Resume Analyzer
+  if (isResumeCheckOpen) {
+    return (
+      <>
+        <ResumeAnalyzerView
+          currentUser={currentUser}
+          userRole={userRole}
+          onLogout={handleLogout}
+          onOpenProfile={() => setIsProfileHomeOpen(true)}
+          onOpenEmployerDashboard={() => setIsEmployerDashboardOpen(true)}
+          onBack={() => {
+            setIsResumeCheckOpen(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onGoToFreelancers={() => {
+            setIsResumeCheckOpen(false);
+            setTimeout(() => {
+              const el = document.getElementById('freelancerSection');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+          }}
+          onOpenCandidateReg={() => setIsCandidateRegOpen(true)}
+          onOpenRoleChooser={() => setIsRoleChooserOpen(true)}
+          onOpenAuth={() => setIsAuthOpen(true)}
+          onGoToPricing={() => {
+            setIsResumeCheckOpen(false);
+            window.location.hash = 'pricingSection';
+            setTimeout(() => {
+              performScroll('pricingSection');
+            }, 80);
+          }}
+          onUpgradePlan={handleUpgradePlan}
+        />
+        <AuthModal
+          isOpen={isAuthOpen}
+          onClose={() => {
+            setIsAuthOpen(false);
+            if (window.location.hash === '#signin' || window.location.hash === '#auth') {
+              history.replaceState(null, '', ' ');
+            }
+          }}
+          onOpenRoleChooser={() => {
+            setIsAuthOpen(false);
+            setIsRoleChooserOpen(true);
+          }}
+          onLoginSuccess={handleLoginSuccess}
+        />
+        <RoleChooserModal
+          isOpen={isRoleChooserOpen}
+          onClose={() => setIsRoleChooserOpen(false)}
+          onChooseCandidate={() => setIsCandidateRegOpen(true)}
+          onChooseRecruiter={() => setIsRecruiterRegOpen(true)}
+        />
+        <CandidateRegistration
+          isOpen={isCandidateRegOpen}
+          onClose={() => setIsCandidateRegOpen(false)}
+          onComplete={(data: any) => {
+            setCandidateData(data);
+            const u = getCurrentUser() || data;
+            setCurrentUser(u);
+            setUserRole('candidate');
+            setIsCandidateRegOpen(false);
+            triggerAuthToast('Profile created successfully!');
+            if (pendingPlanToUpgrade) {
+              const p = pendingPlanToUpgrade;
+              setPendingPlanToUpgrade(null);
+              setTimeout(() => {
+                handleUpgradePlan(p);
+              }, 500);
+            } else {
+              setIsProfileHomeOpen(true);
+            }
+          }}
+          onSwitchToRecruiter={() => {
+            setIsCandidateRegOpen(false);
+            setIsRecruiterRegOpen(true);
+          }}
+        />
+        <RecruiterRegistration
+          isOpen={isRecruiterRegOpen}
+          onClose={() => setIsRecruiterRegOpen(false)}
+          onComplete={(data: any) => {
+            setCandidateData(data);
+            const u = getCurrentUser() || data;
+            setCurrentUser(u);
+            setUserRole('recruiter');
+            setIsRecruiterRegOpen(false);
+            triggerAuthToast('Employer account created successfully!');
+            if (pendingPlanToUpgrade) {
+              const p = pendingPlanToUpgrade;
+              setPendingPlanToUpgrade(null);
+              setTimeout(() => {
+                handleUpgradePlan(p);
+              }, 500);
+            } else {
+              setIsEmployerDashboardOpen(true);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          }}
+          onSwitchToCandidate={() => {
+            setIsRecruiterRegOpen(false);
+            setIsCandidateRegOpen(true);
+          }}
+        />
+        <CandidateDashboard
+          isOpen={isProfileHomeOpen}
+          userData={candidateData || currentUser || {}}
+          onClose={() => setIsProfileHomeOpen(false)}
+          onOpenResumeCheck={() => {
+            setIsProfileHomeOpen(false);
+            setResumeSearchQuery('');
+            setIsResumeCheckOpen(true);
+            window.scrollTo({ top: 0, behavior: 'instant' });
+          }}
+          onOpenAuth={() => {
+            setIsProfileHomeOpen(false);
+            setIsAuthOpen(true);
+          }}
+          onLogout={handleLogout}
+        />
+        <EmployerDashboard
+          isOpen={isEmployerDashboardOpen}
+          userData={candidateData || currentUser || {}}
+          onClose={() => setIsEmployerDashboardOpen(false)}
+          onOpenAuth={() => {
+            setIsEmployerDashboardOpen(false);
+            setIsAuthOpen(true);
+          }}
+          onLogout={handleLogout}
+        />
+
+        {/* PLAN UPGRADE SUCCESS MODAL */}
+        {upgradeSuccessModal && (
+          <div 
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(5px)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
+            }}
+            onClick={() => setUpgradeSuccessModal(null)}
+          >
+            <div 
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '24px',
+                maxWidth: '460px',
+                width: '100%',
+                padding: '34px 28px',
+                textAlign: 'center',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                position: 'relative'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: '#E5F5EB',
+                color: '#1FA854',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 18px',
+                fontSize: '32px',
+                fontWeight: 800
+              }}>
+                ✓
+              </div>
+              <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#1B1F23', margin: '0 0 10px', fontFamily: "'Fraunces', serif" }}>
+                Plan Upgraded Successfully!
+              </h3>
+              <p style={{ fontSize: '14.5px', color: '#5B6168', lineHeight: 1.55, margin: '0 0 24px' }}>
+                Aapka <b>{upgradeSuccessModal.planName}</b> plan activate ho chuka hai! Ab Resume Check mein aapka pura real AI report aur saare analysis sections unlock ho gaye hain.
+              </p>
+              <button
+                type="button"
+                onClick={() => setUpgradeSuccessModal(null)}
+                style={{
+                  width: '100%',
+                  padding: '15px 20px',
+                  borderRadius: '14px',
+                  background: 'var(--brand-700, #4C2FD9)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: '15px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 10px 20px -6px rgba(76, 47, 217, 0.5)',
+                  marginBottom: '10px',
+                  fontFamily: 'inherit'
+                }}
+              >
+                Continue to Report →
+              </button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+
 
   return (
     <div className="app landing-desktop-app">
@@ -451,7 +797,14 @@ export default function App() {
                 </svg>
               )}
             </button>
-            <div className="logo" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div 
+              className="logo" 
+              onClick={() => {
+                setIsResumeCheckOpen(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }} 
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            >
               <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #E5E7EB', flexShrink: 0 }}>
                 <LucoLogo size={20} />
               </div>
@@ -718,7 +1071,9 @@ export default function App() {
               className="mobile-drawer-banner"
               onClick={() => {
                 setIsMobileMenuOpen(false);
+                setResumeSearchQuery('');
                 setIsResumeCheckOpen(true);
+                window.scrollTo({ top: 0, behavior: 'instant' });
               }}
             >
               <div className="banner-tag">FREE AI TOOL</div>
@@ -978,21 +1333,22 @@ export default function App() {
         </div>
       </div>
 
-      {/* MAIN CONTENT AREA: JOBS / RESUME CHECK OR LANDING PAGE */}
-      {isResumeCheckOpen ? (
+      {/* MAIN CONTENT AREA: JOBS SEARCH OR LANDING PAGE */}
+      {isJobsSearchOpen ? (
         <ResumeCheckView
-          initialSearch={resumeSearchQuery}
+          initialSearch={jobsSearchQuery}
           currentUser={currentUser}
           userRole={userRole}
+          onUpgradePlan={handleUpgradePlan}
           onLogout={handleLogout}
           onOpenProfile={() => setIsProfileHomeOpen(true)}
           onOpenEmployerDashboard={() => setIsEmployerDashboardOpen(true)}
           onBack={() => {
-            setIsResumeCheckOpen(false);
+            setIsJobsSearchOpen(false);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onGoToFreelancers={() => {
-            setIsResumeCheckOpen(false);
+            setIsJobsSearchOpen(false);
             setTimeout(() => {
               const el = document.getElementById('freelancerSection');
               if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1002,22 +1358,24 @@ export default function App() {
           onOpenRoleChooser={() => setIsRoleChooserOpen(true)}
           onOpenAuth={() => setIsAuthOpen(true)}
           onGoToPricing={() => {
-            setIsResumeCheckOpen(false);
+            setIsJobsSearchOpen(false);
             window.location.hash = 'pricingSection';
             setTimeout(() => {
-              const el = document.getElementById('pricingSection');
-              if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            }, 120);
+              performScroll('pricingSection');
+            }, 80);
           }}
         />
       ) : (
         <LandingPage 
           freelancersEnabled={freelancersEnabled}
-          onOpenResumeCheck={(q?: string) => {
-            setResumeSearchQuery(q || '');
+          onOpenResumeCheck={(q?: any) => {
             setIsResumeCheckOpen(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onOpenJobsSearch={(q?: any) => {
+            const query = typeof q === 'string' ? q : '';
+            setJobsSearchQuery(query);
+            setIsJobsSearchOpen(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onOpenRoleChooser={() => setIsRoleChooserOpen(true)}
@@ -1132,7 +1490,14 @@ export default function App() {
       <footer className="footer">
         <div className="footer-inner">
           <div className="footer-brand-side">
-            <div className="logo" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div 
+              className="logo" 
+              onClick={() => {
+                setIsResumeCheckOpen(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }} 
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            >
               <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #E5E7EB', flexShrink: 0 }}>
                 <LucoLogo size={20} />
               </div>
@@ -1275,8 +1640,9 @@ export default function App() {
         onClose={() => setIsProfileHomeOpen(false)}
         onOpenResumeCheck={() => {
           setIsProfileHomeOpen(false);
+          setResumeSearchQuery('');
           setIsResumeCheckOpen(true);
-          window.scrollTo({ top: 0, behavior: 'auto' });
+          window.scrollTo({ top: 0, behavior: 'instant' });
         }}
         onOpenAuth={() => {
           setIsProfileHomeOpen(false);

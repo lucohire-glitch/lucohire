@@ -5,6 +5,7 @@ import './LandingPage.css';
 
 interface LandingPageProps {
   onOpenResumeCheck: (query?: string) => void;
+  onOpenJobsSearch?: (query?: string) => void;
   onOpenRoleChooser: () => void;
   onOpenFreelancerSearch: () => void;
   currentUser?: any;
@@ -14,6 +15,7 @@ interface LandingPageProps {
 
 export default function LandingPage({
   onOpenResumeCheck,
+  onOpenJobsSearch,
   onOpenRoleChooser,
   onOpenFreelancerSearch,
   currentUser,
@@ -260,7 +262,15 @@ export default function LandingPage({
           </p>
 
           <div className="hero-btns">
-            <button className="hero-btn primary" onClick={onOpenResumeCheck}>
+            <button 
+              type="button" 
+              className="hero-btn primary" 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onOpenResumeCheck) onOpenResumeCheck('');
+              }}
+            >
               Why am I not getting hired?
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
                 <path d="M5 12h14M13 6l6 6-6 6" />
@@ -274,7 +284,11 @@ export default function LandingPage({
                   className="hero-prominent-search-bar"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (onOpenResumeCheck) onOpenResumeCheck(jobSearchText);
+                    if (onOpenJobsSearch) {
+                      onOpenJobsSearch(jobSearchText);
+                    } else if (onOpenResumeCheck) {
+                      onOpenResumeCheck(jobSearchText);
+                    }
                   }}
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: 'none' }}>
@@ -597,7 +611,15 @@ export default function LandingPage({
         </div>
 
         <div className="path-cta">
-          <button className="hero-btn primary" onClick={onOpenResumeCheck}>
+          <button 
+            type="button" 
+            className="hero-btn primary" 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (onOpenResumeCheck) onOpenResumeCheck('');
+            }}
+          >
             Start My Resume Check
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </button>
@@ -663,10 +685,12 @@ export default function LandingPage({
               style={{ background: currentPricing.color }}
               onClick={() => {
                 const isLoggedIn = !!(currentUser || localStorage.getItem('token') || localStorage.getItem('luco_token'));
-                if (isLoggedIn && onUpgradePlan) {
-                  onUpgradePlan(currentPricing);
-                } else {
+                if (!isLoggedIn) {
                   onOpenRoleChooser();
+                  return;
+                }
+                if (onUpgradePlan) {
+                  onUpgradePlan(currentPricing);
                 }
               }}
             >

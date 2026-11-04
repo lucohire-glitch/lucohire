@@ -46,6 +46,23 @@ export async function initSchema() {
       value JSONB NOT NULL,
       updated_at TIMESTAMPTZ DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS payments (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      user_email TEXT,
+      user_role TEXT,
+      plan_id TEXT,
+      plan_name TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      currency TEXT DEFAULT 'INR',
+      razorpay_order_id TEXT UNIQUE NOT NULL,
+      razorpay_payment_id TEXT,
+      razorpay_signature TEXT,
+      status TEXT DEFAULT 'created',
+      receipt TEXT,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now()
+    );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_candidates_mobile ON candidates(mobile) WHERE mobile IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_recruiters_mobile ON recruiters(mobile) WHERE mobile IS NOT NULL;
   `);
