@@ -46,13 +46,22 @@ export default function ResumeAnalyzerView({
     };
 
     (window as any).handleLockClick = () => {
-      const loggedIn = !!(propUser || (typeof isUserLoggedIn === 'function' && isUserLoggedIn()));
-      if (!loggedIn) {
+      let isLogged = false;
+      try {
+        const raw = localStorage.getItem('luco_user');
+        const usr = (window as any).lucoCurrentUser || (raw ? JSON.parse(raw) : null);
+        const token = localStorage.getItem('luco_token') || localStorage.getItem('token');
+        isLogged = !!(usr || token);
+      } catch(e) {}
+
+      if (!isLogged) {
         if (onOpenAuth) onOpenAuth();
-        else if (window.lucoOpenAuth) window.lucoOpenAuth();
+        else if ((window as any).lucoOpenAuth) (window as any).lucoOpenAuth();
       } else {
         if (onGoToPricing) {
           onGoToPricing();
+        } else if ((window as any).lucoGoToPricing) {
+          (window as any).lucoGoToPricing();
         } else {
           window.location.hash = 'pricingSection';
           const el = document.getElementById('pricingSection');
@@ -192,121 +201,137 @@ analyzeBtn.addEventListener('click', () => {
       } catch(e) {}
     })();
     
-    const iv = setInterval(async () => {
+    let iv = null;
+    const cleanupLoader = () => {
+      if (iv) { clearInterval(iv); iv = null; }
+      if (loader) loader.style.display = 'none';
+      if (analyzeBtnElem) {
+        analyzeBtnElem.disabled = false;
+        analyzeBtnElem.textContent = 'Analyze my resume';
+      }
+    };
+
+    iv = setInterval(async () => {
       i++;
       if (i < steps.length) { 
         if (loaderText) loaderText.textContent = steps[i]; 
         return; 
       }
       clearInterval(iv);
-      await fetchPromise;
+      iv = null;
 
-      // 1. Calculate / Apply Score & Tag
-      const sc = apiData?.score?.overall || 88;
-      const tag = apiData?.score?.tag || 'Strong Match';
-      const role = apiData?.candidate?.role || 'Software Developer';
-      const expYears = apiData?.candidate?.experience_years || '5+ yrs experience';
-      const skillsList = (apiData?.candidate?.skills && apiData.candidate.skills.length > 0)
-        ? apiData.candidate.skills
-        : ['PHP', 'Laravel', 'React.js', 'Node.js', 'MySQL', 'REST APIs', 'Git', 'Linux'];
-      const candName = apiData?.candidate?.name || 'Monika Singh Barde';
-      const candInitials = apiData?.candidate?.initials || 'MB';
-
-      const numEl = document.getElementById('miniRingNum');
-      if (numEl) numEl.textContent = sc;
-      const ringSvg = document.getElementById('miniRing');
-      if (ringSvg) {
-        const offset = Math.round(138 * (1 - sc / 100) * 100) / 100;
-        ringSvg.setAttribute('stroke-dashoffset', String(offset));
-      }
-      const titleEl = document.querySelector('.score-txt-title');
-      if (titleEl) {
-        titleEl.innerHTML = 'Resume score: ' + sc + ' / 100<span class="score-tag">' + tag + '</span>';
-      }
-      const subEl = document.querySelector('.score-txt-sub');
-      if (subEl) {
-        subEl.textContent = 'Based on 18,000+ ' + role + ' listings';
-      }
-
-      // 2. Existing UI: score, experience, and skills in text element!
-      const percEl = document.querySelector('.score-percentile');
-      if (percEl) {
-        percEl.innerHTML = 'Tumhara resume score <b>' + sc + '/100</b> (' + tag + ') hai <b>' + expYears + '</b> wale ' + role + 's ke liye.<br/><span style="display:inline-block;margin-top:6px;font-size:13px;color:var(--brand-900);"><b>Verified Skills:</b> ' + skillsList.join(', ') + '</span>';
-      }
-
-      // 3. Update CARD_CANDIDATE
-      if (typeof CARD_CANDIDATE !== 'undefined') {
-        CARD_CANDIDATE.name = candName;
-        CARD_CANDIDATE.initials = candInitials;
-        CARD_CANDIDATE.role = role + ' · Full-Stack Specialist';
-        CARD_CANDIDATE.skills = skillsList;
-        CARD_CANDIDATE.score = sc;
-        CARD_CANDIDATE.tag = tag;
-        try { drawCard(); } catch(e) {}
-      }
-
-      // Store AI analysis
-      window.latestAiAnalysis = apiData;
-
-      let activeUser = null;
-      let isUserLoggedInNow = false;
       try {
-        if (typeof window !== 'undefined' && window.lucoCurrentUser) {
-          activeUser = window.lucoCurrentUser;
-        } else {
-          const raw = localStorage.getItem('luco_user');
-          if (raw) activeUser = JSON.parse(raw);
+        await fetchPromise;
+
+        // 1. Calculate / Apply Score & Tag
+        const sc = apiData?.score?.overall || 88;
+        const tag = apiData?.score?.tag || 'Strong Match';
+        const role = apiData?.candidate?.role || 'Software Developer';
+        const expYears = apiData?.candidate?.experience_years || '5+ yrs experience';
+        const skillsList = (apiData?.candidate?.skills && apiData.candidate.skills.length > 0)
+          ? apiData.candidate.skills
+          : ['PHP', 'Laravel', 'React.js', 'Node.js', 'MySQL', 'REST APIs', 'Git', 'Linux'];
+        const candName = apiData?.candidate?.name || 'Monika Singh Barde';
+        const candInitials = apiData?.candidate?.initials || 'MB';
+
+        const numEl = document.getElementById('miniRingNum');
+        if (numEl) numEl.textContent = sc;
+        const ringSvg = document.getElementById('miniRing');
+        if (ringSvg) {
+          const offset = Math.round(138 * (1 - sc / 100) * 100) / 100;
+          ringSvg.setAttribute('stroke-dashoffset', String(offset));
         }
-        isUserLoggedInNow = !!(
-          activeUser ||
-          localStorage.getItem('luco_token') ||
-          localStorage.getItem('token')
+        const titleEl = document.querySelector('.score-txt-title');
+        if (titleEl) {
+          titleEl.innerHTML = 'Resume score: ' + sc + ' / 100<span class="score-tag">' + tag + '</span>';
+        }
+        const subEl = document.querySelector('.score-txt-sub');
+        if (subEl) {
+          subEl.textContent = 'Based on 18,000+ ' + role + ' listings';
+        }
+
+        // 2. Existing UI: score, experience, and skills in text element!
+        const percEl = document.querySelector('.score-percentile');
+        if (percEl) {
+          percEl.innerHTML = 'Tumhara resume score <b>' + sc + '/100</b> (' + tag + ') hai <b>' + expYears + '</b> wale ' + role + 's ke liye.<br/><span style="display:inline-block;margin-top:6px;font-size:13px;color:var(--brand-900);"><b>Verified Skills:</b> ' + skillsList.join(', ') + '</span>';
+        }
+
+        // 3. Update CARD_CANDIDATE
+        if (typeof CARD_CANDIDATE !== 'undefined') {
+          CARD_CANDIDATE.name = candName;
+          CARD_CANDIDATE.initials = candInitials;
+          CARD_CANDIDATE.role = role + ' · Full-Stack Specialist';
+          CARD_CANDIDATE.skills = skillsList;
+          CARD_CANDIDATE.score = sc;
+          CARD_CANDIDATE.tag = tag;
+          try { drawCard(); } catch(e) {}
+        }
+
+        // Store AI analysis
+        window.latestAiAnalysis = apiData;
+
+        let activeUser = null;
+        let isUserLoggedInNow = false;
+        try {
+          if (typeof window !== 'undefined' && window.lucoCurrentUser) {
+            activeUser = window.lucoCurrentUser;
+          } else {
+            const raw = localStorage.getItem('luco_user');
+            if (raw) activeUser = JSON.parse(raw);
+          }
+          isUserLoggedInNow = !!(
+            activeUser ||
+            localStorage.getItem('luco_token') ||
+            localStorage.getItem('token')
+          );
+        } catch(e) {}
+
+        // Paid user only if backend database says is_paid === true
+        const isPaidUser = !!(
+          isUserLoggedInNow &&
+          activeUser &&
+          (activeUser.is_paid === true || (activeUser.plan && activeUser.plan.toLowerCase() !== 'free' && activeUser.plan.toLowerCase() !== 'none'))
         );
-      } catch(e) {}
 
-      // Paid user only if backend database says is_paid === true
-      const isPaidUser = !!(
-        isUserLoggedInNow &&
-        activeUser &&
-        (activeUser.is_paid === true || (activeUser.plan && activeUser.plan.toLowerCase() !== 'free' && activeUser.plan.toLowerCase() !== 'none'))
-      );
+        // Clean stale test flags
+        localStorage.removeItem('luco_plan_upgraded');
+        localStorage.removeItem('luco_is_premium');
 
-      // Clean stale test flags
-      localStorage.removeItem('luco_plan_upgraded');
-      localStorage.removeItem('luco_is_premium');
+        const paywallEl = document.getElementById('paywallCard');
+        const bannerEl = document.getElementById('unlockedBanner');
 
-      const paywallEl = document.getElementById('paywallCard');
-      const bannerEl = document.getElementById('unlockedBanner');
+        // Exit preview mode once user has clicked analyze
+        document.body.classList.remove('preview-mode');
 
-      if (isPaidUser && apiData) {
-        // Paid user: Full report UNLOCKED!
-        reportUnlocked = true;
-        document.body.classList.add('report-unlocked');
-        if (paywallEl) paywallEl.hidden = true;
-        if (bannerEl) bannerEl.style.display = 'flex';
-        if (typeof applyAiToFullReport === 'function') {
-          applyAiToFullReport(apiData);
+        if (isPaidUser && apiData) {
+          // Paid user: Full report UNLOCKED!
+          reportUnlocked = true;
+          document.body.classList.add('report-unlocked', 'is-paid-unlocked');
+          document.body.classList.remove('report-locked');
+          if (paywallEl) paywallEl.hidden = true;
+          if (bannerEl) bannerEl.style.display = 'flex';
+          if (typeof applyAiToFullReport === 'function') {
+            applyAiToFullReport(apiData);
+          }
+        } else {
+          // Bina login YA bina plan free user: Section 1 has AI score, but ALL sections below are LOCKED & BLURRED!
+          reportUnlocked = false;
+          document.body.classList.remove('report-unlocked', 'is-paid-unlocked');
+          document.body.classList.add('report-locked');
+          if (paywallEl) {
+            paywallEl.hidden = false;
+            paywallEl.style.display = 'block';
+          }
+          if (bannerEl) bannerEl.style.display = 'none';
         }
-      } else {
-        // Bina login YA bina plan free user: Section 1 has AI score, but ALL sections below are LOCKED & BLURRED!
-        reportUnlocked = false;
-        document.body.classList.remove('report-unlocked');
-        if (paywallEl) {
-          paywallEl.hidden = false;
-          paywallEl.style.display = 'block';
+        if (typeof updatePaywallVisibility === 'function') updatePaywallVisibility();
+      } catch(err) {
+        console.error('Resume analyze completion error:', err);
+      } finally {
+        cleanupLoader();
+        if (resultsView) {
+          resultsView.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-        if (bannerEl) bannerEl.style.display = 'none';
-      }
-      if (typeof updatePaywallVisibility === 'function') updatePaywallVisibility();
-      
-      // Loader done: hide loader, restore button, smoothly scroll to results
-      if (loader) loader.style.display = 'none';
-      if (analyzeBtnElem) {
-        analyzeBtnElem.disabled = false;
-        analyzeBtnElem.textContent = 'Analyze my resume';
-      }
-      if (resultsView) {
-        resultsView.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }, 300);
   });
@@ -878,9 +903,10 @@ renderResults(); // the report is always visible on the page — Analyze just sc
 setExperience('experienced'); // matches the default active pill; also syncs Leadership section visibility
 applyTab('overview', false); // clean, minimal default landing view (no auto-scroll on mount)
 // Initial view on mount/refresh (before user uploads & clicks analyze):
-// Static preview data is shown, paywall & unlocked banner are hidden until user analyzes
-reportUnlocked = true;
-document.body.classList.add('report-unlocked');
+// Static preview data is shown in preview-mode, paywall & unlocked banner are hidden
+reportUnlocked = false;
+document.body.classList.add('preview-mode');
+document.body.classList.remove('report-unlocked', 'report-locked', 'is-paid-unlocked');
 const initBanner = document.getElementById('unlockedBanner');
 if (initBanner) initBanner.style.display = 'none';
 const initPaywall = document.getElementById('paywallCard');
@@ -926,14 +952,20 @@ function goNextStep(e){
 function applyAiToFullReport(data) {
     if (!data) return;
     let isPaidUser = false;
-    if (currentUser) {
-      isPaidUser = !!(currentUser.is_paid || (currentUser.plan && currentUser.plan.toLowerCase() !== 'free' && currentUser.plan.toLowerCase() !== 'none'));
-    }
+    try {
+      const raw = localStorage.getItem('luco_user');
+      const usr = (typeof window !== 'undefined' && window.lucoCurrentUser) || (raw ? JSON.parse(raw) : null);
+      if (usr) {
+        isPaidUser = !!(usr.is_paid || (usr.plan && usr.plan.toLowerCase() !== 'free' && usr.plan.toLowerCase() !== 'none'));
+      }
+    } catch(e) {}
     reportUnlocked = isPaidUser;
     if (reportUnlocked) {
-      document.body.classList.add('report-unlocked');
+      document.body.classList.add('report-unlocked', 'is-paid-unlocked');
+      document.body.classList.remove('report-locked');
     } else {
-      document.body.classList.remove('report-unlocked');
+      document.body.classList.remove('report-unlocked', 'is-paid-unlocked');
+      document.body.classList.add('report-locked');
     }
     if (typeof updatePaywallVisibility === 'function') updatePaywallVisibility();
 
@@ -976,7 +1008,21 @@ function applyAiToFullReport(data) {
   window.applyAiToFullReport = applyAiToFullReport;
 
   window.unlockReport = function() {
-    if (window.lucoGoToPricing) {
+    let isLogged = false;
+    try {
+      const raw = localStorage.getItem('luco_user');
+      const usr = (typeof window !== 'undefined' && window.lucoCurrentUser) || (raw ? JSON.parse(raw) : null);
+      const token = localStorage.getItem('luco_token') || localStorage.getItem('token');
+      isLogged = !!(usr || token);
+    } catch(e) {}
+
+    if (!isLogged) {
+      if (typeof window.lucoOpenAuth === 'function') {
+        window.lucoOpenAuth();
+        return;
+      }
+    }
+    if (typeof window.lucoGoToPricing === 'function') {
       window.lucoGoToPricing();
     } else {
       window.location.hash = 'pricingSection';
@@ -1001,7 +1047,7 @@ function applyAiToFullReport(data) {
     localStorage.removeItem('luco_is_premium');
 
     return () => {
-      document.body.classList.remove('report-unlocked');
+      document.body.classList.remove('report-unlocked', 'report-locked', 'is-paid-unlocked', 'preview-mode');
       const sc = document.getElementById('resume-check-runtime-script');
       if (sc) sc.remove();
     };
@@ -1336,7 +1382,7 @@ function applyAiToFullReport(data) {
           <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Skills to drop, skills to learn, salary-boosting roadmap</li>
           <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>A rewritten, ATS-optimised resume — ready to send today</li>
         </ul>
-        <button className="paywall-cta" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>Unlock full report — ₹499</button>
+        <button className="paywall-cta" onClick={() => (window as any).handleLockClick && (window as any).handleLockClick()}>Unlock full report — {resumePlanPrice}</button>
         <p className="paywall-trust">One-time · or included free with the Job-Ready plan</p>
       </div>
 

@@ -1830,7 +1830,13 @@ button:disabled {
   border-radius: 16px;
   overflow: hidden;
 }
-body:not(.report-unlocked) .locked-premium > *:not(.lock-badge) {
+/* Locked state: blur content and show lock badge */
+body.report-locked .locked-premium > *:not(.lock-badge) {
+  filter: blur(5px);
+  pointer-events: none;
+  user-select: none;
+}
+body:not(.report-unlocked):not(.preview-mode) .locked-premium > *:not(.lock-badge) {
   filter: blur(5px);
   pointer-events: none;
   user-select: none;
@@ -1844,8 +1850,15 @@ body:not(.report-unlocked) .locked-premium > *:not(.lock-badge) {
   justify-content: center;
   cursor: pointer;
 }
+body.preview-mode .lock-badge,
 body.report-unlocked .lock-badge {
-  display: none;
+  display: none !important;
+}
+body.preview-mode .locked-premium > *:not(.lock-badge),
+body.report-unlocked .locked-premium > *:not(.lock-badge) {
+  filter: none !important;
+  pointer-events: auto !important;
+  user-select: auto !important;
 }
 .lock-badge-inner {
   display: flex;
@@ -1874,7 +1887,7 @@ body.report-unlocked .lock-badge {
 }
 
 .unlocked-banner {
-  display: none;
+  display: none !important;
   align-items: center;
   gap: 10px;
   background: var(--green-tint);
@@ -1885,8 +1898,8 @@ body.report-unlocked .lock-badge {
   font-weight: 600;
   color: var(--green);
 }
-body.report-unlocked .unlocked-banner {
-  display: flex;
+body.is-paid-unlocked .unlocked-banner {
+  display: flex !important;
 }
 
 .quick-links-row {
