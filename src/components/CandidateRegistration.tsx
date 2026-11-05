@@ -1286,6 +1286,11 @@ export default function CandidateRegistration({
         })()
       };
 
+      // Clean any stale local test keys for fresh accounts
+      localStorage.removeItem('luco_plan_upgraded');
+      localStorage.removeItem('luco_is_premium');
+      localStorage.removeItem('luco_selected_plan');
+
       if (alreadyAuthed) {
         setSubmitting(false);
         onComplete(finalData);

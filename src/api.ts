@@ -44,6 +44,13 @@ export const logout = () => {
   localStorage.removeItem('luco_token');
   localStorage.removeItem('luco_role');
   localStorage.removeItem('luco_user');
+  localStorage.removeItem('luco_plan_upgraded');
+  localStorage.removeItem('luco_is_premium');
+  localStorage.removeItem('luco_selected_plan');
+  localStorage.removeItem('luco_selected_path');
+  localStorage.removeItem('luco_resume_data');
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
 };
 
 export const getCurrentUser = () => {

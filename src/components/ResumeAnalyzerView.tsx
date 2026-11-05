@@ -122,6 +122,17 @@ document.getElementById('buildResumeBtn')?.addEventListener('click', triggerBuil
 
 analyzeBtn.addEventListener('click', () => {
     if (!currentFile) return;
+
+    // Check if user is logged in before analyzing
+    const loggedIn = !!(propUser || (typeof isUserLoggedIn === 'function' && isUserLoggedIn()));
+    if (!loggedIn) {
+      if (typeof window.lucoOpenAuth === 'function') {
+        window.lucoOpenAuth();
+      } else if (typeof onOpenAuth === 'function') {
+        onOpenAuth();
+      }
+      return;
+    }
     
     const resultsView = document.getElementById('resultsView');
     const loader = document.getElementById('themeLoader');
@@ -232,21 +243,26 @@ analyzeBtn.addEventListener('click', () => {
       // Store AI analysis
       window.latestAiAnalysis = apiData;
 
-      const loggedIn = !!(localStorage.getItem('luco_token') || localStorage.getItem('token'));
-      const isPaidUser = loggedIn && (
-        localStorage.getItem('luco_plan_upgraded') === 'true' || 
-        localStorage.getItem('luco_is_premium') === 'true'
-      );
+      const activeUser = propUser || (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
+      let isPaidUser = false;
+      if (activeUser) {
+        isPaidUser = !!(
+          activeUser.is_paid || 
+          (activeUser.plan && activeUser.plan.toLowerCase() !== 'free' && activeUser.plan.toLowerCase() !== 'none') ||
+          localStorage.getItem('luco_plan_upgraded') === 'true' ||
+          localStorage.getItem('luco_is_premium') === 'true'
+        );
+      }
 
       if (isPaidUser && apiData) {
-        // Logged-in & Upgraded user: apply full AI analysis to all sections and stay UNLOCKED!
+        // Logged-in & Paid user: apply full AI analysis and stay completely UNLOCKED!
         reportUnlocked = true;
         document.body.classList.add('report-unlocked');
         if (typeof applyAiToFullReport === 'function') {
           applyAiToFullReport(apiData);
         }
       } else {
-        // Guest or Free user: Section 1 has AI score, rest is locked
+        // Logged-in Free user: Section 1 has AI score & verified skills, but deep report is LOCKED & BLURRED!
         reportUnlocked = false;
         document.body.classList.remove('report-unlocked');
       }
@@ -596,7 +612,7 @@ function isUserLoggedIn() {
 }
 
 let activeTab='overview';
-let reportUnlocked = true;
+let reportUnlocked = false;
 const tabAnchor={overview:'secOverview', fixes:'secAnalysis', recruiter:'secRecruiterScan', skills:'secDrop'};
 function applyTab(tab, shouldScroll = true){
   activeTab=tab;
@@ -815,11 +831,10 @@ document.getElementById('startBtn').addEventListener('click', goNextStep);
 renderResults(); // the report is always visible on the page — Analyze just scrolls you to it
 setExperience('experienced'); // matches the default active pill; also syncs Leadership section visibility
 applyTab('overview', false); // clean, minimal default landing view (no auto-scroll on mount)
-if (reportUnlocked) {
-  document.body.classList.add('report-unlocked');
-} else {
-  document.body.classList.remove('report-unlocked');
-}
+// Initial view (before user uploads & clicks analyze): static demo data is shown cleanly
+reportUnlocked = true;
+document.body.classList.add('report-unlocked');
+updatePaywallVisibility();
 updatePaywallVisibility();
 
 /* ---- single-file shell bridge: works embedded (single merged file) or standalone ---- */
@@ -860,8 +875,16 @@ function goNextStep(e){
 
 function applyAiToFullReport(data) {
     if (!data) return;
-    reportUnlocked = true;
-    document.body.classList.add('report-unlocked');
+    let isPaidUser = false;
+    if (currentUser) {
+      isPaidUser = !!(currentUser.is_paid || (currentUser.plan && currentUser.plan.toLowerCase() !== 'free' && currentUser.plan.toLowerCase() !== 'none'));
+    }
+    reportUnlocked = isPaidUser;
+    if (reportUnlocked) {
+      document.body.classList.add('report-unlocked');
+    } else {
+      document.body.classList.remove('report-unlocked');
+    }
     if (typeof updatePaywallVisibility === 'function') updatePaywallVisibility();
 
     if (data.recruiter_scan) {
