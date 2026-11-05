@@ -44,12 +44,18 @@ export default function ResumeAnalyzerView({
     };
 
     (window as any).handleLockClick = () => {
-      if (onGoToPricing) {
-        onGoToPricing();
+      const loggedIn = !!(propUser || (typeof isUserLoggedIn === 'function' && isUserLoggedIn()));
+      if (!loggedIn) {
+        if (onOpenAuth) onOpenAuth();
+        else if (window.lucoOpenAuth) window.lucoOpenAuth();
       } else {
-        window.location.hash = 'pricingSection';
-        const el = document.getElementById('pricingSection');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (onGoToPricing) {
+          onGoToPricing();
+        } else {
+          window.location.hash = 'pricingSection';
+          const el = document.getElementById('pricingSection');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       }
     };
 
@@ -131,17 +137,6 @@ document.getElementById('buildResumeBtn')?.addEventListener('click', triggerBuil
 analyzeBtn.addEventListener('click', () => {
     if (!currentFile) return;
 
-    // Check if user is logged in before analyzing
-    const loggedIn = !!(propUser || (typeof isUserLoggedIn === 'function' && isUserLoggedIn()));
-    if (!loggedIn) {
-      if (typeof window.lucoOpenAuth === 'function') {
-        window.lucoOpenAuth();
-      } else if (typeof onOpenAuth === 'function') {
-        onOpenAuth();
-      }
-      return;
-    }
-    
     const resultsView = document.getElementById('resultsView');
     const loader = document.getElementById('themeLoader');
     const analyzeBtnElem = document.getElementById('analyzeBtn');
@@ -252,27 +247,37 @@ analyzeBtn.addEventListener('click', () => {
       window.latestAiAnalysis = apiData;
 
       const activeUser = propUser || (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
-      let isPaidUser = false;
-      if (activeUser) {
-        isPaidUser = !!(
-          activeUser.is_paid || 
-          (activeUser.plan && activeUser.plan.toLowerCase() !== 'free' && activeUser.plan.toLowerCase() !== 'none') ||
-          localStorage.getItem('luco_plan_upgraded') === 'true' ||
-          localStorage.getItem('luco_is_premium') === 'true'
-        );
-      }
+      // Strictly verified from backend user account only (never trust stale localStorage flags)
+      const isPaidUser = !!(
+        activeUser && 
+        (activeUser.is_paid === true || (activeUser.plan && activeUser.plan.toLowerCase() !== 'free' && activeUser.plan.toLowerCase() !== 'none'))
+      );
+
+      // Clean any stale local test keys
+      localStorage.removeItem('luco_plan_upgraded');
+      localStorage.removeItem('luco_is_premium');
+
+      const paywallEl = document.getElementById('paywallCard');
+      const bannerEl = document.getElementById('unlockedBanner');
 
       if (isPaidUser && apiData) {
-        // Logged-in & Paid user: apply full AI analysis and stay completely UNLOCKED!
+        // PAID SUBSCRIBER: Full AI analysis unlocked on all sections
         reportUnlocked = true;
         document.body.classList.add('report-unlocked');
+        if (paywallEl) paywallEl.hidden = true;
+        if (bannerEl) bannerEl.style.display = 'flex';
         if (typeof applyAiToFullReport === 'function') {
           applyAiToFullReport(apiData);
         }
       } else {
-        // Logged-in Free user: Section 1 has AI score & verified skills, but deep report is LOCKED & BLURRED!
+        // FREE USER: Section 1 has AI score & verified skills, but ALL deep sections below are LOCKED & BLURRED!
         reportUnlocked = false;
         document.body.classList.remove('report-unlocked');
+        if (paywallEl) {
+          paywallEl.hidden = false;
+          paywallEl.style.display = 'block';
+        }
+        if (bannerEl) bannerEl.style.display = 'none';
       }
       if (typeof updatePaywallVisibility === 'function') updatePaywallVisibility();
       
@@ -839,10 +844,14 @@ document.getElementById('startBtn').addEventListener('click', goNextStep);
 renderResults(); // the report is always visible on the page — Analyze just scrolls you to it
 setExperience('experienced'); // matches the default active pill; also syncs Leadership section visibility
 applyTab('overview', false); // clean, minimal default landing view (no auto-scroll on mount)
-// Initial view (before user uploads & clicks analyze): static demo data is shown cleanly
+// Initial view on mount/refresh (before user uploads & clicks analyze):
+// Static preview data is shown, paywall & unlocked banner are hidden until user analyzes
 reportUnlocked = true;
 document.body.classList.add('report-unlocked');
-updatePaywallVisibility();
+const initBanner = document.getElementById('unlockedBanner');
+if (initBanner) initBanner.style.display = 'none';
+const initPaywall = document.getElementById('paywallCard');
+if (initPaywall) initPaywall.hidden = true;
 updatePaywallVisibility();
 
 /* ---- single-file shell bridge: works embedded (single merged file) or standalone ---- */
@@ -954,8 +963,9 @@ function applyAiToFullReport(data) {
 `;
     document.body.appendChild(script);
     
-    // On page load or refresh: show full static preview completely UNLOCKED!
-    document.body.classList.add('report-unlocked');
+    // Clean stale flags on mount
+    localStorage.removeItem('luco_plan_upgraded');
+    localStorage.removeItem('luco_is_premium');
 
     return () => {
       document.body.classList.remove('report-unlocked');
@@ -1277,7 +1287,7 @@ function applyAiToFullReport(data) {
 
       <div className="score-percentile">Tumhara score <b>average se upar</b> hai 2–4 yr experience wale UI/UX designers ke liye (average: 58/100).</div>
 
-      <div className="unlocked-banner">
+      <div className="unlocked-banner" id="unlockedBanner" style={{ display: 'none' }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><polyline points="20 6 9 17 4 12"/></svg>
         Full report unlocked — everything below is yours
       </div>
