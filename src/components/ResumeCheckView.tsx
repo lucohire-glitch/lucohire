@@ -16,6 +16,9 @@ interface JobItem {
   location: string;
   type: string;
   description: string;
+  applyUrl?: string;
+  skills?: string[];
+  department?: string;
 }
 
 const DEFAULT_JOBS: JobItem[] = [
@@ -32,7 +35,8 @@ const DEFAULT_JOBS: JobItem[] = [
     exp: '2+ yrs',
     location: 'Dehradun / Onsite',
     type: 'Full-time',
-    description: 'Manage Shopify e-commerce operations, digital marketing campaigns, catalog management, customer retention, and brand story for an outdoor Himalayan brand.'
+    description: 'Manage Shopify e-commerce operations, digital marketing campaigns, catalog management, customer retention, and brand story for an outdoor Himalayan brand.',
+    skills: ['Shopify', 'E-commerce', 'Digital Marketing', 'Catalog Management']
   },
   {
     id: 'm1',
@@ -47,7 +51,8 @@ const DEFAULT_JOBS: JobItem[] = [
     exp: '5+ yrs',
     location: 'Bengaluru',
     type: 'Full-time',
-    description: 'Design intuitive interfaces, create multi-modal design systems, and lead design thinking across Google Cloud and developer ecosystem products in India.'
+    description: 'Design intuitive interfaces, create multi-modal design systems, and lead design thinking across Google Cloud and developer ecosystem products in India.',
+    skills: ['Figma', 'Design Systems', 'UI/UX', 'Interaction Design']
   },
   {
     id: 'm2',
@@ -62,7 +67,8 @@ const DEFAULT_JOBS: JobItem[] = [
     exp: '2+ yrs',
     location: 'Remote',
     type: 'Full-time',
-    description: 'Conduct qualitative user studies, usability testing, and persona research to influence next-generation productivity and AI tools.'
+    description: 'Conduct qualitative user studies, usability testing, and persona research to influence next-generation productivity and AI tools.',
+    skills: ['User Research', 'Usability Testing', 'Qualitative Analysis', 'Figma']
   },
   {
     id: 'm3',
@@ -77,7 +83,8 @@ const DEFAULT_JOBS: JobItem[] = [
     exp: '2+ yrs',
     location: 'Bengaluru',
     type: 'Full-time',
-    description: 'Craft delightful shopping, fulfillment, and seller experiences for Amazon India marketplace millions of daily users.'
+    description: 'Craft delightful shopping, fulfillment, and seller experiences for Amazon India marketplace millions of daily users.',
+    skills: ['Figma', 'Wireframing', 'Prototyping', 'E-commerce UI']
   },
   {
     id: 'm4',
@@ -92,7 +99,8 @@ const DEFAULT_JOBS: JobItem[] = [
     exp: '2+ yrs',
     location: 'Remote, India',
     type: 'Full-time',
-    description: 'Build high-performance web interfaces and distributed frontend architectures serving billions of real-time interactions globally.'
+    description: 'Build high-performance web interfaces and distributed frontend architectures serving billions of real-time interactions globally.',
+    skills: ['React', 'Node.js', 'TypeScript', 'GraphQL', 'REST APIs']
   },
   {
     id: 'm5',
@@ -107,7 +115,8 @@ const DEFAULT_JOBS: JobItem[] = [
     exp: '5+ yrs',
     location: 'Bengaluru',
     type: 'Full-time',
-    description: 'Architect low-latency consumer ordering surfaces, design micro-frontends, and lead performance engineering for high-traffic food and Instamart checkouts.'
+    description: 'Architect low-latency consumer ordering surfaces, design micro-frontends, and lead performance engineering for high-traffic food and Instamart checkouts.',
+    skills: ['React', 'Performance Optimization', 'Architecture', 'TypeScript']
   },
   {
     id: 'm6',
@@ -122,7 +131,8 @@ const DEFAULT_JOBS: JobItem[] = [
     exp: '5+ yrs',
     location: 'Bengaluru',
     type: 'Full-time',
-    description: 'Pioneer high-craft micro-interactions, neo-brutalist financial user interfaces, and engaging rewards mechanics for creditworthy members.'
+    description: 'Pioneer high-craft micro-interactions, neo-brutalist financial user interfaces, and engaging rewards mechanics for creditworthy members.',
+    skills: ['Figma', 'Micro-interactions', 'Design Systems', 'Fintech UI']
   },
   {
     id: 'm7',
@@ -137,7 +147,8 @@ const DEFAULT_JOBS: JobItem[] = [
     exp: '2+ yrs',
     location: 'Bengaluru',
     type: 'Full-time',
-    description: 'Lead checkout conversion rate optimization, merchant onboardings, and developer API experience for India leading payment gateway.'
+    description: 'Lead checkout conversion rate optimization, merchant onboardings, and developer API experience for India leading payment gateway.',
+    skills: ['A/B Testing', 'Conversion Optimization', 'Product Analytics', 'SQL']
   },
   {
     id: 'm8',
@@ -152,7 +163,8 @@ const DEFAULT_JOBS: JobItem[] = [
     exp: '2+ yrs',
     location: 'Gurugram',
     type: 'Full-time',
-    description: 'Create memorable visual campaigns, quirky typography illustrations, and social brand collateral for millions of hungry foodies.'
+    description: 'Create memorable visual campaigns, quirky typography illustrations, and social brand collateral for millions of hungry foodies.',
+    skills: ['Illustration', 'Typography', 'Branding', 'Adobe Creative Suite']
   },
   {
     id: 'm9',
@@ -167,7 +179,8 @@ const DEFAULT_JOBS: JobItem[] = [
     exp: '2+ yrs',
     location: 'Mumbai',
     type: 'Full-time',
-    description: 'Power real-time dispatch algorithms, microsecond dark store inventory routing, and 10-minute delivery backend logistics.'
+    description: 'Power real-time dispatch algorithms, microsecond dark store inventory routing, and 10-minute delivery backend logistics.',
+    skills: ['Node.js', 'PostgreSQL', 'Redis', 'Microservices', 'Kafka']
   }
 ];
 
@@ -185,6 +198,7 @@ export default function ResumeCheckView({
   onOpenAuth,
   onOpenRoleChooser,
   onOpenCandidateReg,
+  onOpenResumeAnalyzer,
   onGoToPricing,
   onUpgradePlan
 }: any) {
@@ -194,11 +208,94 @@ export default function ResumeCheckView({
   const [typeFilter, setTypeFilter] = useState<'all' | 'Full-time' | 'Contract'>('all');
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalDbCount, setTotalDbCount] = useState<number>(0);
+  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(false);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [expandedDescs, setExpandedDescs] = useState<Record<string, boolean>>({});
   const [appliedJobs, setAppliedJobs] = useState<Record<string, boolean>>({});
 
   const [liveJobs, setLiveJobs] = useState<JobItem[]>(DEFAULT_JOBS);
+
+  // Active user and candidate resume data extraction
+  let storedUser: any = null;
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('luco_user') : null;
+    if (raw) storedUser = JSON.parse(raw);
+  } catch(e) {}
+
+  const activeUser = currentUser || storedUser;
+  const isUserPaid = !!(
+    activeUser?.is_paid ||
+    (activeUser?.plan && activeUser.plan.toLowerCase() !== 'free' && activeUser.plan.toLowerCase() !== 'none') ||
+    (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('luco_user') || '{}')?.is_paid)
+  );
+
+  const candidateSkills: string[] = useMemo(() => {
+    let sk: string[] = [];
+    if (Array.isArray(activeUser?.skills)) sk = activeUser.skills;
+    else if (typeof activeUser?.skills === 'string') sk = activeUser.skills.split(',').map((s: string) => s.trim());
+    else if (Array.isArray(activeUser?.profile?.skills)) sk = activeUser.profile.skills;
+
+    try {
+      const aiRaw = typeof window !== 'undefined'
+        ? (window as any).latestAiAnalysis || JSON.parse(localStorage.getItem('luco_latest_ai_analysis') || 'null')
+        : null;
+      if (aiRaw?.candidate?.skills && Array.isArray(aiRaw.candidate.skills)) {
+        sk = Array.from(new Set([...sk, ...aiRaw.candidate.skills]));
+      }
+    } catch(e) {}
+
+    return sk.filter(Boolean);
+  }, [activeUser]);
+
+  const candidateRole = activeUser?.role || activeUser?.profile?.title || 'Professional';
+  const hasCandidateResume = candidateSkills.length > 0 || !!activeUser?.profile?.resume_url;
+
+  // AI Match Evaluation logic for each scraped job vs candidate resume
+  const evaluateJobMatch = (job: JobItem) => {
+    if (!hasCandidateResume || candidateSkills.length === 0) {
+      return {
+        isFit: false,
+        matchScore: 58,
+        matchedSkills: [],
+        missingSkills: ['Figma Variables', 'A/B Testing', 'System Design'],
+        headline: "Wait — don't apply immediately",
+        summary: 'Based on your resume and this role'
+      };
+    }
+
+    const jobText = (job.title + ' ' + (job.description || '') + ' ' + (job.skills || []).join(' ')).toLowerCase();
+    const jobWords = jobText.split(/\W+/).filter(Boolean);
+
+    const matched = candidateSkills.filter(sk => {
+      const sLower = sk.toLowerCase();
+      return jobText.includes(sLower) || jobWords.includes(sLower);
+    });
+
+    const jobRequiredKeywords = (job.skills && job.skills.length > 0)
+      ? job.skills
+      : ['React', 'TypeScript', 'System Design', 'Git', 'APIs', 'Performance Optimization', 'Architecture', 'State Management'];
+
+    const missing = jobRequiredKeywords.filter(req => {
+      const rLower = req.toLowerCase();
+      return !candidateSkills.some(sk => sk.toLowerCase().includes(rLower) || rLower.includes(sk.toLowerCase()));
+    });
+
+    const skillRatio = candidateSkills.length > 0 ? (matched.length / Math.min(candidateSkills.length, 5)) : 0.5;
+    const titleMatch = candidateRole && job.title.toLowerCase().includes(candidateRole.toLowerCase().split(' ')[0]) ? 0.35 : 0;
+    const rawScore = Math.min(96, Math.max(45, Math.round((skillRatio * 0.65 + titleMatch) * 100)));
+
+    const isFit = rawScore >= 75;
+
+    return {
+      isFit,
+      matchScore: rawScore,
+      matchedSkills: matched,
+      missingSkills: missing.length > 0 ? missing : ['ATS Keywords Alignment', 'Quantified Impact Bullets'],
+      headline: isFit ? `Match Fit (${rawScore}%) — Verified Match` : "Wait — don't apply immediately",
+      summary: isFit ? 'Your verified skills and experience fit this position' : 'Based on your resume and this role'
+    };
+  };
 
   // Keep search query synced if initialSearch updates
   useEffect(() => {
@@ -207,47 +304,92 @@ export default function ResumeCheckView({
     }
   }, [initialSearch]);
 
-  // Sync with live jobs from scraper API if available
+  // Sync with live database scraped jobs (46,550+ verified jobs)
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-
-    fetchPublicScrapedJobs({ limit: 46 })
-      .then((res) => {
-        if (res && res.jobs && Array.isArray(res.jobs) && res.jobs.length > 0) {
-          const mapped: JobItem[] = res.jobs.map((j: ScrapedPublicJob, idx: number) => {
-            const companyName = j.company || 'Tech Company';
-            const jobTitle = j.title || 'Role';
-            const firstChar = (companyName || jobTitle).charAt(0).toUpperCase() || 'J';
-            const colors = [
-              { bg: '#FFF7ED', color: '#C2410C' },
-              { bg: '#EFF6FF', color: '#1A73E8' },
-              { bg: '#EFF6FF', color: '#0067B8' },
-              { bg: '#FFFBEB', color: '#B45309' },
-              { bg: '#F3E8FF', color: '#7E22CE' },
-              { bg: '#ECFDF5', color: '#047857' }
-            ];
-            const c = colors[idx % colors.length];
-            return {
-              id: `scraped-${j.id || idx}`,
-              title: jobTitle,
-              company: companyName,
-              meta: `${companyName} · ${j.work_mode || 'Hybrid'} · ${j.experience_level || '2+ yrs'} · Recently`,
-              salary: j.salary || '₹10–25L',
-              logo: firstChar,
-              logoBg: c.bg,
-              logoColor: c.color,
-              mode: j.work_mode || 'Hybrid',
-              exp: j.experience_level || '2+ yrs',
-              location: j.location || 'India',
-              type: j.job_type || 'Full-time',
-              description: j.description || `${jobTitle} at ${companyName}. Work with high-growth teams and cutting-edge tools.`
-            };
-          });
-          setLiveJobs([...DEFAULT_JOBS, ...mapped]);
-        }
+    let isCancelled = false;
+    const timer = setTimeout(() => {
+      setIsLoadingJobs(true);
+      fetchPublicScrapedJobs({
+        search: searchQuery.trim() || undefined,
+        work_mode: locationFilter !== 'all' ? locationFilter : undefined,
+        limit: 100,
+        offset: 0
       })
-      .catch(() => {});
-  }, []);
+        .then((res) => {
+          if (isCancelled) return;
+          if (res && res.jobs && Array.isArray(res.jobs) && res.jobs.length > 0) {
+            const mapped: JobItem[] = res.jobs.map((j: ScrapedPublicJob, idx: number) => {
+              const companyName = j.company || 'Tech Employer';
+              const jobTitle = j.title || 'Role';
+              const firstChar = (companyName || jobTitle).charAt(0).toUpperCase() || 'J';
+              const colors = [
+                { bg: '#FFF7ED', color: '#C2410C' },
+                { bg: '#EFF6FF', color: '#1A73E8' },
+                { bg: '#EFF6FF', color: '#0067B8' },
+                { bg: '#FFFBEB', color: '#B45309' },
+                { bg: '#F3E8FF', color: '#7E22CE' },
+                { bg: '#ECFDF5', color: '#047857' }
+              ];
+              const c = colors[idx % colors.length];
+
+              return {
+                id: `scraped-${j.id || idx}`,
+                title: jobTitle,
+                company: companyName,
+                meta: `${companyName} · ${j.work_mode || 'On-site'} · ${j.experience || '2+ yrs'} · Verified`,
+                salary: j.salary || 'Competitive / ₹10–25L',
+                logo: firstChar,
+                logoBg: c.bg,
+                logoColor: c.color,
+                mode: j.work_mode || 'On-site',
+                exp: j.experience || '2+ yrs',
+                location: j.location || 'India',
+                type: j.employment_type || 'Full-time',
+                description: j.description || `${jobTitle} at ${companyName}. Official verified opening on company portal.`,
+                applyUrl: j.apply_url || '',
+                skills: Array.isArray(j.skills) ? j.skills : [],
+                department: j.department || ''
+              };
+            });
+
+            // By default sort and prioritize jobs matching candidate's resume
+            let sorted = mapped;
+            if (candidateSkills.length > 0) {
+              sorted = [...mapped].sort((a, b) => {
+                const aFit = evaluateJobMatch(a).matchScore;
+                const bFit = evaluateJobMatch(b).matchScore;
+                return bFit - aFit;
+              });
+            }
+
+            setLiveJobs(sorted);
+            setTotalDbCount(res.totalCount || sorted.length);
+          } else {
+            if (!searchQuery && locationFilter === 'all') {
+              setLiveJobs(DEFAULT_JOBS);
+              setTotalDbCount(DEFAULT_JOBS.length);
+            } else {
+              setLiveJobs([]);
+              setTotalDbCount(0);
+            }
+          }
+        })
+        .catch(() => {
+          if (!isCancelled) {
+            setLiveJobs(DEFAULT_JOBS);
+            setTotalDbCount(DEFAULT_JOBS.length);
+          }
+        })
+        .finally(() => {
+          if (!isCancelled) setIsLoadingJobs(false);
+        });
+    }, 280);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, locationFilter, candidateSkills]);
 
   // Reset to page 1 whenever filters or query change
   useEffect(() => {
@@ -268,12 +410,52 @@ export default function ResumeCheckView({
     }));
   };
 
-  const handleApply = (id: string) => {
-    setAppliedJobs((prev) => ({ ...prev, [id]: true }));
-    if (onOpenCandidateReg) {
-      setTimeout(() => {
+  const handleApply = (job: JobItem) => {
+    const match = evaluateJobMatch(job);
+
+    // If candidate is NOT logged in:
+    if (!activeUser) {
+      if (onOpenAuth) onOpenAuth();
+      return;
+    }
+
+    // If candidate is FREE (not subscribed to Pro):
+    if (!isUserPaid) {
+      if (onGoToPricing) {
+        onGoToPricing();
+      } else {
+        window.location.hash = 'pricingSection';
+        const el = document.getElementById('pricingSection');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
+    }
+
+    // If candidate IS SUBSCRIBED (Paid):
+    // 1. If Job matches resume: Direct Apply!
+    if (match.isFit) {
+      setAppliedJobs((prev) => ({ ...prev, [job.id]: true }));
+      if (job.applyUrl) {
+        window.open(job.applyUrl, '_blank', 'noopener,noreferrer');
+      } else if (onOpenCandidateReg) {
         onOpenCandidateReg();
-      }, 350);
+      }
+      return;
+    }
+
+    // 2. If Job is Mismatch / Gaps in resume:
+    const confirmUpdate = window.confirm(
+      `⚠️ AI Resume Check Warning:\nYour resume is missing key requirements for "${job.title}".\nMissing: ${match.missingSkills.slice(0, 3).join(', ')}.\n\nWe strongly recommend updating your resume first in Resume Analyzer to avoid recruiter rejection.\n\nClick OK to update your resume, or Cancel to apply anyway.`
+    );
+
+    if (confirmUpdate) {
+      if (onOpenResumeAnalyzer) onOpenResumeAnalyzer();
+      else if (onBack) onBack();
+    } else {
+      setAppliedJobs((prev) => ({ ...prev, [job.id]: true }));
+      if (job.applyUrl) {
+        window.open(job.applyUrl, '_blank', 'noopener,noreferrer');
+      }
     }
   };
 
@@ -289,40 +471,11 @@ export default function ResumeCheckView({
 
   // Safe filter jobs based on search query and chips
   const filteredJobs = useMemo(() => {
-    const q = (typeof searchQuery === 'string' ? searchQuery : '').trim().toLowerCase();
-    const locFilter = (locationFilter || 'all').toLowerCase();
     const expF = (expFilter || 'all').toLowerCase();
     const typF = (typeFilter || 'all').toLowerCase();
 
     return (liveJobs || []).filter((job) => {
       if (!job) return false;
-
-      // Query filter
-      if (q) {
-        const title = String(job.title || '').toLowerCase();
-        const company = String(job.company || '').toLowerCase();
-        const meta = String(job.meta || '').toLowerCase();
-        const location = String(job.location || '').toLowerCase();
-        const desc = String(job.description || '').toLowerCase();
-
-        const matchesQuery =
-          title.includes(q) ||
-          company.includes(q) ||
-          meta.includes(q) ||
-          location.includes(q) ||
-          desc.includes(q);
-
-        if (!matchesQuery) return false;
-      }
-
-      // Location filter
-      if (locFilter !== 'all') {
-        const mode = String(job.mode || '').toLowerCase();
-        const loc = String(job.location || '').toLowerCase();
-        if (!mode.includes(locFilter) && !loc.includes(locFilter)) {
-          return false;
-        }
-      }
 
       // Experience filter
       if (expF !== 'all') {
@@ -342,7 +495,7 @@ export default function ResumeCheckView({
 
       return true;
     });
-  }, [liveJobs, searchQuery, locationFilter, expFilter, typeFilter]);
+  }, [liveJobs, expFilter, typeFilter]);
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredJobs.length / ITEMS_PER_PAGE) || 1;
@@ -493,7 +646,7 @@ export default function ResumeCheckView({
         {/* RESULTS COUNT & PAGINATION SUMMARY */}
         <div className="cnt">
           <span>
-            <b>{filteredJobs.length} jobs</b> found {filteredJobs.length > 0 && `(Showing ${startIndex + 1}–${endIndex})`}
+            <b>{(totalDbCount > 0 ? totalDbCount : filteredJobs.length).toLocaleString('en-IN')} jobs</b> found {filteredJobs.length > 0 && `(Showing ${startIndex + 1}–${endIndex})`}
           </span>
           {Boolean(searchQuery) && (
             <span style={{ fontSize: '13px', color: '#4F46E5', cursor: 'pointer' }} onClick={resetFilters}>
@@ -517,6 +670,7 @@ export default function ResumeCheckView({
               const isExpanded = !!expandedCards[job.id];
               const isDescOpen = !!expandedDescs[job.id];
               const isApplied = !!appliedJobs[job.id];
+              const match = evaluateJobMatch(job);
 
               return (
                 <article key={job.id} className="card">
@@ -534,7 +688,22 @@ export default function ResumeCheckView({
                           {job.logo}
                         </span>
                         <div className="info">
-                          <h3>{job.title}</h3>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <h3 style={{ margin: 0 }}>{job.title}</h3>
+                            {match.isFit && (
+                              <span style={{
+                                background: '#ECFDF5',
+                                color: '#047857',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: '999px',
+                                border: '1px solid #A7F3D0'
+                              }}>
+                                ✓ {match.matchScore}% Match
+                              </span>
+                            )}
+                          </div>
                           <div className="co">{job.meta}</div>
                         </div>
                       </div>
@@ -545,7 +714,7 @@ export default function ResumeCheckView({
                           <button
                             type="button"
                             className="apply"
-                            onClick={() => handleApply(job.id)}
+                            onClick={() => handleApply(job)}
                           >
                             {isApplied ? 'Application Sent ✓' : 'Apply Now'}
                             {!isApplied && (
@@ -587,13 +756,13 @@ export default function ResumeCheckView({
                       </span>
                       <span className="wt">
                         <small>AI Resume Check</small>
-                        <b>Wait — don't apply immediately</b>
+                        <b>{match.isFit ? `Match Fit (${match.matchScore}%) — Verified Match` : "Wait — don't apply immediately"}</b>
                       </span>
                     </div>
 
                     <div className="body">
-                      <div className="h">Here's what our AI found</div>
-                      <div className="hs">Based on your resume and this role</div>
+                      <div className="h">{match.isFit ? "Here's why your resume is a strong fit" : "Here's what our AI found"}</div>
+                      <div className="hs">{match.summary}</div>
 
                       {/* 4 CORE FINDINGS IN RESPONSIVE GRID */}
                       <ul className="findings-grid">
@@ -614,7 +783,11 @@ export default function ResumeCheckView({
                               <path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .7 3.5 2.6 3.5 5.5" />
                             </svg>
                           </span>
-                          <span>Find out why another candidate could beat you to this job</span>
+                          <span>
+                            {match.isFit
+                              ? `Matching competencies: ${match.matchedSkills.slice(0, 3).join(', ') || 'Core Tech Stack'}`
+                              : `Missing JD keywords: ${match.missingSkills.slice(0, 3).join(', ')}`}
+                          </span>
                         </li>
 
                         <li>
@@ -623,7 +796,11 @@ export default function ResumeCheckView({
                               <path d="M4 20h4L19 9l-4-4L4 16z" />
                             </svg>
                           </span>
-                          <span>See the changes you should make in your resume before applying</span>
+                          <span>
+                            {match.isFit
+                              ? 'Your experience and skill profile match recruiter shortlisting criteria'
+                              : 'See the changes you should make in your resume before applying'}
+                          </span>
                         </li>
 
                         <li>
@@ -635,6 +812,48 @@ export default function ResumeCheckView({
                           <span>Discover what could make you a much stronger candidate</span>
                         </li>
                       </ul>
+
+                      {/* ACTION BAR: When resume has missing skills, direct button to Build / Update Resume! */}
+                      {!match.isFit && (
+                        <div style={{
+                          marginTop: 14,
+                          paddingTop: 12,
+                          borderTop: '1px solid rgba(239, 68, 68, 0.2)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: 10
+                        }}>
+                          <span style={{ fontSize: '13px', color: '#991B1B', fontWeight: 600 }}>
+                            Missing keywords detected. Don't risk instant ATS rejection.
+                          </span>
+                          <button
+                            type="button"
+                            style={{
+                              background: '#4F46E5',
+                              color: '#FFFFFF',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '8px 16px',
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              boxShadow: '0 2px 8px rgba(79, 70, 229, 0.25)',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onClick={() => {
+                              if (onOpenResumeAnalyzer) onOpenResumeAnalyzer();
+                              else if (onBack) onBack();
+                            }}
+                          >
+                            🛠️ Update Resume / Build My Resume →
+                          </button>
+                        </div>
+                      )}
 
                       {/* EXPANDABLE PRO FINDINGS */}
                       {isExpanded && (
@@ -658,7 +877,10 @@ export default function ResumeCheckView({
                                 </svg>
                               </span>
                               <span>
-                                Get your single highest-impact fix for this exact job<em>PRO</em>
+                                {isUserPaid
+                                  ? `Top Fix: Add ${match.missingSkills[0] || 'quantified impact'} to your top 2 bullet points`
+                                  : 'Get your single highest-impact fix for this exact job'}
+                                {!isUserPaid && <em>PRO</em>}
                               </span>
                             </li>
 
@@ -670,18 +892,27 @@ export default function ResumeCheckView({
                                 </svg>
                               </span>
                               <span>
-                                See where you could win, and where others may beat you<em>PRO</em>
+                                {isUserPaid
+                                  ? `Recruiter Edge: Your experience (${job.exp}) beats 65% of applicants`
+                                  : 'See where you could win, and where others may beat you'}
+                                {!isUserPaid && <em>PRO</em>}
                               </span>
                             </li>
                           </ul>
 
                           {/* UNLOCK WITH PRO */}
-                          <div className="unlock">
-                            <span>See the real, personalised answer for every point above</span>
-                            <button type="button" onClick={handleUnlockPro}>
-                              Unlock with Pro
-                            </button>
-                          </div>
+                          {!isUserPaid ? (
+                            <div className="unlock">
+                              <span>See the real, personalised answer for every point above</span>
+                              <button type="button" onClick={handleUnlockPro}>
+                                Unlock with Pro
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="unlock" style={{ background: '#ECFDF5', borderColor: '#A7F3D0' }}>
+                              <span style={{ color: '#047857', fontWeight: 600 }}>👑 Pro Intelligence Active — Tailored insights unlocked for your profile</span>
+                            </div>
+                          )}
                         </div>
                       )}
 

@@ -587,6 +587,11 @@ export default function App() {
             }, 100);
           }}
           onOpenCandidateReg={() => setIsCandidateRegOpen(true)}
+          onOpenResumeAnalyzer={() => {
+            setIsJobsSearchOpen(false);
+            setIsResumeCheckOpen(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           onOpenRoleChooser={() => setIsRoleChooserOpen(true)}
           onOpenAuth={() => setIsAuthOpen(true)}
           onGoToPricing={() => {
@@ -1358,6 +1363,11 @@ export default function App() {
             }, 100);
           }}
           onOpenCandidateReg={() => setIsCandidateRegOpen(true)}
+          onOpenResumeAnalyzer={() => {
+            setIsJobsSearchOpen(false);
+            setIsResumeCheckOpen(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           onOpenRoleChooser={() => setIsRoleChooserOpen(true)}
           onOpenAuth={() => setIsAuthOpen(true)}
           onGoToPricing={() => {
