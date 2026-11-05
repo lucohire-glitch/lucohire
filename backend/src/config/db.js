@@ -4,6 +4,9 @@ import { env } from './env.js';
 export const pool = new pg.Pool({
   connectionString: env.databaseUrl,
   ssl: { rejectUnauthorized: false },
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 export async function initSchema() {

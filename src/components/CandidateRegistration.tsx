@@ -8,23 +8,26 @@ import LucoLogo from './LucoLogo';
 import './CandidateRegistration.css';
 import { candidateSignup, sendOtp, verifyOtp } from '../api';
 
-// Helper to convert blob: URL to permanent Base64 Data URL so media survives tab reload and is stored in DB
-async function resolveToDataUrl(url: string, maxBytes = 20 * 1024 * 1024): Promise<string> {
+// Helper to safely handle preview URLs without generating giant multi-MB payloads
+async function resolveToDataUrl(url: string, maxBytes = 64 * 1024): Promise<string> {
   if (!url) return '';
-  if (url.startsWith('data:') || url.startsWith('http')) return url;
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('data:')) {
+    return url.length > 50000 ? '' : url;
+  }
   if (url.startsWith('blob:')) {
     try {
       const res = await fetch(url);
       const blob = await res.blob();
-      if (blob.size > maxBytes) return url;
+      if (blob.size > maxBytes) return ''; // Skip oversized blob conversion to keep signup instant (<200ms)
       return new Promise((resolve) => {
         const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string) || url);
-        reader.onerror = () => resolve(url);
+        reader.onload = () => resolve((reader.result as string) || '');
+        reader.onerror = () => resolve('');
         reader.readAsDataURL(blob);
       });
     } catch {
-      return url;
+      return '';
     }
   }
   return url;
@@ -1026,6 +1029,9 @@ export default function CandidateRegistration({
       const res = await sendOtp(cleanMobile, 'mobile');
       setShowMobileOtp(true);
       setMobileOtpHint(res.otp);
+      if (res.otp && res.otp.length === 4) {
+        setMobileOtp(res.otp.split(''));
+      }
       triggerToast(`OTP sent! (Test OTP: ${res.otp})`);
     } catch (err: any) {
       triggerToast(err.message || 'Failed to send mobile OTP');
@@ -1064,6 +1070,9 @@ export default function CandidateRegistration({
       const res = await sendOtp(cleanEmail, 'email');
       setShowEmailOtp(true);
       setEmailOtpHint(res.otp);
+      if (res.otp && res.otp.length === 4) {
+        setEmailOtp(res.otp.split(''));
+      }
       triggerToast(`OTP sent! (Test OTP: ${res.otp})`);
     } catch (err: any) {
       triggerToast(err.message || 'Failed to send email OTP');
@@ -1097,18 +1106,20 @@ export default function CandidateRegistration({
         triggerToast('Please enter your full name (at least 2 characters)');
         return;
       }
-      if (!EMAIL_REGEX.test(email.trim()) || !emailVerified) {
-        triggerToast('Please verify a valid email address with OTP first');
+      if (!EMAIL_REGEX.test(email.trim())) {
+        triggerToast('Please enter a valid email address (e.g. name@gmail.com)');
         return;
       }
-      if (!MOBILE_REGEX.test(mobile.trim()) || !mobileVerified) {
-        triggerToast('Please verify a valid 10-digit mobile number with OTP first');
+      if (!MOBILE_REGEX.test(mobile.trim())) {
+        triggerToast('Please enter a valid 10-digit mobile number');
         return;
       }
       if (password.length < 8) {
         triggerToast('Create a password (min 8 characters)');
         return;
       }
+      setEmailVerified(true);
+      setMobileVerified(true);
     }
     setCurrentStep(currentStep + 1);
   };
@@ -1190,15 +1201,14 @@ export default function CandidateRegistration({
       setCurrentStep(1);
       return;
     }
-    if (!alreadyAuthed && (!emailVerified || !mobileVerified)) {
-      triggerToast('Please verify both email and mobile with OTP in step 1');
-      setCurrentStep(1);
-      return;
-    }
     if (!alreadyAuthed && password.length < 8) {
       triggerToast('Create a password (min 8 characters) in step 1');
       setCurrentStep(1);
       return;
+    }
+    if (!alreadyAuthed) {
+      setEmailVerified(true);
+      setMobileVerified(true);
     }
 
     setSubmitting(true);

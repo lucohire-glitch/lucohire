@@ -87,6 +87,20 @@ const validateSignup = ({ name, email, password, mobile }) => {
 
 const normMobile = (m) => (m ? m.toString().replace(/\D/g, '').slice(-10) : null);
 
+const sanitizeProfile = (profile) => {
+  if (!profile || typeof profile !== 'object') return {};
+  const clean = { ...profile };
+  for (const [key, val] of Object.entries(clean)) {
+    if (typeof val === 'string') {
+      // Strip oversized base64 data URIs (e.g. video, audio, raw PDF) to prevent 504 timeouts and DB bloat
+      if (val.startsWith('data:') || val.length > 30000) {
+        clean[key] = '';
+      }
+    }
+  }
+  return clean;
+};
+
 const respond = (res, status, role, row) =>
   res.status(status).json({ token: signToken(role, row), role, user: publicUser(row) });
 
@@ -118,6 +132,7 @@ export const candidateSignup = async (req, res) => {
       ...b,
       email: targetEmail,
       mobile: targetMobile,
+      profile: sanitizeProfile(b.profile),
       passwordHash: await bcrypt.hash(b.password, 10),
     });
     respond(res, 201, 'candidate', row);
@@ -161,6 +176,7 @@ export const recruiterSignup = async (req, res) => {
       ...b,
       email: targetEmail,
       mobile: targetMobile,
+      profile: sanitizeProfile(b.profile),
       passwordHash: await bcrypt.hash(b.password, 10),
     });
     respond(res, 201, 'recruiter', row);
