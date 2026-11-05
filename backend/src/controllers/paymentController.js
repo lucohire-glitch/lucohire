@@ -123,20 +123,27 @@ export async function verifyPayment(req, res, next) {
     const payment = paymentResult.rows[0];
     const targetPlan = planName || (payment ? payment.plan_name : 'Verified Plan');
 
-    // If user is authenticated, upgrade their profile plan in DB
+    // Upgrade user profile plan in DB by userId or userEmail
     const userId = req.user ? req.user.id : (payment ? payment.user_id : null);
-    const userRole = req.user ? req.user.role : (payment ? payment.user_role : null);
+    const userEmail = (req.user && req.user.email) ? req.user.email : (payment ? payment.user_email : null);
+    const userRole = req.user ? req.user.role : (payment ? payment.user_role : 'candidate');
 
-    if (userId && userRole === 'candidate') {
+    if (userId) {
+      const table = (userRole === 'recruiter') ? 'recruiters' : 'candidates';
       await pool.query(
-        `UPDATE candidates SET is_paid = true, plan = $1 WHERE id = $2`,
+        `UPDATE ${table} SET is_paid = true, plan = $1 WHERE id = $2`,
         [targetPlan, userId]
-      ).catch((e) => console.warn('Could not update candidate is_paid:', e));
-    } else if (userId && userRole === 'recruiter') {
+      ).catch((e) => console.warn(`Could not update ${table} is_paid by id:`, e));
+    }
+    if (userEmail) {
       await pool.query(
-        `UPDATE recruiters SET is_paid = true, plan = $1 WHERE id = $2`,
-        [targetPlan, userId]
-      ).catch((e) => console.warn('Could not update recruiter is_paid:', e));
+        `UPDATE candidates SET is_paid = true, plan = $1 WHERE LOWER(email) = LOWER($2)`,
+        [targetPlan, userEmail]
+      ).catch((e) => console.warn('Could not update candidate is_paid by email:', e));
+      await pool.query(
+        `UPDATE recruiters SET is_paid = true, plan = $1 WHERE LOWER(email) = LOWER($2)`,
+        [targetPlan, userEmail]
+      ).catch((e) => console.warn('Could not update recruiter is_paid by email:', e));
     }
 
     return res.json({
@@ -191,6 +198,13 @@ export async function getUserPayments(req, res) {
       if (uRes.rows.length > 0 && uRes.rows[0].is_paid) {
         isPaid = true;
         activePlan = uRes.rows[0].plan;
+      }
+    }
+    if (!isPaid && userEmail) {
+      const cRes = await pool.query(`SELECT id, is_paid, plan FROM candidates WHERE LOWER(email) = LOWER($1)`, [userEmail]).catch(() => ({ rows: [] }));
+      if (cRes.rows.length > 0 && cRes.rows[0].is_paid) {
+        isPaid = true;
+        activePlan = cRes.rows[0].plan;
       }
     }
 

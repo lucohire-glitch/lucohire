@@ -30,6 +30,22 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(2);
 
+  let storedUser: any = null;
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('luco_user') : null;
+    if (raw) storedUser = JSON.parse(raw);
+  } catch(e) {}
+
+  const isUserPaid = !!(
+    userSubscription?.isPaid ||
+    userData?.is_paid ||
+    storedUser?.is_paid ||
+    (userData?.plan && userData.plan.toLowerCase() !== 'free' && userData.plan.toLowerCase() !== 'none') ||
+    (storedUser?.plan && storedUser.plan.toLowerCase() !== 'free' && storedUser.plan.toLowerCase() !== 'none')
+  );
+
+  const activePlanName = userSubscription?.activePlan || userData?.plan || storedUser?.plan || (isUserPaid ? 'LucoHire Pro' : 'Free Starter');
+
   // Load User Subscription & Payment History from Backend
   useEffect(() => {
     getPublicPlans('freelancer').then(res => {
@@ -41,7 +57,7 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
   useEffect(() => {
     if (isOpen) {
-      const email = userData?.email || (typeof window !== 'undefined' ? localStorage.getItem('lucohire_user_email') : null);
+      const email = userData?.email || storedUser?.email || (typeof window !== 'undefined' ? localStorage.getItem('lucohire_user_email') : null);
       setIsLoadingSub(true);
       fetchUserSubscriptions(email || undefined)
         .then(res => {
@@ -53,7 +69,7 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
   }, [isOpen, userData]);
 
   // Handle in-dashboard plan upgrade via Razorpay
-  const handleUpgradeToPro = async (planName = 'LucoHire Pro', amount = 399) => {
+  const handleUpgradeToPro = async (planName = 'LucoHire Pro', amount = 49) => {
     try {
       setIsUpgradingPlan(true);
       const isLoaded = await loadRazorpayScript();
@@ -66,7 +82,7 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
         planName,
         amount,
         role: 'candidate',
-        userEmail: userData?.email || localStorage.getItem('lucohire_user_email') || ''
+        userEmail: userData?.email || storedUser?.email || localStorage.getItem('lucohire_user_email') || ''
       });
 
       const keyId = await getRazorpayKeyId();
@@ -86,17 +102,26 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
               razorpay_signature: response.razorpay_signature,
               planName,
             });
+            // Update local storage immediately
+            try {
+              const raw = localStorage.getItem('luco_user');
+              const usr = raw ? JSON.parse(raw) : {};
+              usr.is_paid = true;
+              usr.plan = planName;
+              localStorage.setItem('luco_user', JSON.stringify(usr));
+              localStorage.setItem('user', JSON.stringify(usr));
+            } catch(e) {}
             // Reload subscriptions
-            const updated = await fetchUserSubscriptions(userData?.email);
+            const updated = await fetchUserSubscriptions(userData?.email || storedUser?.email);
             setUserSubscription(updated);
-            alert('🎉 Congratulations! Your plan has been activated successfully.');
+            alert(`🎉 Congratulations! Your plan "${planName}" has been activated successfully.`);
           } catch (err: any) {
             alert('Payment verification failed: ' + err.message);
           }
         },
         prefill: {
-          name: userData?.name || 'LucoHire User',
-          email: userData?.email || '',
+          name: userData?.name || storedUser?.name || 'LucoHire User',
+          email: userData?.email || storedUser?.email || '',
           contact: userData?.mobile || userData?.phone || '',
         },
         theme: {
@@ -704,7 +729,7 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
           <section id="userSubscriptionSection">
             <div className="section-head">
               <p className="section-title">My Subscription &amp; Plans</p>
-              {userSubscription?.isPaid && (
+              {isUserPaid && (
                 <span
                   style={{
                     fontSize: 11,
@@ -724,7 +749,51 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
               )}
             </div>
 
-            {userSubscription?.isPaid ? (
+            {/* CURRENT ACTIVE PLAN HIGHLIGHT CARD */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 20px',
+              background: isUserPaid ? '#EEF2FF' : '#F9FAFB',
+              border: isUserPaid ? '1.5px solid #C7D2FE' : '1px solid #E5E7EB',
+              borderRadius: '14px',
+              marginBottom: 16
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 24 }}>{isUserPaid ? '👑' : '⚪'}</span>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: isUserPaid ? '#4338CA' : '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {isUserPaid ? 'Current Active Subscription' : 'Current Account Tier'}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: isUserPaid ? '#1E1B4B' : '#374151', display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                    {activePlanName}
+                    {isUserPaid ? (
+                      <span style={{ color: '#16A34A', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                        ✓ Verified &amp; Active
+                      </span>
+                    ) : (
+                      <span style={{ color: '#9CA3AF', fontSize: 12, fontWeight: 500 }}>
+                        (Free Starter · Not Subscribed)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div style={{
+                padding: '5px 14px',
+                borderRadius: 999,
+                background: isUserPaid ? '#DCFCE7' : '#F3F4F6',
+                color: isUserPaid ? '#15803D' : '#6B7280',
+                fontWeight: 700,
+                fontSize: 12,
+                border: isUserPaid ? '1px solid #86EFAC' : '1px solid #E5E7EB'
+              }}>
+                {isUserPaid ? '● Active Now' : 'Free Account'}
+              </div>
+            </div>
+
+            {isUserPaid ? (
               /* ACTIVE SUBSCRIBER CARD - MATCHES LUCOHIRE DEEP INDIGO GRADIENT THEME */
               <div className="plan-card">
                 <div className="plan-top">
@@ -758,15 +827,15 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                         marginTop: 8
                       }}
                     >
-                      {userSubscription.activePlan || userSubscription.latestPayment?.plan_name || 'Paid (RECOMMENDED)'}
+                      {activePlanName}
                     </div>
                   </div>
                   <div className="plan-price">
                     <div className="amt" style={{ color: '#FFFFFF', fontSize: 24, fontWeight: 800 }}>
-                      ₹{(((userSubscription.latestPayment?.amount || 4900)) / 100).toLocaleString('en-IN')}
+                      ₹{userSubscription?.latestPayment?.amount ? ((userSubscription.latestPayment.amount) / 100).toLocaleString('en-IN') : '49'}
                     </div>
                     <div className="per" style={{ color: '#D8D2FA', fontSize: 11.5 }}>
-                      One-time · Razorpay Verified
+                      Active Subscription · Razorpay Verified
                     </div>
                   </div>
                 </div>
@@ -776,7 +845,7 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                 </p>
 
                 {/* Glassmorphic Razorpay Reference Box */}
-                {userSubscription.latestPayment && (
+                {userSubscription?.latestPayment && (
                   <div
                     style={{
                       background: 'rgba(255, 255, 255, 0.08)',
@@ -810,13 +879,13 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                           border: '1px solid rgba(134, 239, 172, 0.4)'
                         }}
                       >
-                        ✓ {userSubscription.latestPayment.status.toUpperCase()} (VERIFIED)
+                        ✓ {(userSubscription.latestPayment.status || 'captured').toUpperCase()} (VERIFIED)
                       </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ color: '#C0BCDE' }}>Purchased On:</span>
                       <span style={{ color: '#FFFFFF', fontWeight: 600 }}>
-                        {new Date(userSubscription.latestPayment.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {new Date(userSubscription.latestPayment.created_at || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </span>
                     </div>
                   </div>
@@ -857,39 +926,67 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                  {userSubscription.latestPayment && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 18 }}>
+                  {/* Current Active Plan: Repurchase is DISABLED */}
+                  <button
+                    type="button"
+                    disabled={true}
+                    style={{
+                      flex: '1 1 200px',
+                      margin: 0,
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      color: '#FFFFFF',
+                      border: '1px solid rgba(255, 255, 255, 0.35)',
+                      borderRadius: 'var(--radius-sm, 10px)',
+                      padding: '12px 18px',
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: 'not-allowed',
+                      opacity: 0.9,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6
+                    }}
+                  >
+                    ✓ Currently Active (Cannot Repurchase)
+                  </button>
+
+                  {/* Upgrade to Next Tier CTA */}
+                  <button
+                    type="button"
+                    style={{
+                      flex: '1 1 200px',
+                      margin: 0,
+                      background: 'linear-gradient(135deg, #10B981, #059669)',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: 'var(--radius-sm, 10px)',
+                      padding: '12px 18px',
+                      fontWeight: 800,
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)'
+                    }}
+                    onClick={() => handleUpgradeToPro('LucoHire Pro Annual', 149)}
+                  >
+                    ⚡ Upgrade to Pro Annual — ₹149/year
+                  </button>
+
+                  {userSubscription?.latestPayment && (
                     <button
                       type="button"
                       className="plan-cta"
-                      style={{ flex: 1, margin: 0, cursor: 'pointer' }}
+                      style={{ flex: '1 1 100%', margin: 0, cursor: 'pointer', background: 'rgba(255, 255, 255, 0.12)', border: '1px solid rgba(255, 255, 255, 0.25)' }}
                       onClick={() => setSelectedReceipt(userSubscription.latestPayment)}
                     >
                       🧾 View Payment Receipt
                     </button>
                   )}
-                  <button
-                    type="button"
-                    style={{
-                      flex: 1,
-                      margin: 0,
-                      background: 'rgba(255, 255, 255, 0.14)',
-                      color: '#FFFFFF',
-                      border: '1px solid rgba(255, 255, 255, 0.28)',
-                      borderRadius: 'var(--radius-sm, 10px)',
-                      padding: '12px 18px',
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onClick={() => handleUpgradeToPro('LucoHire Pro Annual', 149)}
-                  >
-                    Manage / Upgrade
-                  </button>
                 </div>
               </div>
-            ): (
+            ) : (
               /* DYNAMIC ADMIN PLAN UPGRADE CARD (SAVED FROM ADMIN PANEL) */
               (() => {
                 const upgradePlan = adminPlans.find(p => p.category === 'freelancer' && p.price_amount !== '₹0' && p.price_amount !== '0') ||
@@ -946,8 +1043,8 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                     </div>
 
                     <div className="plan-current" style={{ borderTop: '1px solid #F3F4F6', paddingTop: 10, marginTop: 12 }}>
-                      <span>Status: <b style={{ color: '#6B7280' }}>Free User (Not Subscribed)</b></span>
-                      <span><b>Upgrade to unlock Pro</b></span>
+                      <span>Current Status: <b style={{ color: '#6B7280' }}>Free User (Not Subscribed)</b></span>
+                      <span><b>Upgrade to unlock Pro &amp; Verified Badge</b></span>
                     </div>
 
                     <button

@@ -224,7 +224,10 @@ export default function App() {
             if (currentUser) {
               const updated = { ...currentUser, plan: planTitle, is_paid: true };
               setCurrentUser(updated);
-              try { localStorage.setItem('user', JSON.stringify(updated)); } catch(e){}
+              try {
+                localStorage.setItem('user', JSON.stringify(updated));
+                localStorage.setItem('luco_user', JSON.stringify(updated));
+              } catch(e){}
             }
 
             setUpgradeSuccessModal({

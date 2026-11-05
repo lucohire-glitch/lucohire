@@ -717,7 +717,7 @@ export const getRazorpayKeyId = async (): Promise<string> => {
       if (data.keyId) return data.keyId;
     }
   } catch (e) {}
-  return 'rzp_live_Tvz3wSEVcPeHFv';
+  return 'rzp_live_TwQkwrg2UgCNh1';
 };
 
 export const createPaymentOrder = async (params: CreateOrderParams) => {
