@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './CandidateDashboard.css';
-import { fetchUserSubscriptions, SubscriptionItem, UserSubscriptionResponse, createPaymentOrder, verifyPaymentSignature, loadRazorpayScript, getRazorpayKeyId } from '../api';
+import { getPublicPlans, PlanItem, fetchUserSubscriptions, SubscriptionItem, UserSubscriptionResponse, createPaymentOrder, verifyPaymentSignature, loadRazorpayScript, getRazorpayKeyId } from '../api';
 
 interface CandidateDashboardProps {
   isOpen: boolean;
@@ -17,6 +17,7 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
   const [isLoadingSub, setIsLoadingSub] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<SubscriptionItem | null>(null);
   const [isUpgradingPlan, setIsUpgradingPlan] = useState(false);
+  const [adminPlans, setAdminPlans] = useState<PlanItem[]>([]);
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [openManagePanel, setOpenManagePanel] = useState<string | null>(null);
@@ -30,6 +31,14 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
   const [unreadNotifications, setUnreadNotifications] = useState(2);
 
   // Load User Subscription & Payment History from Backend
+  useEffect(() => {
+    getPublicPlans('freelancer').then(res => {
+      if (res && res.plans && res.plans.length > 0) {
+        setAdminPlans(res.plans);
+      }
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       const email = userData?.email || (typeof window !== 'undefined' ? localStorage.getItem('lucohire_user_email') : null);
@@ -310,6 +319,26 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
   const closeIframeView = () => {
     setCurrentView('dashboard');
   };
+
+  const upgradePlan = adminPlans.find(p => p.category === 'freelancer' && p.price_amount !== '₹0' && p.price_amount !== '0') ||
+    adminPlans.find(p => p.is_popular) ||
+    adminPlans[1];
+
+  const planTitle = upgradePlan?.name || 'LucoHire Pro';
+  const planPriceText = upgradePlan?.price_amount || '₹49';
+  const planUnitText = upgradePlan?.price_unit || '/month';
+  const planNumericAmount = parseInt(planPriceText.replace(/\D/g, ''), 10) || 49;
+  const planBadgeText = upgradePlan?.badge || 'RECOMMENDED';
+  const planDescText = upgradePlan?.description || 'Move to the top of category search and clear your WhatsApp lead cap for the month.';
+  const planFeaturesList = (upgradePlan?.features && upgradePlan.features.length > 0)
+    ? upgradePlan.features
+    : [
+        'Verified badge — ID, payment & portfolio checked',
+        'Profile boost — placed above unverified profiles',
+        'Priority on new matching requirements',
+        'Unlimited WhatsApp leads, no monthly cap'
+      ];
+  const planCtaText = upgradePlan?.cta_text || `👑 Upgrade to ${planTitle} — ${planPriceText}`;
 
   return (
     <div className="candidate-dashboard-container candidate-view" style={{ position: 'fixed', inset: 0, zIndex: 1000, overflowY: 'auto' }}>
@@ -860,48 +889,79 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
                   </button>
                 </div>
               </div>
-            ) : (
-              /* FREE PLAN / NOT SUBSCRIBED CARD */
-              <div className="plan-card" style={{ background: '#FFFFFF', border: '1px solid var(--line, #ECEAF9)' }}>
-                <div className="plan-top">
-                  <div>
-                    <div className="plan-badge" style={{ background: '#F3F4F6', color: '#4B5563', border: '1px solid #E5E7EB' }}>
-                      Current Tier: Free Plan
+            ): (
+              /* DYNAMIC ADMIN PLAN UPGRADE CARD (SAVED FROM ADMIN PANEL) */
+              (() => {
+                const upgradePlan = adminPlans.find(p => p.category === 'freelancer' && p.price_amount !== '₹0' && p.price_amount !== '0') ||
+                  adminPlans.find(p => p.is_popular) ||
+                  adminPlans[1];
+
+                const planTitle = upgradePlan?.name || 'LucoHire Pro';
+                const planPriceText = upgradePlan?.price_amount || '₹49';
+                const planUnitText = upgradePlan?.price_unit || '/month';
+                const planNumericAmount = parseInt(planPriceText.replace(/\D/g, ''), 10) || 49;
+                const planBadgeText = upgradePlan?.badge || 'RECOMMENDED';
+                const planDescText = upgradePlan?.description || 'Move to the top of category search and clear your WhatsApp lead cap for the month.';
+                const planFeaturesList = (upgradePlan?.features && upgradePlan.features.length > 0)
+                  ? upgradePlan.features
+                  : [
+                      'Verified badge — ID, payment & portfolio checked',
+                      'Profile boost — placed above unverified profiles',
+                      'Priority on new matching requirements',
+                      'Unlimited WhatsApp leads, no monthly cap'
+                    ];
+                const planCtaText = upgradePlan?.cta_text || `👑 Upgrade to ${planTitle} — ${planPriceText}`;
+
+                return (
+                  <div className="plan-card" style={{ background: '#FFFFFF', border: '1.5px solid var(--violet-200, #D8D2FA)', boxShadow: '0 4px 18px rgba(74, 58, 224, 0.06)' }}>
+                    <div className="plan-top">
+                      <div>
+                        <div className="plan-badge" style={{ background: 'var(--violet-600, #4A3AE0)', color: '#FFFFFF', border: 'none' }}>
+                          {planBadgeText}
+                        </div>
+                        <div className="plan-name" style={{ color: 'var(--ink, #1F2937)', marginTop: 6, fontSize: 20, fontWeight: 800 }}>
+                          {planTitle}
+                        </div>
+                      </div>
+                      <div className="plan-price">
+                        <div className="amt" style={{ color: 'var(--violet-700, #4A3AE0)', fontSize: 24, fontWeight: 800 }}>{planPriceText}</div>
+                        <div className="per" style={{ color: '#6B7280' }}>{planUnitText}</div>
+                      </div>
                     </div>
-                    <div className="plan-name" style={{ color: 'var(--ink, #1F2937)', marginTop: 6, fontSize: 18 }}>
-                      No Active Subscription
+                    <p className="plan-desc" style={{ color: '#4B5563', fontSize: 13, margin: '8px 0 14px' }}>
+                      {planDescText}
+                    </p>
+
+                    <div className="plan-feats">
+                      {planFeaturesList.map((f: string, i: number) => (
+                        <div key={i} className="plan-feat">
+                          <span className="check" style={{ background: 'var(--violet-600, #4A3AE0)' }}>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </span>
+                          {f}
+                        </div>
+                      ))}
                     </div>
+
+                    <div className="plan-current" style={{ borderTop: '1px solid #F3F4F6', paddingTop: 10, marginTop: 12 }}>
+                      <span>Status: <b style={{ color: '#6B7280' }}>Free User (Not Subscribed)</b></span>
+                      <span><b>Upgrade to unlock Pro</b></span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="plan-cta"
+                      onClick={() => handleUpgradeToPro(planTitle, planNumericAmount)}
+                      disabled={isUpgradingPlan}
+                      style={{ marginTop: 14 }}
+                    >
+                      {isUpgradingPlan ? 'Connecting to Razorpay...' : planCtaText}
+                    </button>
                   </div>
-                  <div className="plan-price">
-                    <div className="amt" style={{ color: '#1F2937' }}>₹0</div>
-                    <div className="per">Free Basic Access</div>
-                  </div>
-                </div>
-                <p className="plan-desc" style={{ color: '#6B7280', fontSize: 13, margin: '8px 0 12px' }}>
-                  Aapke account par abhi koi paid subscription active nahi hai. Full AI Resume intelligence, Recruiter scan aur priority placement ke liye plan purchase karein.
-                </p>
-
-                <div className="plan-feats">
-                  <div className="plan-feat"><span className="check" style={{ background: '#9CA3AF' }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Basic Resume score (Deep analysis &amp; fixes locked)</div>
-                  <div className="plan-feat"><span className="check" style={{ background: '#9CA3AF' }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Standard profile listing (Normal search)</div>
-                  <div className="plan-feat"><span className="check" style={{ background: '#9CA3AF' }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg></span>Standard monthly leads</div>
-                </div>
-
-                <div className="plan-current" style={{ borderTop: '1px solid #F3F4F6', paddingTop: 10, marginTop: 12 }}>
-                  <span>Status: <b style={{ color: '#6B7280' }}>Free User (Not Subscribed)</b></span>
-                  <span><b>Upgrade to unlock Pro</b></span>
-                </div>
-
-                <button
-                  type="button"
-                  className="plan-cta"
-                  onClick={() => handleUpgradeToPro('LucoHire Pro', 399)}
-                  disabled={isUpgradingPlan}
-                  style={{ marginTop: 14 }}
-                >
-                  {isUpgradingPlan ? 'Connecting to Razorpay...' : '👑 Upgrade to Pro Plan — ₹399'}
-                </button>
-              </div>
+                );
+              })()
             )}
 
             {/* PAYMENT RECEIPTS & TRANSACTION HISTORY LIST */}

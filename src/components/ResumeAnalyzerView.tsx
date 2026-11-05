@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './ResumeAnalyzerView.css';
-import { getCurrentUser, getUserRole, logout } from '../api';
+import { getPublicPlans, getCurrentUser, getUserRole, logout } from '../api';
 
 export default function ResumeAnalyzerView({
   currentUser: propUser,
@@ -17,6 +17,14 @@ export default function ResumeAnalyzerView({
   onUpgradePlan
 }: any) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [resumePlanPrice, setResumePlanPrice] = useState('₹499');
+
+  useEffect(() => {
+    getPublicPlans('resume').then(res => {
+      const p = res?.plans?.find(x => x.category === 'resume') || res?.plans?.[0];
+      if (p && p.price_amount) setResumePlanPrice(p.price_amount);
+    }).catch(() => {});
+  }, []);
   const user = propUser || (typeof window !== 'undefined' ? getCurrentUser() : null);
   const role = propRole || (typeof window !== 'undefined' ? getUserRole() : '');
 
