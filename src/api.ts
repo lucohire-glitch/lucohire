@@ -808,7 +808,8 @@ export const fetchAdminSubscriptions = async (): Promise<SubscriptionItem[]> => 
 };
 
 export const fetchUserSubscriptions = async (email?: string): Promise<UserSubscriptionResponse> => {
-  const url = new URL(`${API_URL}/payment/history`);
+  const base = typeof window !== "undefined" ? window.location.origin : "https://www.lucohire.com";
+  const url = new URL(`${API_URL}/payment/history`, base);
   if (email) url.searchParams.set('email', email);
   const res = await fetch(url.toString(), {
     headers: {

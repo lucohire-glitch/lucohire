@@ -197,16 +197,48 @@ export const login = async (req, res) => {
   if (!emailOk(email) || !password) return res.status(400).json({ error: 'Email and password required.' });
   const e = normEmail(email);
   for (const [Model, role] of [[CandidateModel, 'candidate'], [RecruiterModel, 'recruiter']]) {
-    const row = await Model.findByEmail(e);
-    if (row && (await bcrypt.compare(password, row.password_hash))) return respond(res, 200, role, row);
+    let row = await Model.findByEmail(e);
+    if (row && (await bcrypt.compare(password, row.password_hash))) {
+      try {
+        const { pool } = await import('../config/db.js');
+        const pRes = await pool.query(
+          "SELECT id, plan_name FROM payments WHERE LOWER(user_email) = LOWER($1) AND status IN ('captured', 'paid', 'completed') ORDER BY created_at DESC LIMIT 1",
+          [e]
+        );
+        if (pRes.rows.length > 0) {
+          row.is_paid = true;
+          row.plan = pRes.rows[0].plan_name || 'LucoHire Pro';
+          await pool.query(
+            `UPDATE ${role === 'candidate' ? 'candidates' : 'recruiters'} SET is_paid = true, plan = $1 WHERE id = $2`,
+            [row.plan, row.id]
+          ).catch(() => {});
+        }
+      } catch (err) {}
+      return respond(res, 200, role, row);
+    }
   }
   res.status(401).json({ error: 'Invalid email or password.' });
 };
 
 export const me = async (req, res) => {
   const Model = req.user.role === 'candidate' ? CandidateModel : RecruiterModel;
-  const row = await Model.findById(req.user.id);
+  let row = await Model.findById(req.user.id);
   if (!row) return res.status(404).json({ error: 'User not found.' });
+  try {
+    const { pool } = await import('../config/db.js');
+    const pRes = await pool.query(
+      "SELECT id, plan_name FROM payments WHERE (user_id = $1 OR LOWER(user_email) = LOWER($2)) AND status IN ('captured', 'paid', 'completed') ORDER BY created_at DESC LIMIT 1",
+      [row.id, row.email]
+    );
+    if (pRes.rows.length > 0) {
+      row.is_paid = true;
+      row.plan = pRes.rows[0].plan_name || 'LucoHire Pro';
+      await pool.query(
+        `UPDATE ${req.user.role === 'candidate' ? 'candidates' : 'recruiters'} SET is_paid = true, plan = $1 WHERE id = $2`,
+        [row.plan, row.id]
+      ).catch(() => {});
+    }
+  } catch (err) {}
   res.json({ role: req.user.role, user: publicUser(row) });
 };
 
