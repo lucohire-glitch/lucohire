@@ -30,6 +30,8 @@ export default function ResumeAnalyzerView({
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    (window as any).lucoCurrentUser = user;
+    (window as any).lucoUserRole = role;
     (window as any).lucoGoToPricing = () => {
       if (onGoToPricing) {
         onGoToPricing();
@@ -246,14 +248,30 @@ analyzeBtn.addEventListener('click', () => {
       // Store AI analysis
       window.latestAiAnalysis = apiData;
 
-      const activeUser = propUser || (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
-      // Strictly verified from backend user account only (never trust stale localStorage flags)
+      let activeUser = null;
+      let isUserLoggedInNow = false;
+      try {
+        if (typeof window !== 'undefined' && window.lucoCurrentUser) {
+          activeUser = window.lucoCurrentUser;
+        } else {
+          const raw = localStorage.getItem('luco_user');
+          if (raw) activeUser = JSON.parse(raw);
+        }
+        isUserLoggedInNow = !!(
+          activeUser ||
+          localStorage.getItem('luco_token') ||
+          localStorage.getItem('token')
+        );
+      } catch(e) {}
+
+      // Paid user only if backend database says is_paid === true
       const isPaidUser = !!(
-        activeUser && 
+        isUserLoggedInNow &&
+        activeUser &&
         (activeUser.is_paid === true || (activeUser.plan && activeUser.plan.toLowerCase() !== 'free' && activeUser.plan.toLowerCase() !== 'none'))
       );
 
-      // Clean any stale local test keys
+      // Clean stale test flags
       localStorage.removeItem('luco_plan_upgraded');
       localStorage.removeItem('luco_is_premium');
 
@@ -261,7 +279,7 @@ analyzeBtn.addEventListener('click', () => {
       const bannerEl = document.getElementById('unlockedBanner');
 
       if (isPaidUser && apiData) {
-        // PAID SUBSCRIBER: Full AI analysis unlocked on all sections
+        // Paid user: Full report UNLOCKED!
         reportUnlocked = true;
         document.body.classList.add('report-unlocked');
         if (paywallEl) paywallEl.hidden = true;
@@ -270,7 +288,7 @@ analyzeBtn.addEventListener('click', () => {
           applyAiToFullReport(apiData);
         }
       } else {
-        // FREE USER: Section 1 has AI score & verified skills, but ALL deep sections below are LOCKED & BLURRED!
+        // Bina login YA bina plan free user: Section 1 has AI score, but ALL sections below are LOCKED & BLURRED!
         reportUnlocked = false;
         document.body.classList.remove('report-unlocked');
         if (paywallEl) {
@@ -290,7 +308,7 @@ analyzeBtn.addEventListener('click', () => {
       if (resultsView) {
         resultsView.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-    }, 700);
+    }, 300);
   });
 
 /* job description toggle */
@@ -639,15 +657,30 @@ function updatePaywallVisibility(){
   if(!card) return;
   card.hidden = !!reportUnlocked;
 }
-function unlockReport(){
-  if (window.lucoGoToPricing) {
-    window.lucoGoToPricing();
-  } else {
-    const el = document.getElementById('secPaths') || document.getElementById('pricingSection');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    else window.location.hash = 'pricingSection';
+function unlockReport() {
+    let isLogged = false;
+    try {
+      isLogged = !!(
+        (window.lucoCurrentUser) ||
+        localStorage.getItem('luco_token') ||
+        localStorage.getItem('token')
+      );
+    } catch(e) {}
+
+    if (!isLogged) {
+      if (typeof window.lucoOpenAuth === 'function') {
+        window.lucoOpenAuth();
+        return;
+      }
+    }
+    if (typeof window.lucoGoToPricing === 'function') {
+      window.lucoGoToPricing();
+    } else {
+      window.location.hash = 'pricingSection';
+      const el = document.getElementById('pricingSection');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
-}
 window.unlockReport = unlockReport;
 let selectedPaths={}, expandedPaths={};
 /* skills the user has explicitly added from "Skills on the rise" / "Staying relevant through 2030" —
