@@ -32,19 +32,28 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
 
   let storedUser: any = null;
   try {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem('luco_user') : null;
+    const raw = typeof window !== 'undefined' ? (localStorage.getItem('luco_user') || localStorage.getItem('user')) : null;
     if (raw) storedUser = JSON.parse(raw);
   } catch(e) {}
+
+  const currentEmail = userData?.email || storedUser?.email || (typeof window !== 'undefined' ? (localStorage.getItem('lucohire_user_email') || localStorage.getItem('luco_email')) : null);
 
   const isUserPaid = !!(
     userSubscription?.isPaid ||
     userData?.is_paid ||
     storedUser?.is_paid ||
     (userData?.plan && userData.plan.toLowerCase() !== 'free' && userData.plan.toLowerCase() !== 'none') ||
-    (storedUser?.plan && storedUser.plan.toLowerCase() !== 'free' && storedUser.plan.toLowerCase() !== 'none')
+    (storedUser?.plan && storedUser.plan.toLowerCase() !== 'free' && storedUser.plan.toLowerCase() !== 'none') ||
+    (userSubscription?.payments && userSubscription.payments.some((p: any) => {
+      const s = String(p.status || '').toLowerCase();
+      return s === 'paid' || s === 'captured' || s === 'completed';
+    }))
   );
 
-  const activePlanName = userSubscription?.activePlan || userData?.plan || storedUser?.plan || (isUserPaid ? 'LucoHire Pro' : 'Free Starter');
+  let activePlanName = userSubscription?.activePlan || userData?.plan || storedUser?.plan || (isUserPaid ? 'LucoHire Pro' : 'Free Starter');
+  if (activePlanName === 'Paid (RECOMMENDED)' || activePlanName === 'Paid') {
+    activePlanName = 'LucoHire Pro';
+  }
 
   // Load User Subscription & Payment History from Backend
   useEffect(() => {
@@ -56,17 +65,23 @@ export default function CandidateDashboard({ isOpen, userData, onClose, onOpenRe
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
-      const email = userData?.email || storedUser?.email || (typeof window !== 'undefined' ? localStorage.getItem('lucohire_user_email') : null);
-      setIsLoadingSub(true);
-      fetchUserSubscriptions(email || undefined)
-        .then(res => {
-          if (res) setUserSubscription(res);
-        })
-        .catch(err => console.warn('Could not load user subscription:', err))
-        .finally(() => setIsLoadingSub(false));
-    }
-  }, [isOpen, userData]);
+    const emailToQuery = currentEmail;
+    setIsLoadingSub(true);
+    fetchUserSubscriptions(emailToQuery || undefined)
+      .then(res => {
+        if (res) {
+          setUserSubscription(res);
+          if (res.isPaid && storedUser && !storedUser.is_paid) {
+            try {
+              const updated = { ...storedUser, is_paid: true, plan: res.activePlan || 'LucoHire Pro' };
+              localStorage.setItem('luco_user', JSON.stringify(updated));
+            } catch (e) {}
+          }
+        }
+      })
+      .catch(err => console.warn('Could not load user subscription:', err))
+      .finally(() => setIsLoadingSub(false));
+  }, [isOpen, userData, currentEmail]);
 
   // Handle in-dashboard plan upgrade via Razorpay
   const handleUpgradeToPro = async (planName = 'LucoHire Pro', amount = 49) => {

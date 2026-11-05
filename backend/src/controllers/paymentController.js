@@ -174,7 +174,14 @@ export async function getRazorpayKey(req, res) {
 export async function getUserPayments(req, res) {
   try {
     const userId = req.user ? req.user.id : null;
-    const userEmail = (req.user && req.user.email) ? req.user.email : (req.query.email ? String(req.query.email).toLowerCase().trim() : null);
+    let userEmail = (req.user && req.user.email) ? req.user.email : (req.query.email ? String(req.query.email).toLowerCase().trim() : null);
+
+    if (!userEmail && userId) {
+      const uRes = await pool.query('SELECT email FROM candidates WHERE id = $1 UNION SELECT email FROM recruiters WHERE id = $1', [userId]).catch(() => ({ rows: [] }));
+      if (uRes.rows.length > 0 && uRes.rows[0].email) {
+        userEmail = uRes.rows[0].email.toLowerCase().trim();
+      }
+    }
 
     if (!userId && !userEmail) {
       return res.status(401).json({ success: false, error: 'Authentication or user email required' });
@@ -187,6 +194,13 @@ export async function getUserPayments(req, res) {
        ORDER BY created_at DESC`,
       [userId, userEmail]
     );
+
+    const isPaymentSuccessful = (status) => {
+      const s = String(status || '').toLowerCase().trim();
+      return s === 'paid' || s === 'captured' || s === 'completed' || s === 'authorized';
+    };
+
+    const latestCaptured = result.rows.find(p => isPaymentSuccessful(p.status));
 
     // Find active plan
     let activePlan = null;
@@ -208,17 +222,29 @@ export async function getUserPayments(req, res) {
       }
     }
 
-    // Fallback: check latest captured payment
-    const latestCaptured = result.rows.find(p => p.status === 'captured');
-    if (!activePlan && latestCaptured) {
-      activePlan = latestCaptured.plan_name;
+    // Fallback & auto-heal: if payments table has captured/paid row, user is paid
+    if (latestCaptured) {
       isPaid = true;
+      if (!activePlan || activePlan.toLowerCase() === 'free' || activePlan.toLowerCase() === 'none') {
+        activePlan = latestCaptured.plan_name || 'LucoHire Pro';
+      }
+      if (userEmail) {
+        await pool.query(
+          `UPDATE candidates SET is_paid = true, plan = $1 WHERE LOWER(email) = LOWER($2) AND (is_paid IS NOT TRUE OR plan IS NULL)`,
+          [activePlan || 'LucoHire Pro', userEmail]
+        ).catch(() => {});
+      }
+    }
+
+    // Normalize plan name
+    if (activePlan === 'Paid (RECOMMENDED)' || activePlan === 'Paid') {
+      activePlan = 'LucoHire Pro';
     }
 
     return res.json({
       success: true,
-      activePlan,
-      isPaid,
+      activePlan: activePlan || (isPaid ? 'LucoHire Pro' : null),
+      isPaid: !!isPaid,
       payments: result.rows,
       latestPayment: latestCaptured || result.rows[0] || null
     });
