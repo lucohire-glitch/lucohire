@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchUserSubscriptions, SubscriptionItem, UserSubscriptionResponse, createPaymentOrder, verifyPaymentSignature, loadRazorpayScript, getRazorpayKeyId } from '../api';
+import { fetchUserSubscriptions, SubscriptionItem, UserSubscriptionResponse, createPaymentOrder, verifyPaymentSignature, loadRazorpayScript, getRazorpayKeyId, toggleAutoRenewSubscription } from '../api';
 import './CandidateDashboard.css';
 
 interface EmployerDashboardProps {
@@ -15,6 +15,9 @@ export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAut
   const [userSubscription, setUserSubscription] = useState<UserSubscriptionResponse | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<SubscriptionItem | null>(null);
   const [isUpgradingPlan, setIsUpgradingPlan] = useState(false);
+  const [isTogglingAutoRenew, setIsTogglingAutoRenew] = useState(false);
+  const [confirmCancelAutoRenewModal, setConfirmCancelAutoRenewModal] = useState(false);
+  const [autoRenewNotice, setAutoRenewNotice] = useState<string | null>(null);
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastTimer, setToastTimer] = useState<any>(null);
@@ -30,6 +33,22 @@ export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAut
         .catch(err => console.warn('Could not load recruiter subscription:', err));
     }
   }, [isOpen, userData]);
+
+  const handleToggleAutoRenew = async (enable: boolean) => {
+    try {
+      setIsTogglingAutoRenew(true);
+      const email = userData?.email || (typeof window !== 'undefined' ? localStorage.getItem('lucohire_user_email') : null);
+      const res = await toggleAutoRenewSubscription(enable, email || undefined);
+      setAutoRenewNotice(res.message);
+      const updated = await fetchUserSubscriptions(email || undefined);
+      if (updated) setUserSubscription(updated);
+      setTimeout(() => setAutoRenewNotice(null), 5000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update auto-subscription');
+    } finally {
+      setIsTogglingAutoRenew(false);
+    }
+  };
 
   const handleUpgradeRecruiterPlan = async (planName = 'Recruiter Pro Verified', amount = 499) => {
     try {
@@ -938,6 +957,106 @@ export default function EmployerDashboard({ isOpen, userData, onClose, onOpenAut
                       {userSubscription.latestPayment.status.toUpperCase()}
                     </span>
                   </div>
+                </div>
+              )}
+
+              {userSubscription?.isPaid && (() => {
+                const expiryDateStr = userSubscription?.planExpiresAt
+                  ? new Date(userSubscription.planExpiresAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                  : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                const daysRemaining = userSubscription?.daysRemaining !== undefined ? userSubscription.daysRemaining : 30;
+                const isAutoRenewOn = userSubscription?.autoRenew !== false;
+
+                return (
+                  <div
+                    style={{
+                      background: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: 12,
+                      padding: '14px 16px',
+                      margin: '12px 0',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+                        Auto-Subscription &amp; Validity
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          background: isAutoRenewOn ? '#DCFCE7' : '#FEF3C7',
+                          color: isAutoRenewOn ? '#15803D' : '#B45309',
+                          border: isAutoRenewOn ? '1px solid #86EFAC' : '1px solid #FCD34D'
+                        }}
+                      >
+                        {isAutoRenewOn ? '● Auto-Renew: ON' : '○ Auto-Renew: OFF'}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: 12.5, color: '#334155', lineHeight: 1.45, marginBottom: 10 }}>
+                      {isAutoRenewOn ? (
+                        <>
+                          Plan validity: <b>{expiryDateStr}</b> ({daysRemaining} days left). When this expires, your subscription will automatically renew so candidate access is not interrupted.
+                        </>
+                      ) : (
+                        <>
+                          Auto-subscription is removed. Your plan will expire on <b>{expiryDateStr}</b> ({daysRemaining} days left) without renewing.
+                        </>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E2E8F0', paddingTop: 8 }}>
+                      <span style={{ fontSize: 12, color: '#64748B' }}>
+                        {isAutoRenewOn ? 'Prefer manual renewal?' : 'Want automatic renewal?'}
+                      </span>
+                      {isAutoRenewOn ? (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmCancelAutoRenewModal(true)}
+                          disabled={isTogglingAutoRenew}
+                          style={{
+                            background: '#FEE2E2',
+                            color: '#DC2626',
+                            border: '1px solid #FCA5A5',
+                            borderRadius: 8,
+                            padding: '4px 10px',
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✕ Remove Auto-Subscription
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAutoRenew(true)}
+                          disabled={isTogglingAutoRenew}
+                          style={{
+                            background: '#DCFCE7',
+                            color: '#15803D',
+                            border: '1px solid #86EFAC',
+                            borderRadius: 8,
+                            padding: '4px 10px',
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✓ Turn On Auto-Subscription
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {autoRenewNotice && (
+                <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1E40AF', borderRadius: 8, padding: '8px 12px', fontSize: 12, margin: '8px 0' }}>
+                  ℹ️ {autoRenewNotice}
                 </div>
               )}
 

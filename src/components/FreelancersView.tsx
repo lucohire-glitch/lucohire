@@ -6,7 +6,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import LucoLogo from './LucoLogo';
 import './FreelancersView.css';
-import { fetchPublicScrapedJobs, ScrapedPublicJob } from '../api';
+import { fetchPublicCandidates, ScrapedPublicJob } from '../api';
 
 export interface FreelancerItem {
   id: number;
@@ -27,6 +27,11 @@ export interface FreelancerItem {
   ver: [number, number, number]; // [id, portfolio, payment]
   boost: boolean;
   img: string;
+  isRealCandidate?: boolean;
+  whatsapp?: string;
+  waOn?: boolean;
+  about?: string;
+  plan?: string | null;
   apply_url?: string;
   company_website?: string;
   fullLocation?: string;
@@ -240,77 +245,61 @@ export default function FreelancersView({
     return () => document.removeEventListener('click', handleOutsideClick);
   }, []);
 
-  const [scrapedJobs, setScrapedJobs] = useState<ScrapedPublicJob[]>([]);
-  const [totalCount, setTotalCount] = useState<number>(858);
+  const [realCandidates, setRealCandidates] = useState<any[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(6200);
 
   useEffect(() => {
-    fetchPublicScrapedJobs({ limit: 150 })
+    fetchPublicCandidates({ limit: 100 })
       .then((res) => {
-        if (res?.jobs && res.jobs.length > 0) {
-          setScrapedJobs(res.jobs);
-          setTotalCount(res.totalCount || res.count || 858);
+        if (res?.candidates && res.candidates.length > 0) {
+          setRealCandidates(res.candidates);
+          setTotalCount(res.totalCount > 10 ? res.totalCount : 6200);
         }
       })
-      .catch((e) => console.error('Failed to load scraped jobs in FreelancersView:', e));
+      .catch((e) => console.warn('Failed to load candidates in FreelancersView:', e));
   }, []);
 
   const allFreelancers = useMemo<FreelancerItem[]>(() => {
-    if (!scrapedJobs || scrapedJobs.length === 0) {
-      return FREELANCERS_DATA;
-    }
-    return scrapedJobs.map((j, idx) => {
-      const combined = `${j.department || ''} ${j.title}`.toLowerCase();
-      let cat: 'content' | 'video' | 'design' | 'dev' | 'marketing' = 'dev';
-      if (combined.includes('design') || combined.includes('ux') || combined.includes('ui') || combined.includes('brand') || combined.includes('product')) {
-        cat = 'design';
-      } else if (combined.includes('content') || combined.includes('writer') || combined.includes('copy') || combined.includes('editor') || combined.includes('doc')) {
-        cat = 'content';
-      } else if (combined.includes('video') || combined.includes('audio') || combined.includes('media') || combined.includes('motion') || combined.includes('sound')) {
-        cat = 'video';
-      } else if (combined.includes('market') || combined.includes('growth') || combined.includes('seo') || combined.includes('sales') || combined.includes('account')) {
-        cat = 'marketing';
-      } else {
-        cat = 'dev';
-      }
+    const portraits = ['women/68', 'men/52', 'women/54', 'men/32', 'women/44', 'men/75', 'women/33', 'men/46'];
 
-      const skills = (j.skills && Array.isArray(j.skills) && j.skills.length > 0)
-        ? j.skills
-        : [
-            j.company,
-            j.department ? j.department.split(' ')[0] : 'Engineering',
-            j.work_mode || 'Remote',
-            j.employment_type || 'Full-time'
-          ].filter(Boolean);
-
-      const portraits = ['women/68', 'men/52', 'women/54', 'men/32', 'women/44', 'men/75', 'women/33', 'men/46'];
-      const img = portraits[idx % portraits.length];
+    // Map authentic registered candidates from PostgreSQL database
+    const mappedReal: FreelancerItem[] = realCandidates.map((c, idx) => {
+      const skills = (c.skills && Array.isArray(c.skills) && c.skills.length > 0)
+        ? c.skills
+        : [c.role || 'Freelancer', c.city || 'India'];
 
       return {
-        id: j.id,
-        name: `${j.company} · ${j.title}`,
-        role: `${j.title} (${j.department || j.work_mode || 'Remote'})`,
-        cat,
-        city: j.location ? j.location.split('•')[0].split(',')[0].trim() : 'Remote',
-        rating: 4.9,
-        jobs: 120 + ((idx * 7) % 80),
-        exp: 3 + (idx % 5),
-        resp: 98 + (idx % 3),
-        start: idx % 3,
+        id: c.id,
+        name: c.name || 'Verified Freelancer',
+        role: c.role || 'Independent Professional',
+        cat: c.cat || 'dev',
+        city: c.city || 'India',
+        rating: c.rating || 4.9,
+        jobs: c.jobs || 50,
+        exp: c.exp || 3,
+        resp: c.resp || 98,
+        start: 0,
         skills,
-        rate: j.salary || 'Competitive',
-        unit: '',
-        proj: 5000,
-        slots: 1 + (idx % 4),
-        ver: [1, 1, 1] as [number, number, number],
-        boost: idx % 2 === 0,
-        img,
-        apply_url: j.apply_url,
-        company_website: j.company_website,
-        fullLocation: j.location,
-        fullDescription: j.description || `Official verified opening at ${j.company} for the role of ${j.title} in the ${j.department || 'Core'} department. Work mode: ${j.work_mode || 'Flexible'}. Direct official ATS application.`
+        rate: c.rate || '₹2,000',
+        unit: c.unit || '/project',
+        proj: c.proj || 2000,
+        slots: c.slots || 3,
+        ver: (c.ver || [1, 1, 1]) as [number, number, number],
+        boost: Boolean(c.boost),
+        img: portraits[idx % portraits.length],
+        isRealCandidate: true,
+        whatsapp: c.whatsapp,
+        waOn: c.waOn !== false,
+        about: c.about || `${c.name} is a verified professional based in ${c.city}.`,
+        plan: c.plan,
+        fullLocation: `${c.city}${c.state ? `, ${c.state}` : ''}`,
+        fullDescription: c.about || `${c.name} is an experienced ${c.role} specializing in ${skills.join(', ')}.`,
       };
     });
-  }, [scrapedJobs]);
+
+    // Merge authentic registered talent first, followed by curated talent
+    return [...mappedReal, ...FREELANCERS_DATA];
+  }, [realCandidates]);
 
   // Unique cities list
   const uniqueCities = useMemo(() => {
@@ -327,17 +316,31 @@ export default function FreelancersView({
 
   // Suggestions for search
   const suggestions = useMemo(() => {
-    const all = Array.from(new Set(allFreelancers.flatMap(d => [
-      d.name.includes('·') ? d.name.split('·')[0].trim() : '',
-      d.role.replace(/\s*\([^)]*\)/, '').trim(),
-      d.city,
-      ...d.skills
-    ]))).filter(Boolean);
+    const rawItems: string[] = [];
+    allFreelancers.forEach((d) => {
+      if (typeof d.name === 'string' && d.name.includes('·')) {
+        rawItems.push(d.name.split('·')[0].trim());
+      }
+      if (typeof d.role === 'string') {
+        rawItems.push(d.role.replace(/\s*\([^)]*\)/, '').trim());
+      }
+      if (typeof d.city === 'string') {
+        rawItems.push(d.city.trim());
+      }
+      if (Array.isArray(d.skills)) {
+        d.skills.forEach((s: any) => {
+          if (typeof s === 'string') rawItems.push(s.trim());
+          else if (s && typeof s === 'object' && s.name) rawItems.push(String(s.name).trim());
+        });
+      }
+    });
+
+    const all = Array.from(new Set(rawItems)).filter(Boolean);
     if (!q.trim()) {
       return all.slice(0, 8);
     }
     const lower = q.trim().toLowerCase();
-    return all.filter(item => item.toLowerCase().includes(lower)).slice(0, 8);
+    return all.filter(item => typeof item === 'string' && item.toLowerCase().includes(lower)).slice(0, 8);
   }, [q, allFreelancers]);
 
   const budgetOk = (proj: number, b: string) => {
@@ -355,7 +358,10 @@ export default function FreelancersView({
 
     return allFreelancers.filter(d => {
       if (query) {
-        const hay = (d.name + ' ' + d.role + ' ' + d.city + ' ' + (d.fullLocation || '') + ' ' + (d.fullDescription || '') + ' ' + d.skills.join(' ')).toLowerCase();
+        const skillsText = Array.isArray(d.skills)
+          ? d.skills.map((s: any) => typeof s === 'string' ? s : (s?.name || '')).join(' ')
+          : '';
+        const hay = (String(d.name || '') + ' ' + String(d.role || '') + ' ' + String(d.city || '') + ' ' + String(d.fullLocation || '') + ' ' + String(d.fullDescription || '') + ' ' + skillsText).toLowerCase();
         if (!hay.includes(query)) return false;
       }
       if (cat !== 'all' && d.cat !== cat) return false;

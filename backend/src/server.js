@@ -6,6 +6,7 @@ import { CareerPathModel } from './models/careerPathModel.js';
 import { ScraperModel } from './models/scraperModel.js';
 import { ScraperEngine } from './services/scraper/scraperEngine.js';
 import { ScraperQueueService } from './services/scraper/queueService.js';
+import { processAllDueSubscriptions } from './controllers/paymentController.js';
 import app from './app.js';
 
 initSchema()
@@ -50,6 +51,20 @@ initSchema()
         isAutoSyncRunning = false;
       }
     }, 15 * 60 * 1000); // Check due companies every 15 minutes
+
+    // 3. Periodic Subscription Auto-Renewal & Expiry Worker: Runs every 10 minutes
+    let isSubWorkerRunning = false;
+    setInterval(async () => {
+      if (isSubWorkerRunning) return;
+      isSubWorkerRunning = true;
+      try {
+        await processAllDueSubscriptions();
+      } catch (err) {
+        console.warn('[Subscription Worker] Background renewal check warning:', err.message);
+      } finally {
+        isSubWorkerRunning = false;
+      }
+    }, 10 * 60 * 1000); // Check every 10 minutes
   })
   .catch((e) => console.error('DB init failed:', e.message));
 

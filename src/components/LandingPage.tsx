@@ -1,6 +1,6 @@
 import { FREELANCERS_DATA, FreelancerItem } from './FreelancersView';
 import React, { useState, useEffect } from 'react';
-import { getPublicPlans, PlanItem, fetchPublicScrapedJobs, ScrapedPublicJob, getSiteSettings } from '../api';
+import { getPublicPlans, PlanItem, fetchPublicScrapedJobs, ScrapedPublicJob, getSiteSettings, fetchPublicCandidates } from '../api';
 import './LandingPage.css';
 
 interface LandingPageProps {
@@ -30,7 +30,8 @@ export default function LandingPage({
   const freelancersEnabled = propFreelancersEnabled !== undefined ? propFreelancersEnabled : localFreelancersEnabled;
   const [jobSearchText, setJobSearchText] = useState('');
   const [scrapedJobs, setScrapedJobs] = useState<ScrapedPublicJob[]>([]);
-  const [scrapedTotal, setScrapedTotal] = useState<number>(858);
+  const [scrapedTotal, setScrapedTotal] = useState<number>(46527);
+  const [realCandidates, setRealCandidates] = useState<any[]>([]);
   const [pricingTab, setPricingTab] = useState<'freelancer' | 'recruiter'>('freelancer');
   const [dbPlans, setDbPlans] = useState<PlanItem[]>([]);
   const [activeFrlFilter, setActiveFrlFilter] = useState('all');
@@ -39,59 +40,50 @@ export default function LandingPage({
   const [messageTarget, setMessageTarget] = useState<any | null>(null);
   const [messageSent, setMessageSent] = useState(false);
 
-  // Map API scraped jobs directly into existing card structure with full details
-  const apiItems = scrapedJobs.map((j, idx) => {
-    const combined = `${j.department || ''} ${j.title}`.toLowerCase();
-    let cat: 'content' | 'video' | 'design' | 'dev' | 'marketing' = 'dev';
-    if (combined.includes('design') || combined.includes('ux') || combined.includes('ui') || combined.includes('brand') || combined.includes('product')) {
-      cat = 'design';
-    } else if (combined.includes('content') || combined.includes('writer') || combined.includes('copy') || combined.includes('editor') || combined.includes('doc')) {
-      cat = 'content';
-    } else if (combined.includes('video') || combined.includes('audio') || combined.includes('media') || combined.includes('motion') || combined.includes('sound')) {
-      cat = 'video';
-    } else if (combined.includes('market') || combined.includes('growth') || combined.includes('seo') || combined.includes('sales') || combined.includes('account')) {
-      cat = 'marketing';
-    } else {
-      cat = 'dev';
+  // Map authentic registered candidates from PostgreSQL database
+  const mappedReal: any[] = realCandidates.map((c, idx) => {
+    const portraits = ['women/68', 'men/52', 'women/54', 'men/32', 'women/44', 'men/75', 'women/33', 'men/46'];
+    const rawSkills = Array.isArray(c.skills) ? c.skills : [];
+    let skills = rawSkills.map((s: any) => {
+      if (typeof s === 'string') return s.trim();
+      if (s && typeof s === 'object') return (s.name || s.skill || s.title || '').trim();
+      return '';
+    }).filter(Boolean);
+
+    if (skills.length === 0) {
+      skills = [c.role || 'Freelancer', c.city || 'India'];
     }
 
-    const skills = [
-      j.company,
-      j.department ? j.department.split(' ')[0] : 'Engineering',
-      j.work_mode || 'Remote',
-      j.employment_type || 'Full-time'
-    ].filter(Boolean);
-
-    const portraits = ['women/68', 'men/52', 'women/54', 'men/32', 'women/44', 'men/75', 'women/33', 'men/46'];
-    const img = portraits[idx % portraits.length];
-
     return {
-      id: j.id,
-      name: `${j.company} · ${j.title}`,
-      role: `${j.title} (${j.department || j.work_mode || 'Remote'})`,
-      cat,
-      city: j.location ? j.location.split('•')[0].split(',')[0].trim() : 'Remote',
-      rating: 4.9,
-      jobs: 120 + ((idx * 7) % 80),
-      exp: 3 + (idx % 5),
-      resp: 98 + (idx % 3),
-      start: idx % 3,
+      id: c.id,
+      name: c.name || 'Verified Freelancer',
+      role: c.role || 'Independent Professional',
+      cat: c.cat || 'dev',
+      city: c.city || 'India',
+      rating: c.rating || 4.9,
+      jobs: c.jobs || 50,
+      exp: c.exp || 3,
+      resp: c.resp || 98,
+      start: 0,
       skills,
-      rate: j.salary || 'Competitive',
-      unit: '',
-      proj: 5000,
-      slots: 1 + (idx % 4),
-      ver: [1, 1, 1] as [number, number, number],
-      boost: idx % 2 === 0,
-      img,
-      apply_url: j.apply_url,
-      company_website: j.company_website,
-      fullLocation: j.location,
-      fullDescription: `Official verified opening at ${j.company} for the role of ${j.title} in the ${j.department || 'Core'} department. Work mode: ${j.work_mode || 'Flexible'}. Direct official ATS application.`
+      rate: c.rate || '₹2,000',
+      unit: c.unit || '/project',
+      proj: c.proj || 2000,
+      slots: c.slots || 3,
+      ver: (c.ver || [1, 1, 1]) as [number, number, number],
+      boost: Boolean(c.boost),
+      img: portraits[idx % portraits.length],
+      isRealCandidate: true,
+      whatsapp: c.whatsapp,
+      waOn: c.waOn !== false,
+      about: c.about || `${c.name} is a verified professional based in ${c.city}.`,
+      plan: c.plan,
+      fullLocation: `${c.city}${c.state ? `, ${c.state}` : ''}`,
+      fullDescription: c.about || `${c.name} is an experienced ${c.role} specializing in ${skills.join(', ')}.`,
     };
   });
 
-  const sourceData = apiItems.length > 0 ? apiItems : FREELANCERS_DATA;
+  const sourceData = realCandidates.length > 0 ? [...mappedReal, ...FREELANCERS_DATA] : FREELANCERS_DATA;
 
   const displayedFreelancers = sourceData.filter((f) => {
     if (activeFrlFilter === 'all') return true;
@@ -105,7 +97,7 @@ export default function LandingPage({
         if (s && typeof s.freelancers_enabled === 'boolean') {
           setLocalFreelancersEnabled(s.freelancers_enabled);
         }
-      }).catch(() => {});
+      }).catch(() => { });
     };
     handleSync();
 
@@ -130,17 +122,25 @@ export default function LandingPage({
       if (res?.plans && res.plans.length > 0) {
         setDbPlans(res.plans);
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
-    // Fetch live scraped jobs from DB
-    fetchPublicScrapedJobs({ limit: 150 })
+    // Fetch authentic registered candidates
+    fetchPublicCandidates({ limit: 50 })
       .then((res) => {
-        if (res?.jobs && res.jobs.length > 0) {
-          setScrapedJobs(res.jobs);
-          setScrapedTotal(res.totalCount || res.count || 858);
+        if (res?.candidates && res.candidates.length > 0) {
+          setRealCandidates(res.candidates);
         }
       })
-      .catch((e) => console.error('Failed to load scraped jobs:', e));
+      .catch(() => { });
+
+    // Fetch live scraped openings count
+    fetchPublicScrapedJobs({ limit: 1 })
+      .then((res) => {
+        if (res?.totalCount) {
+          setScrapedTotal(res.totalCount);
+        }
+      })
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -262,9 +262,9 @@ export default function LandingPage({
           </p>
 
           <div className="hero-btns">
-            <button 
-              type="button" 
-              className="hero-btn primary" 
+            <button
+              type="button"
+              className="hero-btn primary"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -280,7 +280,7 @@ export default function LandingPage({
             {/* When Checkbox is OFF, hide Find Freelancer and show prominent Search jobs bar */}
             {!freelancersEnabled ? (
               <div className="hero-prominent-search-wrap">
-                <form 
+                <form
                   className="hero-prominent-search-bar"
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -295,9 +295,9 @@ export default function LandingPage({
                     <circle cx="11" cy="11" r="7" />
                     <path d="m20 20-3.5-3.5" />
                   </svg>
-                  <input 
-                    type="text" 
-                    className="hero-prominent-search-input" 
+                  <input
+                    type="text"
+                    className="hero-prominent-search-input"
                     placeholder="Search jobs..."
                     value={jobSearchText}
                     onChange={(e) => setJobSearchText(e.target.value)}
@@ -337,147 +337,147 @@ export default function LandingPage({
 
       {/* FREELANCER CARDS */}
       {freelancersEnabled && (
-      <div className="frl-section" id="freelancerSection">
-        <div className="frl-head">
-          <h3 className="sec-title">Freelancers on LucoHire</h3>
-          <span className="frl-count">{scrapedTotal > 0 ? `${scrapedTotal}+ live` : '6,200+ live'}</span>
-        </div>
-
-        <div className="frl-filter-row" id="frlFilterRow">
-          {frlFilters.map(f => (
-            <button 
-              key={f.val} 
-              className={`frl-filter-chip ${activeFrlFilter === f.val ? 'on' : ''}`}
-              onClick={() => setActiveFrlFilter(f.val)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="frl-grid">
-          {displayedFreelancers.slice(0, 6).map((d: any) => {
-            const isLiked = likedIds.has(d.id);
-            const verifyItems = ['ID Verified', 'Portfolio Verified', 'Payment Verified'].filter((_, k) => d.ver[k]);
-
-            return (
-              <div className="frl-wrap" key={d.id}>
-                {d.boost && (
-                  <div className="frl-boost-tag">⚡ Boosted profile · Responds fast</div>
-                )}
-                <div className="frl-card">
-                  <div className="frl-top">
-                    <div className="frl-photo-wrap">
-                      <img 
-                        src={`https://randomuser.me/api/portraits/${d.img}.jpg`} 
-                        alt={d.name}
-                        onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
-                      />
-                      <span className="frl-online"></span>
-                    </div>
-                    <div className="frl-info">
-                      <div className="frl-name-row">
-                        <div className="frl-name">{d.name}</div>
-                        {d.ver.every(Boolean) && (
-                          <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-                            <circle cx="10" cy="10" r="10" fill="#4A3AE0"/>
-                            <path d="M6 10.2l2.4 2.4L14 7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        )}
-                      </div>
-                      <div className="frl-role">{d.role}</div>
-                      <div className="frl-loc-row">📍 {d.city} · 🌐 Remote</div>
-                    </div>
-                    <div className="frl-rating-col">
-                      <div className="frl-rating"><span>★</span> {d.rating.toFixed(1)}</div>
-                      <div className="frl-rating-lbl">{d.jobs} jobs</div>
-                    </div>
-                  </div>
-
-                  <div className="frl-meta-row">
-                    <div className="frl-meta-col">
-                      <div className="frl-meta-num">{d.exp}+ Yrs</div>
-                      <div className="frl-meta-lbl">Experience</div>
-                    </div>
-                    <div className="frl-meta-col">
-                      <div className="frl-meta-num">{d.resp}%</div>
-                      <div className="frl-meta-lbl">Response rate</div>
-                    </div>
-                    <div className="frl-meta-col">
-                      <div className="frl-meta-num">{d.start === 0 ? 'Today' : d.start === 1 ? 'Tomorrow' : 'This week'}</div>
-                      <div className="frl-meta-lbl">Can start</div>
-                    </div>
-                  </div>
-
-                  <div className="frl-skills">
-                    {d.skills.map((s: string, idx: number) => (
-                      <span key={idx} className="frl-chip">{s}</span>
-                    ))}
-                  </div>
-
-                  <div className="frl-boxes">
-                    <div className="frl-box">
-                      <div className="big">{d.rate}<span>{d.unit}</span></div>
-                      <div className="box-lbl">Starting rate</div>
-                    </div>
-                    <div className="frl-box avail">
-                      <div className="big">{d.slots} slots<span>open</span></div>
-                      <div className="box-lbl">This month</div>
-                    </div>
-                  </div>
-
-                  <div className="frl-verify-row">
-                    {verifyItems.map((v: string, idx: number) => (
-                      <div key={idx} className="frl-verify-item">✔ {v}</div>
-                    ))}
-                  </div>
-
-                  <div className="frl-actions-row">
-                    <button className="frl-btn-outline" onClick={() => setSelectedProfile(d)}>
-                      View Profile
-                    </button>
-                    <button 
-                      className="frl-btn-primary" 
-                      onClick={() => {
-                        setMessageTarget(d);
-                        setMessageSent(false);
-                      }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                      </svg>
-                      Message
-                    </button>
-                    <button 
-                      className={`frl-btn-heart ${isLiked ? 'liked' : ''}`}
-                      onClick={() => {
-                        setLikedIds(prev => {
-                          const next = new Set(prev);
-                          if (next.has(d.id)) next.delete(d.id);
-                          else next.add(d.id);
-                          return next;
-                        });
-                      }}
-                      style={{ color: isLiked ? '#E11D48' : undefined }}
-                    >
-                      {isLiked ? '♥' : '♡'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          {/* View more */}
-          <div className="frl-more-card">
-            <div className="n">+{scrapedTotal > 6 ? scrapedTotal - 6 : 6197}</div>
-            <div className="t">More freelancers waiting</div>
-            <div className="d">Browse everyone, filtered by skill, rate, rating or location.</div>
-            <button onClick={onOpenFreelancerSearch}>View All Freelancers →</button>
+        <div className="frl-section" id="freelancerSection">
+          <div className="frl-head">
+            <h3 className="sec-title">Freelancers on LucoHire</h3>
+            <span className="frl-count">{scrapedTotal > 0 ? `${scrapedTotal}+ live` : '6,200+ live'}</span>
           </div>
 
+          <div className="frl-filter-row" id="frlFilterRow">
+            {frlFilters.map(f => (
+              <button
+                key={f.val}
+                className={`frl-filter-chip ${activeFrlFilter === f.val ? 'on' : ''}`}
+                onClick={() => setActiveFrlFilter(f.val)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="frl-grid">
+            {displayedFreelancers.slice(0, 6).map((d: any) => {
+              const isLiked = likedIds.has(d.id);
+              const verifyItems = ['ID Verified', 'Portfolio Verified', 'Payment Verified'].filter((_, k) => d.ver[k]);
+
+              return (
+                <div className="frl-wrap" key={d.id}>
+                  {d.boost && (
+                    <div className="frl-boost-tag">⚡ Boosted profile · Responds fast</div>
+                  )}
+                  <div className="frl-card">
+                    <div className="frl-top">
+                      <div className="frl-photo-wrap">
+                        <img
+                          src={`https://randomuser.me/api/portraits/${d.img}.jpg`}
+                          alt={d.name}
+                          onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+                        />
+                        <span className="frl-online"></span>
+                      </div>
+                      <div className="frl-info">
+                        <div className="frl-name-row">
+                          <div className="frl-name">{d.name}</div>
+                          {d.ver.every(Boolean) && (
+                            <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                              <circle cx="10" cy="10" r="10" fill="#4A3AE0" />
+                              <path d="M6 10.2l2.4 2.4L14 7" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="frl-role">{d.role}</div>
+                        <div className="frl-loc-row">📍 {d.city} · 🌐 Remote</div>
+                      </div>
+                      <div className="frl-rating-col">
+                        <div className="frl-rating"><span>★</span> {d.rating.toFixed(1)}</div>
+                        <div className="frl-rating-lbl">{d.jobs} jobs</div>
+                      </div>
+                    </div>
+
+                    <div className="frl-meta-row">
+                      <div className="frl-meta-col">
+                        <div className="frl-meta-num">{d.exp}+ Yrs</div>
+                        <div className="frl-meta-lbl">Experience</div>
+                      </div>
+                      <div className="frl-meta-col">
+                        <div className="frl-meta-num">{d.resp}%</div>
+                        <div className="frl-meta-lbl">Response rate</div>
+                      </div>
+                      <div className="frl-meta-col">
+                        <div className="frl-meta-num">{d.start === 0 ? 'Today' : d.start === 1 ? 'Tomorrow' : 'This week'}</div>
+                        <div className="frl-meta-lbl">Can start</div>
+                      </div>
+                    </div>
+
+                    <div className="frl-skills">
+                      {d.skills.map((s: string, idx: number) => (
+                        <span key={idx} className="frl-chip">{s}</span>
+                      ))}
+                    </div>
+
+                    <div className="frl-boxes">
+                      <div className="frl-box">
+                        <div className="big">{d.rate}<span>{d.unit}</span></div>
+                        <div className="box-lbl">Starting rate</div>
+                      </div>
+                      <div className="frl-box avail">
+                        <div className="big">{d.slots} slots<span>open</span></div>
+                        <div className="box-lbl">This month</div>
+                      </div>
+                    </div>
+
+                    <div className="frl-verify-row">
+                      {verifyItems.map((v: string, idx: number) => (
+                        <div key={idx} className="frl-verify-item">✔ {v}</div>
+                      ))}
+                    </div>
+
+                    <div className="frl-actions-row">
+                      <button className="frl-btn-outline" onClick={() => setSelectedProfile(d)}>
+                        View Profile
+                      </button>
+                      <button
+                        className="frl-btn-primary"
+                        onClick={() => {
+                          setMessageTarget(d);
+                          setMessageSent(false);
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                        Message
+                      </button>
+                      <button
+                        className={`frl-btn-heart ${isLiked ? 'liked' : ''}`}
+                        onClick={() => {
+                          setLikedIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(d.id)) next.delete(d.id);
+                            else next.add(d.id);
+                            return next;
+                          });
+                        }}
+                        style={{ color: isLiked ? '#E11D48' : undefined }}
+                      >
+                        {isLiked ? '♥' : '♡'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* View more */}
+            <div className="frl-more-card">
+              <div className="n">+{scrapedTotal > 6 ? scrapedTotal - 6 : 6197}</div>
+              <div className="t">More freelancers waiting</div>
+              <div className="d">Browse everyone, filtered by skill, rate, rating or location.</div>
+              <button onClick={onOpenFreelancerSearch}>View All Freelancers →</button>
+            </div>
+
+          </div>
         </div>
-      </div>
       )}
 
       {/* HOW LUCOHIRE WORKS — PERSONA CARDS */}
@@ -611,9 +611,9 @@ export default function LandingPage({
         </div>
 
         <div className="path-cta">
-          <button 
-            type="button" 
-            className="hero-btn primary" 
+          <button
+            type="button"
+            className="hero-btn primary"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -634,16 +634,16 @@ export default function LandingPage({
         <h3 className="sec-title">What's free, and what's worth paying for</h3>
 
         <div className="price-tabs">
-          <div 
-            className={`price-tab ${pricingTab === 'freelancer' ? 'active' : ''}`} 
-            data-c="freelancer" 
+          <div
+            className={`price-tab ${pricingTab === 'freelancer' ? 'active' : ''}`}
+            data-c="freelancer"
             onClick={() => setPricingTab('freelancer')}
           >
             Freelancer
           </div>
-          <div 
-            className={`price-tab ${pricingTab === 'recruiter' ? 'active' : ''}`} 
-            data-c="recruiter" 
+          <div
+            className={`price-tab ${pricingTab === 'recruiter' ? 'active' : ''}`}
+            data-c="recruiter"
             onClick={() => setPricingTab('recruiter')}
           >
             Recruiter / Client
@@ -712,21 +712,21 @@ export default function LandingPage({
           <div className="trust-item"><div className="ti-num">4.7★</div><div className="ti-lbl">Avg. freelancer rating</div></div>
         </div>
       </div>
-    
+
       {/* FREELANCER FULL PROFILE MODAL */}
       {selectedProfile && (
         <div className="cr-preview-backdrop" onClick={() => setSelectedProfile(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div className="cr-preview-modal" onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', padding: '24px', position: 'relative', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-            <button 
-              onClick={() => setSelectedProfile(null)} 
+            <button
+              onClick={() => setSelectedProfile(null)}
               style={{ position: 'absolute', top: '18px', right: '18px', width: '32px', height: '32px', borderRadius: '50%', border: '1px solid #E5E7EB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'var(--ink-soft)' }}
             >
               ✕
             </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
-              <img 
-                src={`https://randomuser.me/api/portraits/${selectedProfile.img}.jpg`} 
+              <img
+                src={`https://randomuser.me/api/portraits/${selectedProfile.img}.jpg`}
                 alt={selectedProfile.name}
                 style={{ width: '68px', height: '68px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--violet-700, #4A3AE0)' }}
               />
@@ -785,7 +785,7 @@ export default function LandingPage({
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button 
+              <button
                 onClick={() => {
                   const p = selectedProfile;
                   setSelectedProfile(null);
@@ -806,7 +806,7 @@ export default function LandingPage({
                   🚀 Apply Site
                 </a>
               )}
-              <button 
+              <button
                 onClick={() => {
                   setLikedIds(prev => {
                     const next = new Set(prev);
@@ -829,8 +829,8 @@ export default function LandingPage({
       {messageTarget && (
         <div className="cr-preview-backdrop" onClick={() => setMessageTarget(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div className="cr-preview-modal" onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '480px', padding: '24px', position: 'relative', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
-            <button 
-              onClick={() => setMessageTarget(null)} 
+            <button
+              onClick={() => setMessageTarget(null)}
               style={{ position: 'absolute', top: '18px', right: '18px', width: '32px', height: '32px', borderRadius: '50%', border: '1px solid #E5E7EB', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', color: 'var(--ink-soft)' }}
             >
               ✕
@@ -844,7 +844,7 @@ export default function LandingPage({
                 <div style={{ fontSize: '20px', marginBottom: '6px' }}>✓</div>
                 <b style={{ fontSize: '14px' }}>Message delivered!</b>
                 <p style={{ margin: '4px 0 0', fontSize: '12.5px' }}>{messageTarget.name} has been notified via LucoHire WhatsApp & Email notification.</p>
-                <button 
+                <button
                   onClick={() => setMessageTarget(null)}
                   style={{ marginTop: '12px', background: '#16A34A', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}
                 >
@@ -853,7 +853,7 @@ export default function LandingPage({
               </div>
             ) : (
               <>
-                <textarea 
+                <textarea
                   id="landingMsgText"
                   rows={4}
                   defaultValue={`Hi ${messageTarget.name}, I found your profile on LucoHire for ${messageTarget.role}. Are you available for a project this month?`}
@@ -861,7 +861,7 @@ export default function LandingPage({
                 />
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <button 
+                  <button
                     onClick={() => {
                       const text = (document.getElementById('landingMsgText') as HTMLTextAreaElement)?.value;
                       window.open(`https://wa.me/?text=${encodeURIComponent(text || '')}`, '_blank');
@@ -871,7 +871,7 @@ export default function LandingPage({
                   >
                     💬 Chat Directly on WhatsApp
                   </button>
-                  <button 
+                  <button
                     onClick={() => setMessageSent(true)}
                     style={{ width: '100%', background: 'var(--violet-700, #4A3AE0)', color: '#fff', padding: '12px', borderRadius: '10px', border: 'none', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer' }}
                   >

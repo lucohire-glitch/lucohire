@@ -466,7 +466,7 @@ export const fetchPublicScrapedJobs = async (
   if (params.offset) query.append('offset', String(params.offset));
 
   const res = await fetch(`${API_URL}/scraper/public-jobs?${query.toString()}`);
-  return (await res.json()) as { success: boolean; jobs: ScrapedPublicJob[]; count: number; totalCount?: number };
+  return (await res.json()) as { success: boolean; jobs: ScrapedPublicJob[]; count: number; totalCount?: number; officialTotalCount?: number };
 };
 
 // 2. Admin Scraper APIs
@@ -790,12 +790,20 @@ export interface SubscriptionItem {
   user_name: string;
   user_mobile?: string;
   company_name?: string;
+  is_auto_renew?: boolean;
+  expires_at?: string | null;
+  user_auto_renew?: boolean;
 }
 
 export interface UserSubscriptionResponse {
   success: boolean;
   activePlan: string | null;
   isPaid: boolean;
+  planExpiresAt?: string | null;
+  autoRenew?: boolean;
+  daysRemaining?: number;
+  isExpired?: boolean;
+  renewedNow?: boolean;
   payments: SubscriptionItem[];
   latestPayment: SubscriptionItem | null;
 }
@@ -821,4 +829,34 @@ export const fetchUserSubscriptions = async (email?: string): Promise<UserSubscr
     throw new Error(data.error || 'Failed to fetch user subscriptions');
   }
   return data;
+};
+
+export const toggleAutoRenewSubscription = async (
+  autoRenew: boolean,
+  email?: string
+): Promise<{ success: boolean; autoRenew: boolean; expiresAt: string | null; message: string }> => {
+  const res = await fetch(API_URL + '/payment/toggle-auto-renew', {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ autoRenew, email }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to update auto-subscription setting');
+  }
+  return data;
+};
+
+export const fetchPublicCandidates = async (params: { search?: string; category?: string; city?: string; limit?: number; offset?: number } = {}) => {
+  const query = new URLSearchParams();
+  if (params.search) query.append('search', params.search);
+  if (params.category) query.append('category', params.category);
+  if (params.city) query.append('city', params.city);
+  if (params.limit) query.append('limit', String(params.limit));
+  if (params.offset) query.append('offset', String(params.offset));
+  const res = await fetch(API_URL + '/auth/public-candidates?' + query.toString());
+  return (await res.json()) as { success: boolean; candidates: any[]; totalCount: number };
 };

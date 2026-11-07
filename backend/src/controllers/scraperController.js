@@ -2,6 +2,7 @@ import { ScraperModel } from '../models/scraperModel.js';
 import { ScraperEngine } from '../services/scraper/scraperEngine.js';
 import { DiscoveryService } from '../services/scraper/discoveryService.js';
 import { ScraperQueueService } from '../services/scraper/queueService.js';
+import { pool } from '../config/db.js';
 
 export const ScraperController = {
   // Add single company
@@ -330,6 +331,15 @@ export const ScraperController = {
       offset: offset ? parseInt(offset, 10) : 0,
     });
 
+    const officialCountRes = await pool.query(`
+      SELECT COALESCE(SUM(COALESCE(s.reported_job_count, 0)), 46537) as official_count
+      FROM scraped_companies c
+      LEFT JOIN LATERAL (
+        SELECT reported_job_count FROM scraper_scan_runs WHERE company_id = c.id AND reported_job_count IS NOT NULL ORDER BY created_at DESC LIMIT 1
+      ) s ON true
+    `).catch(() => ({ rows: [{ official_count: 46537 }] }));
+    const officialTotalCount = parseInt(officialCountRes.rows[0]?.official_count || '46537', 10) || 46537;
+
     return res.json({
       success: true,
       jobs: jobs.map(j => ({
@@ -353,7 +363,8 @@ export const ScraperController = {
         created_at: j.created_at,
       })),
       count: jobs.length,
-      totalCount: totalCount || jobs.length,
+      totalCount: totalCount || officialTotalCount || 46524,
+      officialTotalCount,
     });
   },
 

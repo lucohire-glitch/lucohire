@@ -1830,25 +1830,23 @@ button:disabled {
   border-radius: 16px;
   overflow: hidden;
 }
-/* Locked state: blur content and show lock badge */
+/* Locked state: blur content and show lock badge ONLY when body.report-locked */
+.lock-badge {
+  display: none !important;
+}
+body.report-locked .lock-badge {
+  display: flex !important;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
 body.report-locked .locked-premium > *:not(.lock-badge) {
   filter: blur(5px);
   pointer-events: none;
   user-select: none;
-}
-body:not(.report-unlocked):not(.preview-mode) .locked-premium > *:not(.lock-badge) {
-  filter: blur(5px);
-  pointer-events: none;
-  user-select: none;
-}
-.lock-badge {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
 }
 body.preview-mode .lock-badge,
 body.report-unlocked .lock-badge {
@@ -2468,3 +2466,8 @@ body.is-paid-unlocked .unlocked-banner {
   display: none;
 }
 
+/* Paywall card hidden, but lock badges active for unauthenticated users */
+.paywall-card,
+.unlocked-banner {
+  display: none !important;
+}

@@ -16,7 +16,8 @@ import ResumeCheckView from './components/ResumeCheckView';
 import ResumeAnalyzerView from './components/ResumeAnalyzerView';
 import FreelancersView from './components/FreelancersView';
 import AdminPortal from './components/AdminPortal';
-import { logout, getCurrentUser, getUserRole, getSiteSettings, createPaymentOrder, verifyPaymentSignature, loadRazorpayScript } from './api';
+import UpgradeSuccessModal from './components/UpgradeSuccessModal';
+import { logout, getCurrentUser, getUserRole, getSiteSettings, createPaymentOrder, verifyPaymentSignature, loadRazorpayScript, toggleAutoRenewSubscription } from './api';
 
 const SKILLS = [
   "Logo Design", "React Developer", "Video Editing", "Content Writing", "SEO Expert",
@@ -211,7 +212,7 @@ export default function App() {
         handler: async (response: any) => {
           try {
             // 5. Verify payment signature on backend
-            await verifyPaymentSignature({
+            const verifyRes = await verifyPaymentSignature({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
@@ -232,7 +233,10 @@ export default function App() {
 
             setUpgradeSuccessModal({
               planName: planTitle,
-              paymentId: response.razorpay_payment_id
+              paymentId: response.razorpay_payment_id,
+              expiresAt: verifyRes?.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              autoRenew: true,
+              userEmail: currentUser?.email || '',
             });
             triggerAuthToast('Payment successful! Plan upgraded.');
           } catch (verifyErr: any) {
@@ -587,6 +591,11 @@ export default function App() {
             }, 100);
           }}
           onOpenCandidateReg={() => setIsCandidateRegOpen(true)}
+          onOpenJobsSearch={() => {
+            setIsResumeCheckOpen(false);
+            setIsJobsSearchOpen(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           onOpenResumeAnalyzer={() => {
             setIsJobsSearchOpen(false);
             setIsResumeCheckOpen(true);
@@ -702,78 +711,17 @@ export default function App() {
         />
 
         {/* PLAN UPGRADE SUCCESS MODAL */}
-        {upgradeSuccessModal && (
-          <div 
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0, 0, 0, 0.65)',
-              backdropFilter: 'blur(5px)',
-              zIndex: 9999,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '20px'
-            }}
-            onClick={() => setUpgradeSuccessModal(null)}
-          >
-            <div 
-              style={{
-                background: '#FFFFFF',
-                borderRadius: '24px',
-                maxWidth: '460px',
-                width: '100%',
-                padding: '34px 28px',
-                textAlign: 'center',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                position: 'relative'
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                background: '#E5F5EB',
-                color: '#1FA854',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 18px',
-                fontSize: '32px',
-                fontWeight: 800
-              }}>
-                ✓
-              </div>
-              <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#1B1F23', margin: '0 0 10px', fontFamily: "'Fraunces', serif" }}>
-                Plan Upgraded Successfully!
-              </h3>
-              <p style={{ fontSize: '14.5px', color: '#5B6168', lineHeight: 1.55, margin: '0 0 24px' }}>
-                Aapka <b>{upgradeSuccessModal.planName}</b> plan activate ho chuka hai! Ab Resume Check mein aapka pura real AI report aur saare analysis sections unlock ho gaye hain.
-              </p>
-              <button
-                type="button"
-                onClick={() => setUpgradeSuccessModal(null)}
-                style={{
-                  width: '100%',
-                  padding: '15px 20px',
-                  borderRadius: '14px',
-                  background: 'var(--brand-700, #4C2FD9)',
-                  color: '#fff',
-                  fontWeight: 700,
-                  fontSize: '15px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  boxShadow: '0 10px 20px -6px rgba(76, 47, 217, 0.5)',
-                  marginBottom: '10px',
-                  fontFamily: 'inherit'
-                }}
-              >
-                Continue to Report →
-              </button>
-            </div>
-          </div>
-        )}
+        <UpgradeSuccessModal
+          isOpen={!!upgradeSuccessModal}
+          planName={upgradeSuccessModal?.planName || 'LucoHire Plan'}
+          paymentId={upgradeSuccessModal?.paymentId}
+          expiresAt={upgradeSuccessModal?.expiresAt}
+          initialAutoRenew={upgradeSuccessModal?.autoRenew ?? true}
+          userEmail={upgradeSuccessModal?.userEmail || currentUser?.email}
+          onClose={() => setUpgradeSuccessModal(null)}
+          continueLabel="Continue to Report →"
+          onContinue={() => setUpgradeSuccessModal(null)}
+        />
       </>
     );
   }
@@ -1363,6 +1311,11 @@ export default function App() {
             }, 100);
           }}
           onOpenCandidateReg={() => setIsCandidateRegOpen(true)}
+          onOpenJobsSearch={() => {
+            setIsResumeCheckOpen(false);
+            setIsJobsSearchOpen(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           onOpenResumeAnalyzer={() => {
             setIsJobsSearchOpen(false);
             setIsResumeCheckOpen(true);
@@ -1402,100 +1355,21 @@ export default function App() {
       )}
 
       {/* PLAN UPGRADE SUCCESS MODAL */}
-      {upgradeSuccessModal && (
-        <div 
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.65)',
-            backdropFilter: 'blur(5px)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
-          }}
-          onClick={() => setUpgradeSuccessModal(null)}
-        >
-          <div 
-            style={{
-              background: '#FFFFFF',
-              borderRadius: '24px',
-              maxWidth: '460px',
-              width: '100%',
-              padding: '34px 28px',
-              textAlign: 'center',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-              position: 'relative'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '50%',
-              background: '#E5F5EB',
-              color: '#1FA854',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 18px',
-              fontSize: '32px',
-              fontWeight: 800
-            }}>
-              ✓
-            </div>
-            <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#1B1F23', margin: '0 0 10px', fontFamily: "'Fraunces', serif" }}>
-              Plan Upgraded Successfully!
-            </h3>
-            <p style={{ fontSize: '14.5px', color: '#5B6168', lineHeight: 1.55, margin: '0 0 24px' }}>
-              Aapka <b>{upgradeSuccessModal.planName}</b> plan activate ho chuka hai! Ab Resume Check mein aapka pura real AI report aur saare analysis sections unlock ho gaye hain.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setUpgradeSuccessModal(null);
-                setIsResumeCheckOpen(true);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              style={{
-                width: '100%',
-                padding: '15px 20px',
-                borderRadius: '14px',
-                background: 'var(--brand-700, #4C2FD9)',
-                color: '#fff',
-                fontWeight: 700,
-                fontSize: '15px',
-                border: 'none',
-                cursor: 'pointer',
-                boxShadow: '0 10px 20px -6px rgba(76, 47, 217, 0.5)',
-                marginBottom: '10px',
-                fontFamily: 'inherit'
-              }}
-            >
-              Go to Resume Check →
-            </button>
-            <button
-              type="button"
-              onClick={() => setUpgradeSuccessModal(null)}
-              style={{
-                width: '100%',
-                padding: '10px',
-                borderRadius: '12px',
-                background: 'none',
-                color: '#6B7280',
-                fontWeight: 600,
-                fontSize: '13.5px',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'inherit'
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      <UpgradeSuccessModal
+        isOpen={!!upgradeSuccessModal}
+        planName={upgradeSuccessModal?.planName || 'LucoHire Plan'}
+        paymentId={upgradeSuccessModal?.paymentId}
+        expiresAt={upgradeSuccessModal?.expiresAt}
+        initialAutoRenew={upgradeSuccessModal?.autoRenew ?? true}
+        userEmail={upgradeSuccessModal?.userEmail || currentUser?.email}
+        onClose={() => setUpgradeSuccessModal(null)}
+        continueLabel="Go to Resume Check →"
+        onContinue={() => {
+          setUpgradeSuccessModal(null);
+          setIsResumeCheckOpen(true);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
 
 
 

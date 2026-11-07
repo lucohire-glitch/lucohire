@@ -221,7 +221,7 @@ export default function ResumeCheckView({
   try {
     const raw = typeof window !== 'undefined' ? localStorage.getItem('luco_user') : null;
     if (raw) storedUser = JSON.parse(raw);
-  } catch(e) {}
+  } catch (e) { }
 
   const activeUser = currentUser || storedUser;
   const isUserPaid = !!(
@@ -243,7 +243,7 @@ export default function ResumeCheckView({
       if (aiRaw?.candidate?.skills && Array.isArray(aiRaw.candidate.skills)) {
         sk = Array.from(new Set([...sk, ...aiRaw.candidate.skills]));
       }
-    } catch(e) {}
+    } catch (e) { }
 
     return sk.filter(Boolean);
   }, [activeUser]);
