@@ -32,7 +32,17 @@ export default function LandingPage({
   const [scrapedJobs, setScrapedJobs] = useState<ScrapedPublicJob[]>([]);
   const [scrapedTotal, setScrapedTotal] = useState<number>(46527);
   const [realCandidates, setRealCandidates] = useState<any[]>([]);
-  const [pricingTab, setPricingTab] = useState<'freelancer' | 'recruiter'>('freelancer');
+  const [pricingTab, setPricingTab] = useState<'freelancer' | 'recruiter' | 'candidate'>(() =>
+    freelancersEnabled ? 'freelancer' : 'candidate'
+  );
+
+  useEffect(() => {
+    if (!freelancersEnabled && pricingTab === 'freelancer') {
+      setPricingTab('candidate');
+    } else if (freelancersEnabled && pricingTab === 'candidate') {
+      setPricingTab('freelancer');
+    }
+  }, [freelancersEnabled]);
   const [dbPlans, setDbPlans] = useState<PlanItem[]>([]);
   const [activeFrlFilter, setActiveFrlFilter] = useState('all');
   const [likedIds, setLikedIds] = useState<Set<number>>(new Set());
@@ -164,9 +174,9 @@ export default function LandingPage({
     { label: 'Marketing', val: 'marketing' }
   ];
 
-  const PRICING = {
+  const PRICING: Record<string, any> = {
     freelancer: {
-      color: 'var(--violet-700)',
+      color: '#111827',
       tint: 'var(--lavender-50)',
       freeAmt: '₹0',
       freeUnit: '/forever',
@@ -188,8 +198,32 @@ export default function LandingPage({
       social: '2,300+ freelancers already verified or boosted',
       cta: 'Get Verified — from ₹49/month'
     },
+    candidate: {
+      color: '#111827',
+      tint: 'var(--lavender-50)',
+      freeAmt: '₹0',
+      freeUnit: '/forever',
+      free: [
+        'Free ATS Resume Score & basic review',
+        'Find & browse 45,000+ scraped live jobs',
+        'Candidate profile creation',
+        'Apply directly to company job links'
+      ],
+      premAmt: 'From ₹49',
+      premUnit: '/month',
+      prem: [
+        'Verified Candidate badge on LucoHire',
+        'Complete ATS Optimization & line-by-line rewrites',
+        'Direct recruiter shortlisting priority',
+        'AI job-ready syllabus & interview preparation'
+      ],
+      badge: 'RECOMMENDED',
+      why: '<b>Free</b> gives you resume scan & job listings. <b>Verified + Job-Ready</b> gets your resume shortlisted.',
+      social: '2,300+ candidates already verified or boosted',
+      cta: 'Get Verified — from ₹49/month'
+    },
     recruiter: {
-      color: 'var(--violet-700)',
+      color: '#111827',
       tint: 'var(--lavender-50)',
       freeAmt: '₹0',
       freeUnit: '/forever',
@@ -197,12 +231,12 @@ export default function LandingPage({
         'Post unlimited requirements',
         'Search & browse every profile',
         'Open full profiles, no limit',
-        'Message your first 4 freelancers per requirement'
+        'Message your first 4 candidates per requirement'
       ],
       premAmt: '₹1,499',
       premUnit: '/month',
       prem: [
-        'Unlimited messages to freelancers',
+        'Unlimited messages to candidates',
         'AI-shortlisted top 5–6 matches per requirement',
         'Priority support'
       ],
@@ -215,8 +249,9 @@ export default function LandingPage({
 
   // Merge database plans dynamically if configured by admin for this tab
   const getMergedPricing = () => {
-    const base = PRICING[pricingTab];
-    const categoryPlans = dbPlans.filter((p) => p.category === pricingTab && p.is_active);
+    const activeKey = pricingTab === 'recruiter' ? 'recruiter' : (freelancersEnabled ? 'freelancer' : 'candidate');
+    const base = PRICING[activeKey] || PRICING.freelancer;
+    const categoryPlans = dbPlans.filter((p) => (p.category === activeKey || (activeKey === 'candidate' && (p.category === 'freelancer' || p.category === 'resume'))) && p.is_active);
     if (categoryPlans.length === 0) return base;
 
     const freeDb = categoryPlans.find(
@@ -635,11 +670,11 @@ export default function LandingPage({
 
         <div className="price-tabs">
           <div
-            className={`price-tab ${pricingTab === 'freelancer' ? 'active' : ''}`}
-            data-c="freelancer"
-            onClick={() => setPricingTab('freelancer')}
+            className={`price-tab ${pricingTab !== 'recruiter' ? 'active' : ''}`}
+            data-c={freelancersEnabled ? 'freelancer' : 'candidate'}
+            onClick={() => setPricingTab(freelancersEnabled ? 'freelancer' : 'candidate')}
           >
-            Freelancer
+            {freelancersEnabled ? 'Freelancer' : 'Candidate'}
           </div>
           <div
             className={`price-tab ${pricingTab === 'recruiter' ? 'active' : ''}`}

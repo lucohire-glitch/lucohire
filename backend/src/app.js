@@ -13,7 +13,7 @@ import { errorHandler } from './middleware/auth.js';
 import { getSiteSettings } from './controllers/adminController.js';
 
 const app = express();
-app.use(cors({ origin: env.nodeEnv === 'development' ? true : env.corsOrigins, credentials: true }));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ limit: '25mb', extended: true }));
 

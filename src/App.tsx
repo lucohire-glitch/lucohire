@@ -9,6 +9,7 @@ import AuthModal from './components/AuthModal';
 import LandingPage from './components/LandingPage';
 import RoleChooserModal from './components/RoleChooserModal';
 import CandidateRegistration from './components/CandidateRegistration';
+import CandidateJobRegistration from './components/CandidateJobRegistration';
 import RecruiterRegistration from './components/RecruiterRegistration';
 import CandidateDashboard from './components/CandidateDashboard';
 import EmployerDashboard from './components/EmployerDashboard';
@@ -127,7 +128,7 @@ export default function App() {
         if (s && typeof s.freelancers_enabled === 'boolean') {
           setFreelancersEnabled(s.freelancers_enabled);
         }
-      }).catch(() => {});
+      }).catch(() => { });
     };
     syncSetting();
     window.addEventListener('luco_settings_updated', syncSetting);
@@ -146,7 +147,7 @@ export default function App() {
     };
   }, []);
 
-    const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [pendingPlanToUpgrade, setPendingPlanToUpgrade] = useState<any>(null);
 
   const handleUpgradePlan = async (plan: any) => {
@@ -228,7 +229,7 @@ export default function App() {
               try {
                 localStorage.setItem('user', JSON.stringify(updated));
                 localStorage.setItem('luco_user', JSON.stringify(updated));
-              } catch(e){}
+              } catch (e) { }
             }
 
             setUpgradeSuccessModal({
@@ -487,31 +488,59 @@ export default function App() {
           onChooseCandidate={() => setIsCandidateRegOpen(true)}
           onChooseRecruiter={() => setIsRecruiterRegOpen(true)}
         />
-        <CandidateRegistration
-          isOpen={isCandidateRegOpen}
-          onClose={() => setIsCandidateRegOpen(false)}
-          onComplete={(data: any) => {
-            setCandidateData(data);
-            const u = getCurrentUser() || data;
-            setCurrentUser(u);
-            setUserRole('candidate');
-            setIsCandidateRegOpen(false);
-            triggerAuthToast('Profile created successfully!');
-            if (pendingPlanToUpgrade) {
-              const p = pendingPlanToUpgrade;
-              setPendingPlanToUpgrade(null);
-              setTimeout(() => {
-                handleUpgradePlan(p);
-              }, 500);
-            } else {
-              setIsProfileHomeOpen(true);
-            }
-          }}
-          onSwitchToRecruiter={() => {
-            setIsCandidateRegOpen(false);
-            setIsRecruiterRegOpen(true);
-          }}
-        />
+        {freelancersEnabled ? (
+          <CandidateRegistration
+            isOpen={isCandidateRegOpen}
+            onClose={() => setIsCandidateRegOpen(false)}
+            onComplete={(data: any) => {
+              setCandidateData(data);
+              const u = getCurrentUser() || data;
+              setCurrentUser(u);
+              setUserRole('candidate');
+              setIsCandidateRegOpen(false);
+              triggerAuthToast('Profile created successfully!');
+              if (pendingPlanToUpgrade) {
+                const p = pendingPlanToUpgrade;
+                setPendingPlanToUpgrade(null);
+                setTimeout(() => {
+                  handleUpgradePlan(p);
+                }, 500);
+              } else {
+                setIsProfileHomeOpen(true);
+              }
+            }}
+            onSwitchToRecruiter={() => {
+              setIsCandidateRegOpen(false);
+              setIsRecruiterRegOpen(true);
+            }}
+          />
+        ) : (
+          <CandidateJobRegistration
+            isOpen={isCandidateRegOpen}
+            onClose={() => setIsCandidateRegOpen(false)}
+            onComplete={(data: any) => {
+              setCandidateData(data);
+              const u = getCurrentUser() || data;
+              setCurrentUser(u);
+              setUserRole('candidate');
+              setIsCandidateRegOpen(false);
+              triggerAuthToast('Profile created successfully!');
+              if (pendingPlanToUpgrade) {
+                const p = pendingPlanToUpgrade;
+                setPendingPlanToUpgrade(null);
+                setTimeout(() => {
+                  handleUpgradePlan(p);
+                }, 500);
+              } else {
+                setIsProfileHomeOpen(true);
+              }
+            }}
+            onSwitchToRecruiter={() => {
+              setIsCandidateRegOpen(false);
+              setIsRecruiterRegOpen(true);
+            }}
+          />
+        )}
         <RecruiterRegistration
           isOpen={isRecruiterRegOpen}
           onClose={() => setIsRecruiterRegOpen(false)}
@@ -632,31 +661,59 @@ export default function App() {
           onChooseCandidate={() => setIsCandidateRegOpen(true)}
           onChooseRecruiter={() => setIsRecruiterRegOpen(true)}
         />
-        <CandidateRegistration
-          isOpen={isCandidateRegOpen}
-          onClose={() => setIsCandidateRegOpen(false)}
-          onComplete={(data: any) => {
-            setCandidateData(data);
-            const u = getCurrentUser() || data;
-            setCurrentUser(u);
-            setUserRole('candidate');
-            setIsCandidateRegOpen(false);
-            triggerAuthToast('Profile created successfully!');
-            if (pendingPlanToUpgrade) {
-              const p = pendingPlanToUpgrade;
-              setPendingPlanToUpgrade(null);
-              setTimeout(() => {
-                handleUpgradePlan(p);
-              }, 500);
-            } else {
-              setIsProfileHomeOpen(true);
-            }
-          }}
-          onSwitchToRecruiter={() => {
-            setIsCandidateRegOpen(false);
-            setIsRecruiterRegOpen(true);
-          }}
-        />
+        {freelancersEnabled ? (
+          <CandidateRegistration
+            isOpen={isCandidateRegOpen}
+            onClose={() => setIsCandidateRegOpen(false)}
+            onComplete={(data: any) => {
+              setCandidateData(data);
+              const u = getCurrentUser() || data;
+              setCurrentUser(u);
+              setUserRole('candidate');
+              setIsCandidateRegOpen(false);
+              triggerAuthToast('Profile created successfully!');
+              if (pendingPlanToUpgrade) {
+                const p = pendingPlanToUpgrade;
+                setPendingPlanToUpgrade(null);
+                setTimeout(() => {
+                  handleUpgradePlan(p);
+                }, 500);
+              } else {
+                setIsProfileHomeOpen(true);
+              }
+            }}
+            onSwitchToRecruiter={() => {
+              setIsCandidateRegOpen(false);
+              setIsRecruiterRegOpen(true);
+            }}
+          />
+        ) : (
+          <CandidateJobRegistration
+            isOpen={isCandidateRegOpen}
+            onClose={() => setIsCandidateRegOpen(false)}
+            onComplete={(data: any) => {
+              setCandidateData(data);
+              const u = getCurrentUser() || data;
+              setCurrentUser(u);
+              setUserRole('candidate');
+              setIsCandidateRegOpen(false);
+              triggerAuthToast('Profile created successfully!');
+              if (pendingPlanToUpgrade) {
+                const p = pendingPlanToUpgrade;
+                setPendingPlanToUpgrade(null);
+                setTimeout(() => {
+                  handleUpgradePlan(p);
+                }, 500);
+              } else {
+                setIsProfileHomeOpen(true);
+              }
+            }}
+            onSwitchToRecruiter={() => {
+              setIsCandidateRegOpen(false);
+              setIsRecruiterRegOpen(true);
+            }}
+          />
+        )}
         <RecruiterRegistration
           isOpen={isRecruiterRegOpen}
           onClose={() => setIsRecruiterRegOpen(false)}
@@ -734,10 +791,10 @@ export default function App() {
       <header className="header">
         <div className="header-inner">
           <div className="header-left">
-            <button 
-              className="icon-btn mobile-menu-btn" 
-              aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"} 
-              title={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"} 
+            <button
+              className="icon-btn mobile-menu-btn"
+              aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              title={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
               onClick={() => setIsMobileMenuOpen(prev => !prev)}
             >
               {isMobileMenuOpen ? (
@@ -753,12 +810,12 @@ export default function App() {
                 </svg>
               )}
             </button>
-            <div 
-              className="logo" 
+            <div
+              className="logo"
               onClick={() => {
                 setIsResumeCheckOpen(false);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-              }} 
+              }}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
             >
               <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #E5E7EB', flexShrink: 0 }}>
@@ -772,7 +829,9 @@ export default function App() {
           </div>
 
           <nav className="header-desktop-nav">
-            <a href="#freelancers" onClick={(e) => { e.preventDefault(); scrollTo('freelancerSection'); }}>Freelancers</a>
+            {freelancersEnabled && (
+              <a href="#freelancers" onClick={(e) => { e.preventDefault(); scrollTo('freelancerSection'); }}>Freelancers</a>
+            )}
             <a href="#howItWorks" onClick={(e) => { e.preventDefault(); scrollTo('howItWorksSection'); }}>How it works</a>
             <a href="#oneFlow" onClick={(e) => { e.preventDefault(); scrollTo('oneFlowSection'); }}>Job-ready path</a>
             <a href="#pricing" onClick={(e) => { e.preventDefault(); scrollTo('pricingSection'); }}>Free vs Paid</a>
@@ -822,9 +881,9 @@ export default function App() {
 
                 {isUserMenuOpen && (
                   <>
-                    <div 
-                      style={{ position: 'fixed', inset: 0, zIndex: 998 }} 
-                      onClick={() => setIsUserMenuOpen(false)} 
+                    <div
+                      style={{ position: 'fixed', inset: 0, zIndex: 998 }}
+                      onClick={() => setIsUserMenuOpen(false)}
                     />
                     <div style={{
                       position: 'absolute',
@@ -930,9 +989,9 @@ export default function App() {
                   onClick={() => setIsAuthOpen(true)}
                   style={{
                     padding: '7px 15px',
-                    border: '1.5px solid #5B21D6',
-                    background: 'transparent',
-                    color: '#5B21D6',
+                    border: '1.5px solid #E5E7EB',
+                    background: '#FFFFFF',
+                    color: '#374151',
                     borderRadius: '8px',
                     fontSize: '13.5px',
                     fontWeight: 600,
@@ -940,10 +999,12 @@ export default function App() {
                     transition: 'all 0.15s ease'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#F5F3FF';
+                    e.currentTarget.style.borderColor = '#D1D5DB';
+                    e.currentTarget.style.background = '#F9FAFB';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.borderColor = '#E5E7EB';
+                    e.currentTarget.style.background = '#FFFFFF';
                   }}
                 >
                   Sign In
@@ -955,20 +1016,24 @@ export default function App() {
                   style={{
                     padding: '7px 15px',
                     border: 'none',
-                    background: 'linear-gradient(135deg, #1B4FE0 0%, #5B21D6 100%)',
+                    background: 'var(--violet-700, #4A3AE0)',
                     color: '#FFFFFF',
                     borderRadius: '8px',
                     fontSize: '13.5px',
                     fontWeight: 600,
                     cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(91, 33, 214, 0.25)',
-                    transition: 'opacity 0.15s ease'
+                    boxShadow: '0 2px 8px rgba(74, 58, 224, 0.25)',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.opacity = '0.92';
+                    e.currentTarget.style.filter = 'brightness(1.06)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 18px 30px -10px rgba(74, 58, 224, 0.55)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.filter = 'none';
+                    e.currentTarget.style.transform = 'none';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(74, 58, 224, 0.25)';
                   }}
                 >
                   Sign Up
@@ -980,19 +1045,19 @@ export default function App() {
       </header>
 
       {/* MOBILE NAVIGATION DRAWER */}
-      <div 
+      <div
         className={`mobile-drawer-overlay ${isMobileMenuOpen ? 'open' : ''}`}
         onClick={() => setIsMobileMenuOpen(false)}
         aria-hidden={!isMobileMenuOpen}
       >
-        <div 
+        <div
           className="mobile-drawer"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Drawer Header */}
           <div className="mobile-drawer-header">
-            <div 
-              className="logo" 
+            <div
+              className="logo"
               onClick={() => {
                 setIsMobileMenuOpen(false);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1008,7 +1073,7 @@ export default function App() {
               </div>
             </div>
 
-            <button 
+            <button
               className="mobile-drawer-close"
               onClick={() => setIsMobileMenuOpen(false)}
               aria-label="Close menu"
@@ -1023,7 +1088,7 @@ export default function App() {
           {/* Drawer Scrollable Content */}
           <div className="mobile-drawer-body">
             {/* Featured Banner / Resume Checker */}
-            <div 
+            <div
               className="mobile-drawer-banner"
               onClick={() => {
                 setIsMobileMenuOpen(false);
@@ -1040,31 +1105,33 @@ export default function App() {
             {/* Navigation Links */}
             <div className="mobile-drawer-label">EXPLORE PLATFORM</div>
             <nav className="mobile-drawer-links">
-              <a 
-                href="#freelancers"
-                className="mobile-nav-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setIsMobileMenuOpen(false);
-                  scrollTo('freelancerSection');
-                }}
-              >
-                <span className="nav-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                </span>
-                <div className="nav-info">
-                  <span className="nav-title">Freelancers</span>
-                  <span className="nav-desc">Browse 6,200+ verified talent</span>
-                </div>
-                <span className="nav-arrow">›</span>
-              </a>
+              {freelancersEnabled && (
+                <a
+                  href="#freelancers"
+                  className="mobile-nav-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsMobileMenuOpen(false);
+                    scrollTo('freelancerSection');
+                  }}
+                >
+                  <span className="nav-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                  </span>
+                  <div className="nav-info">
+                    <span className="nav-title">Freelancers</span>
+                    <span className="nav-desc">Browse 6,200+ verified talent</span>
+                  </div>
+                  <span className="nav-arrow">›</span>
+                </a>
+              )}
 
-              <a 
+              <a
                 href="#howItWorks"
                 className="mobile-nav-link"
                 onClick={(e) => {
@@ -1086,7 +1153,7 @@ export default function App() {
                 <span className="nav-arrow">›</span>
               </a>
 
-              <a 
+              <a
                 href="#oneFlow"
                 className="mobile-nav-link"
                 onClick={(e) => {
@@ -1107,7 +1174,7 @@ export default function App() {
                 <span className="nav-arrow">›</span>
               </a>
 
-              <a 
+              <a
                 href="#pricing"
                 className="mobile-nav-link"
                 onClick={(e) => {
@@ -1129,7 +1196,7 @@ export default function App() {
                 <span className="nav-arrow">›</span>
               </a>
 
-              <a 
+              <a
                 href="#trust"
                 className="mobile-nav-link"
                 onClick={(e) => {
@@ -1154,7 +1221,7 @@ export default function App() {
             {/* Quick Action Buttons */}
             <div className="mobile-drawer-label">QUICK ACTIONS</div>
             <div className="mobile-drawer-btns">
-              <button 
+              <button
                 className="mobile-action-btn secondary"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
@@ -1169,7 +1236,7 @@ export default function App() {
                 Find Freelancer
               </button>
 
-              <button 
+              <button
                 className="mobile-action-btn secondary"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
@@ -1183,7 +1250,7 @@ export default function App() {
                 Register as Freelancer
               </button>
 
-              <button 
+              <button
                 className="mobile-action-btn outline"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
@@ -1254,7 +1321,7 @@ export default function App() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                <button 
+                <button
                   className="mobile-account-btn"
                   onClick={() => {
                     setIsMobileMenuOpen(false);
@@ -1332,7 +1399,7 @@ export default function App() {
           }}
         />
       ) : (
-        <LandingPage 
+        <LandingPage
           freelancersEnabled={freelancersEnabled}
           onOpenResumeCheck={(q?: any) => {
             setIsResumeCheckOpen(true);
@@ -1377,12 +1444,12 @@ export default function App() {
       <footer className="footer">
         <div className="footer-inner">
           <div className="footer-brand-side">
-            <div 
-              className="logo" 
+            <div
+              className="logo"
               onClick={() => {
                 setIsResumeCheckOpen(false);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-              }} 
+              }}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
             >
               <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #E5E7EB', flexShrink: 0 }}>
@@ -1394,7 +1461,9 @@ export default function App() {
               </div>
             </div>
             <p className="ftag">
-              India's AI-assisted freelance marketplace to hire verified freelancers online and find freelance jobs that actually pay — fair distribution, WhatsApp-first support.
+              {freelancersEnabled
+                ? "India's AI-assisted freelance marketplace to hire verified freelancers online and find freelance jobs that actually pay — fair distribution, WhatsApp-first support."
+                : "India's AI-assisted hiring & career platform to find top jobs, check ATS resumes, and hire verified candidates — WhatsApp-first support."}
             </p>
 
             <div className="footer-social">
@@ -1408,17 +1477,40 @@ export default function App() {
           <div className="footer-links-side">
             <div className="footer-cols">
               <div className="footer-col">
-                <h5>For Freelancers</h5>
-                <a href="#jobs" onClick={(e) => { e.preventDefault(); setIsCandidateRegOpen(true); }}>Find Freelance Jobs</a>
+                <h5>{freelancersEnabled ? 'For Freelancers' : 'For Candidates'}</h5>
+                <a href="#jobs" onClick={(e) => {
+                  e.preventDefault();
+                  if (!freelancersEnabled) {
+                    setIsJobsSearchOpen(true);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  } else {
+                    setIsCandidateRegOpen(true);
+                  }
+                }}>
+                  {freelancersEnabled ? 'Find Freelance Jobs' : 'Find Jobs'}
+                </a>
+                {!freelancersEnabled && (
+                  <a href="#resume" onClick={(e) => {
+                    e.preventDefault();
+                    setIsResumeCheckOpen(true);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}>
+                    Check ATS Resume
+                  </a>
+                )}
                 <a href="#profile" onClick={(e) => { e.preventDefault(); setIsCandidateRegOpen(true); }}>Create Your Profile</a>
-                <a href="#tips" onClick={(e) => e.preventDefault()}>Freelancing Tips</a>
+                <a href="#tips" onClick={(e) => e.preventDefault()}>{freelancersEnabled ? 'Freelancing Tips' : 'Career Tips'}</a>
                 <a href="#pricing" onClick={(e) => { e.preventDefault(); scrollTo('pricingSection'); }}>Pricing</a>
                 <a href="#help" onClick={(e) => e.preventDefault()}>Help Center</a>
               </div>
               <div className="footer-col">
                 <h5>For Clients &amp; Recruiters</h5>
                 <a href="#post" onClick={(e) => { e.preventDefault(); setIsRecruiterRegOpen(true); }}>Post a Requirement</a>
-                <a href="#find" onClick={(e) => { e.preventDefault(); setIsFreelancersViewOpen(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Find Freelancers</a>
+                {freelancersEnabled ? (
+                  <a href="#find" onClick={(e) => { e.preventDefault(); setIsFreelancersViewOpen(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Find Freelancers</a>
+                ) : (
+                  <a href="#find" onClick={(e) => { e.preventDefault(); setIsRecruiterRegOpen(true); }}>Find Candidates</a>
+                )}
                 <a href="#pricing" onClick={(e) => { e.preventDefault(); scrollTo('pricingSection'); }}>Pricing</a>
                 <a href="#resources" onClick={(e) => e.preventDefault()}>Resources</a>
               </div>
@@ -1434,10 +1526,10 @@ export default function App() {
 
             <div className="footer-news">
               <h5>Stay Updated</h5>
-              <p>Freelance job alerts &amp; platform news — once a month.</p>
+              <p>{freelancersEnabled ? 'Freelance job alerts & platform news — once a month.' : 'Job alerts & platform news — once a month.'}</p>
               {newsletterSubscribed ? (
                 <p style={{ color: '#8CF0C2', fontWeight: 600, fontSize: '13px' }}>
-                  ✓ Subscribed! You will receive freelance job alerts.
+                  ✓ Subscribed! You will receive {freelancersEnabled ? 'freelance job alerts' : 'job alerts'}.
                 </p>
               ) : (
                 <form
@@ -1484,23 +1576,43 @@ export default function App() {
         onChooseRecruiter={() => setIsRecruiterRegOpen(true)}
       />
 
-      <CandidateRegistration
-        isOpen={isCandidateRegOpen}
-        onClose={() => setIsCandidateRegOpen(false)}
-        onComplete={(data: any) => {
-          setCandidateData(data);
-          const u = getCurrentUser() || data;
-          setCurrentUser(u);
-          setUserRole('candidate');
-          setIsCandidateRegOpen(false);
-          setIsProfileHomeOpen(true);
-          triggerAuthToast('Profile created successfully!');
-        }}
-        onSwitchToRecruiter={() => {
-          setIsCandidateRegOpen(false);
-          setIsRecruiterRegOpen(true);
-        }}
-      />
+      {freelancersEnabled ? (
+        <CandidateRegistration
+          isOpen={isCandidateRegOpen}
+          onClose={() => setIsCandidateRegOpen(false)}
+          onComplete={(data: any) => {
+            setCandidateData(data);
+            const u = getCurrentUser() || data;
+            setCurrentUser(u);
+            setUserRole('candidate');
+            setIsCandidateRegOpen(false);
+            setIsProfileHomeOpen(true);
+            triggerAuthToast('Profile created successfully!');
+          }}
+          onSwitchToRecruiter={() => {
+            setIsCandidateRegOpen(false);
+            setIsRecruiterRegOpen(true);
+          }}
+        />
+      ) : (
+        <CandidateJobRegistration
+          isOpen={isCandidateRegOpen}
+          onClose={() => setIsCandidateRegOpen(false)}
+          onComplete={(data: any) => {
+            setCandidateData(data);
+            const u = getCurrentUser() || data;
+            setCurrentUser(u);
+            setUserRole('candidate');
+            setIsCandidateRegOpen(false);
+            setIsProfileHomeOpen(true);
+            triggerAuthToast('Profile created successfully!');
+          }}
+          onSwitchToRecruiter={() => {
+            setIsCandidateRegOpen(false);
+            setIsRecruiterRegOpen(true);
+          }}
+        />
+      )}
 
       <RecruiterRegistration
         isOpen={isRecruiterRegOpen}

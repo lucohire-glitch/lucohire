@@ -668,12 +668,12 @@
   color: #fff;
 }
 
-.landing-page-root .price-tab.active[data-c="freelancer"] {
-  background: var(--violet-700);
-}
-
+.landing-page-root .price-tab.active,
+.landing-page-root .price-tab.active[data-c="freelancer"],
+.landing-page-root .price-tab.active[data-c="candidate"],
 .landing-page-root .price-tab.active[data-c="recruiter"] {
-  background: var(--violet-700);
+  background: #111827 !important;
+  color: #fff !important;
 }
 
 .landing-page-root .price-card {
@@ -1529,10 +1529,12 @@
     cursor: pointer;
     transition: background .15s, color .15s;
   }
+  .landing-page-root .price-tab.active,
   .landing-page-root .price-tab.active[data-c="freelancer"],
+  .landing-page-root .price-tab.active[data-c="candidate"],
   .landing-page-root .price-tab.active[data-c="recruiter"] {
-    background: var(--violet-700);
-    color: #fff;
+    background: #111827 !important;
+    color: #fff !important;
   }
   .landing-page-root .price-card {
     margin-top: 24px;
