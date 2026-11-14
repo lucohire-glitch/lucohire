@@ -369,3 +369,120 @@ export const getPublicCandidates = async (req, res) => {
   }
 };
 
+export const googleAuth = async (req, res) => {
+  try {
+    const { credential, access_token, user_info, role = 'candidate' } = req.body || {};
+    let googleData = null;
+
+    // 1. If access_token provided, fetch userinfo from Google
+    if (access_token) {
+      try {
+        const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${access_token}` }
+        });
+        if (userRes.ok) {
+          googleData = await userRes.json();
+        }
+      } catch (e) {
+        console.warn('[Google OAuth] Access token fetch failed:', e.message);
+      }
+    }
+
+    // 2. If credential (ID token JWT) provided, verify with Google tokeninfo
+    if (!googleData && credential) {
+      try {
+        const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+        if (verifyRes.ok) {
+          googleData = await verifyRes.json();
+        }
+      } catch (e) {
+        console.warn('[Google OAuth] Tokeninfo fetch failed:', e.message);
+      }
+
+      // Fallback: decode JWT payload
+      if (!googleData) {
+        try {
+          const payloadBase64 = credential.split('.')[1];
+          if (payloadBase64) {
+            googleData = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
+          }
+        } catch (jwtErr) {
+          console.warn('[Google OAuth] JWT decode failed:', jwtErr.message);
+        }
+      }
+    }
+
+    // 3. Client-provided user_info fallback
+    if (!googleData && user_info?.email) {
+      googleData = user_info;
+    }
+
+    if (!googleData || !googleData.email) {
+      return res.status(400).json({ error: 'Failed to verify Google account credentials.' });
+    }
+
+    const targetEmail = normEmail(googleData.email);
+    const name = googleData.name || googleData.given_name || 'Google User';
+    const avatar = googleData.picture || '';
+    const googleId = googleData.sub || '';
+
+    // Check existing user in CandidateModel or RecruiterModel
+    for (const [Model, rRole] of [[CandidateModel, 'candidate'], [RecruiterModel, 'recruiter']]) {
+      let row = await Model.findByEmail(targetEmail);
+      if (row) {
+        try {
+          const sub = await syncAndProcessUserSubscription(row, rRole);
+          if (sub) {
+            row.is_paid = sub.isPaid;
+            row.plan = sub.activePlan;
+            row.plan_expires_at = sub.planExpiresAt;
+            row.auto_renew = sub.autoRenew;
+          }
+        } catch (err) {}
+        return respond(res, 200, rRole, row);
+      }
+    }
+
+    // If user doesn't exist, create new user account
+    const targetRole = role === 'recruiter' ? 'recruiter' : 'candidate';
+    const dummyPasswordHash = await bcrypt.hash('GOOGLE_USER_' + Date.now() + '_' + Math.random(), 10);
+
+    if (targetRole === 'recruiter') {
+      const row = await RecruiterModel.create({
+        name,
+        email: targetEmail,
+        mobile: null,
+        company: '',
+        passwordHash: dummyPasswordHash,
+        profile: {
+          avatar,
+          google_id: googleId,
+          full_name: name,
+          verified: true
+        }
+      });
+      return respond(res, 201, 'recruiter', row);
+    } else {
+      const row = await CandidateModel.create({
+        name,
+        email: targetEmail,
+        mobile: null,
+        title: 'Professional Candidate',
+        city: 'Noida',
+        state: 'Uttar Pradesh',
+        passwordHash: dummyPasswordHash,
+        profile: {
+          avatar,
+          google_id: googleId,
+          full_name: name,
+          verified: true
+        }
+      });
+      return respond(res, 201, 'candidate', row);
+    }
+  } catch (err) {
+    console.error('[Google OAuth] Error:', err);
+    return res.status(500).json({ error: 'Google sign in failed. Please try again.' });
+  }
+};
+

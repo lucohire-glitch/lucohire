@@ -39,6 +39,8 @@ export const verifyOtp = (target: string, otp: string) => request<{ success: boo
 export const candidateSignup = (payload: Record<string, any>) => request('/auth/candidate/signup', payload);
 export const recruiterSignup = (payload: Record<string, any>) => request('/auth/recruiter/signup', payload);
 export const login = (email: string, password: string) => request('/auth/login', { email, password });
+export const googleLogin = (payload: { credential?: string; access_token?: string; user_info?: any; role?: string }) =>
+  request<{ token: string; role: string; user: any }>('/auth/google', payload);
 
 export const logout = () => {
   localStorage.removeItem('luco_token');

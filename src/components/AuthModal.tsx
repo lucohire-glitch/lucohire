@@ -6,7 +6,11 @@
 import React, { useState } from 'react';
 import LucoLogo from './LucoLogo';
 import './AuthModal.css';
-import { login } from '../api';
+import { login, googleLogin } from '../api';
+
+const GOOGLE_CLIENT_ID =
+  (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID ||
+  '229774911337-cs1qkiri0q3bhdcpi7bqbqiaj0thqe4q.apps.googleusercontent.com';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -55,8 +59,76 @@ export default function AuthModal({ isOpen, onClose, onOpenRoleChooser, onLoginS
     }
   };
 
-  const handleSocialAuth = (provider: string) => {
-    alert(`Connect ${provider} OAuth here to enable this button.`);
+  const handleSocialAuth = async (provider: string) => {
+    if (provider === 'Google') {
+      setIsSubmitting(true);
+      setApiError('');
+      try {
+        const loadGsiScript = (): Promise<void> => {
+          return new Promise((resolve, reject) => {
+            if ((window as any).google?.accounts?.oauth2) return resolve();
+            const existingScript = document.getElementById('google-gsi-script');
+            if (existingScript) {
+              existingScript.addEventListener('load', () => resolve());
+              existingScript.addEventListener('error', () => reject(new Error('Failed to load Google SDK')));
+              return;
+            }
+            const script = document.createElement('script');
+            script.id = 'google-gsi-script';
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.async = true;
+            script.defer = true;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load Google SDK'));
+            document.head.appendChild(script);
+          });
+        };
+
+        await loadGsiScript();
+        const google = (window as any).google;
+        if (!google?.accounts?.oauth2) {
+          throw new Error('Google Sign-In SDK is loading, please try again.');
+        }
+
+        const tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: 'email profile openid',
+          callback: async (tokenResponse: any) => {
+            if (tokenResponse?.error) {
+              setIsSubmitting(false);
+              if (tokenResponse.error !== 'popup_closed_by_user') {
+                setApiError(`Google sign-in error: ${tokenResponse.error}`);
+              }
+              return;
+            }
+            if (tokenResponse?.access_token) {
+              try {
+                const data = await googleLogin({ access_token: tokenResponse.access_token });
+                setIsSubmitting(false);
+                setSuccessMessage('Signed in with Google successfully!');
+                setTimeout(() => {
+                  setSuccessMessage('');
+                  onClose();
+                  onLoginSuccess?.(data);
+                }, 700);
+              } catch (loginErr: any) {
+                setIsSubmitting(false);
+                setApiError(loginErr.message || 'Google account sign-in failed.');
+              }
+            } else {
+              setIsSubmitting(false);
+            }
+          },
+        });
+
+        tokenClient.requestAccessToken({ prompt: 'select_account' });
+      } catch (err: any) {
+        setIsSubmitting(false);
+        setApiError(err.message || 'Unable to start Google Sign-In.');
+      }
+    } else {
+      alert(`${provider} sign-in requires official developer app configuration. Please use Google Sign-In or your Email to sign in directly.`);
+    }
   };
 
   return (
