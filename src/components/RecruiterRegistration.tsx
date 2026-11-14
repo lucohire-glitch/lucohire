@@ -56,7 +56,7 @@ export default function RecruiterRegistration({
 
   // Step 2
   const [company, setCompany] = useState('');
-  const [hiringType, setHiringType] = useState('company');
+  const [hiringType, setHiringType] = useState('');
   const [agencyLicense, setAgencyLicense] = useState('');
   const [industry, setIndustry] = useState('');
   const [size, setSize] = useState('');
@@ -325,7 +325,7 @@ export default function RecruiterRegistration({
       state: state.trim(),
       score,
       verified: gstUploaded,
-      hiringType,
+      hiringType: hiringType || 'company',
       agencyLicense,
       industry,
       size,
