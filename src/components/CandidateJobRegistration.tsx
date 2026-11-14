@@ -36,6 +36,35 @@ async function resolveToDataUrl(url: string, maxBytes = 64 * 1024): Promise<stri
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const MOBILE_REGEX = /^[6-9]\d{9}$/;
 
+const POPULAR_INDIAN_LOCATIONS = [
+  { city: 'Bengaluru', state: 'Karnataka' },
+  { city: 'Mumbai', state: 'Maharashtra' },
+  { city: 'Delhi NCR', state: 'Delhi' },
+  { city: 'Pune', state: 'Maharashtra' },
+  { city: 'Hyderabad', state: 'Telangana' },
+  { city: 'Noida', state: 'Uttar Pradesh' },
+  { city: 'Gurugram', state: 'Haryana' },
+  { city: 'Chennai', state: 'Tamil Nadu' },
+  { city: 'Ahmedabad', state: 'Gujarat' },
+  { city: 'Kolkata', state: 'West Bengal' },
+  { city: 'Jaipur', state: 'Rajasthan' },
+  { city: 'Chandigarh', state: 'Punjab / Haryana' },
+  { city: 'Lucknow', state: 'Uttar Pradesh' },
+  { city: 'Indore', state: 'Madhya Pradesh' },
+  { city: 'Kochi', state: 'Kerala' },
+  { city: 'Coimbatore', state: 'Tamil Nadu' },
+  { city: 'Nagpur', state: 'Maharashtra' },
+  { city: 'Bhopal', state: 'Madhya Pradesh' },
+  { city: 'Surat', state: 'Gujarat' },
+  { city: 'Vadodara', state: 'Gujarat' },
+  { city: 'Visakhapatnam', state: 'Andhra Pradesh' },
+  { city: 'Bhubaneswar', state: 'Odisha' },
+  { city: 'Thiruvananthapuram', state: 'Kerala' },
+  { city: 'Dehradun', state: 'Uttarakhand' },
+  { city: 'Goa', state: 'Goa' },
+  { city: 'Remote', state: 'Anywhere in India' }
+];
+
 // Audio Buffer to WAV encoder helper
 function audioBufferToWav(buffer: AudioBuffer): Blob {
   const numOfChan = buffer.numberOfChannels;
@@ -130,6 +159,7 @@ export default function CandidateJobRegistration({
   const [mobileOtpHint, setMobileOtpHint] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
+  const [isCitySuggestOpen, setIsCitySuggestOpen] = useState(false);
   const [travelRadius, setTravelRadius] = useState(80);
   const [category, setCategory] = useState('');
   const [experience, setExperience] = useState('3–5 years');
@@ -300,6 +330,26 @@ export default function CandidateJobRegistration({
     setTimeout(() => setShowToast(false), 1400);
   };
 
+  const filteredCities = React.useMemo(() => {
+    if (!city.trim()) return POPULAR_INDIAN_LOCATIONS.slice(0, 8);
+    const q = city.trim().toLowerCase();
+    const matches = POPULAR_INDIAN_LOCATIONS.filter(item =>
+      item.city.toLowerCase().includes(q) || item.state.toLowerCase().includes(q)
+    );
+    return matches.length > 0 ? matches.slice(0, 8) : POPULAR_INDIAN_LOCATIONS.slice(0, 5);
+  }, [city]);
+
+  React.useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('#cityInput') && !target.closest('.suggest-box')) {
+        setIsCitySuggestOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
   // Profile Score calculation
   let score = 0;
   if (hasPhoto) score += 5;
@@ -309,7 +359,7 @@ export default function CandidateJobRegistration({
   if (emailVerified) score += 5;
   if (city.trim() && state.trim()) score += 5;
   if (category) score += 2;
-  score += 2; // experience default filled (2%)
+  if (experience) score += 2;
 
   const hasPricedSkill = skills.some((s) => s.price.trim().length > 0);
   if (hasPricedSkill) score += 12;
@@ -1812,12 +1862,93 @@ export default function CandidateJobRegistration({
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4C2FD9" strokeWidth="1.8"><path d="M12 21s7-6.5 7-11.5A7 7 0 0 0 5 9.5C5 14.5 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
                     Location &amp; travel radius
                   </div>
-                  <span className="smart-badge">Smart filter</span>
+                  <span
+                    className="smart-badge"
+                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', userSelect: 'none' }}
+                    onClick={() => triggerToast('⚡ Smart Filter: Recruiters search by location & travel radius to shortlist nearby talent.')}
+                    title="Click to learn how Smart Search works"
+                  >
+                    ⚡ Smart filter
+                  </span>
                 </div>
+
+                {/* Quick Work Mode Chips */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className={`frl-filter-chip ${travelRadius === 0 ? 'on' : ''}`}
+                    style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '16px' }}
+                    onClick={() => setTravelRadius(0)}
+                  >
+                    🌐 Remote only (0 km)
+                  </button>
+                  <button
+                    type="button"
+                    className={`frl-filter-chip ${travelRadius > 0 && travelRadius <= 50 ? 'on' : ''}`}
+                    style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '16px' }}
+                    onClick={() => setTravelRadius(50)}
+                  >
+                    🏢 Hybrid (50 km)
+                  </button>
+                  <button
+                    type="button"
+                    className={`frl-filter-chip ${travelRadius > 50 ? 'on' : ''}`}
+                    style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '16px' }}
+                    onClick={() => setTravelRadius(100)}
+                  >
+                    📍 Any On-site (100 km)
+                  </button>
+                </div>
+
                 <div className="two-col" style={{ marginBottom: '18px' }}>
-                  <div>
-                    <span className="mini-label">City</span>
-                    <input type="text" id="cityInput" placeholder="e.g. Noida" value={city} onChange={(e) => setCity(e.target.value)} />
+                  <div style={{ position: 'relative' }}>
+                    <span className="mini-label">City (Smart Autosuggest)</span>
+                    <input
+                      type="text"
+                      id="cityInput"
+                      placeholder="e.g. Noida, Bengaluru, Pune..."
+                      value={city}
+                      autoComplete="off"
+                      onChange={(e) => {
+                        setCity(e.target.value);
+                        setIsCitySuggestOpen(true);
+                      }}
+                      onFocus={() => setIsCitySuggestOpen(true)}
+                    />
+                    {isCitySuggestOpen && (
+                      <div
+                        className="suggest-box show"
+                        style={{
+                          position: 'absolute',
+                          top: 'calc(100% + 4px)',
+                          left: 0,
+                          right: 0,
+                          zIndex: 100,
+                          background: '#FFFFFF',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                          borderRadius: '10px',
+                          border: '1px solid #E5E7EB',
+                          maxHeight: '210px',
+                          overflowY: 'auto'
+                        }}
+                      >
+                        {filteredCities.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="suggest-item"
+                            onMouseDown={() => {
+                              setCity(item.city);
+                              setState(item.state);
+                              setIsCitySuggestOpen(false);
+                            }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', cursor: 'pointer' }}
+                          >
+                            <span>📍 <b>{item.city}</b></span>
+                            <span style={{ fontSize: '11px', color: 'var(--ink-soft)' }}>{item.state}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <span className="mini-label">State</span>
@@ -1827,7 +1958,7 @@ export default function CandidateJobRegistration({
 
                 <div className="range-head">
                   <span>Willing to travel</span>
-                  <span className="range-val-pill" id="rangeValPill">{travelRadius} km</span>
+                  <span className="range-val-pill" id="rangeValPill">{travelRadius === 0 ? 'Remote only' : `${travelRadius} km`}</span>
                 </div>
                 <input type="range" id="travelRange" min="0" max="100" value={travelRadius} onChange={(e) => setTravelRadius(Number(e.target.value))} />
                 <div className="range-labels">
@@ -1836,7 +1967,13 @@ export default function CandidateJobRegistration({
                 </div>
                 <div className="preview-line">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 21s7-6.5 7-11.5A7 7 0 0 0 5 9.5C5 14.5 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
-                  <span>Preview: <b id="locPreview">{city || 'Your city'} +{travelRadius}km</b> — nearby recruiters will see you at the top.</span>
+                  <span>
+                    {travelRadius === 0 ? (
+                      <>Preview: <b id="locPreview">Open to Remote</b> — recruiters hiring remote candidates will see you at the top.</>
+                    ) : (
+                      <>Preview: <b id="locPreview">{city || 'Your city'} +{travelRadius}km</b> — nearby recruiters will see you at the top.</>
+                    )}
+                  </span>
                 </div>
               </div>
 
@@ -1859,17 +1996,26 @@ export default function CandidateJobRegistration({
                 <div className="field" style={{ marginBottom: 0 }}>
                   <div className="field-label">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <label>Total experience</label><span className="smart-badge" style={{ padding: '3px 10px', fontSize: '10.5px' }}>Smart filter</span>
+                      <label>Total experience</label>
+                      <span
+                        className="smart-badge"
+                        style={{ padding: '3px 10px', fontSize: '10.5px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', userSelect: 'none' }}
+                        onClick={() => triggerToast('⚡ Smart Filter: Recruiters filter candidates by experience brackets to match job requirements.')}
+                        title="Click to learn how Smart Search works"
+                      >
+                        ⚡ Smart filter
+                      </span>
                     </div>
-                    <span className="pts done" id="pts-experience">✓ added</span>
+                    <span className={`pts ${experience ? 'done' : ''}`} id="pts-experience">{experience ? 'added ✓' : '+2%'}</span>
                   </div>
                   <select id="experienceSelect" value={experience} onChange={(e) => setExperience(e.target.value)}>
-                    <option>0–1 year</option>
-                    <option>1–3 years</option>
-                    <option>3–5 years</option>
-                    <option>5+ years</option>
+                    <option value="">Select experience level</option>
+                    <option value="Fresher (0–1 yr)">Fresher / Entry level (0–1 yr)</option>
+                    <option value="1–3 years">Early Career (1–3 yrs)</option>
+                    <option value="3–5 years">Mid-Level (3–5 yrs)</option>
+                    <option value="5+ years">Senior (5+ yrs)</option>
                   </select>
-                  <p className="hint">Recruiters can filter candidates by this experience range.</p>
+                  <p className="hint">Recruiters filter candidates by this experience range in Smart Search.</p>
                 </div>
               </div>
             </section>
@@ -1901,11 +2047,19 @@ export default function CandidateJobRegistration({
                         <option>Logo Design</option>
                         <option>Figma UI Design</option>
                         <option>Web Development</option>
+                        <option>React Developer</option>
                         <option>Content Writing</option>
                         <option>Video Editing</option>
                         <option>Social Media Marketing</option>
+                        <option>SEO Expert</option>
+                        <option>Python Developer</option>
+                        <option>Graphic Designer</option>
+                        <option>App Developer</option>
                         <option>Photography</option>
                         <option>Voiceover</option>
+                        <option>Data Entry</option>
+                        <option>Digital Marketer</option>
+                        <option>SaaS Content Writer</option>
                         <option value="other">Other — write your own</option>
                       </select>
                       {skills.length > 1 && (
