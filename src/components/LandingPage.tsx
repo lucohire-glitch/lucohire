@@ -290,10 +290,16 @@ export default function LandingPage({
         <div className="hero-content">
           <h1>
             Your Next Job.<br />
-            Or Your Next <span className="accent">Client.</span>
+            {freelancersEnabled ? (
+              <>Or Your Next <span className="accent">Client.</span></>
+            ) : (
+              <>Or Your Next <span className="accent">Hire.</span></>
+            )}
           </h1>
           <p className="sub">
-            Job seekers: free resume check. Freelancers: get listed free. Recruiters: find &amp; hire freelancers free. Ek hi platform, teeno ke liye.
+            {freelancersEnabled
+              ? "Job seekers: free resume check. Freelancers: get listed free. Recruiters: find & hire freelancers free. Ek hi platform, teeno ke liye."
+              : "Job seekers: free resume check. Candidates: get listed free. Recruiters: find & hire top candidates free. Ek hi platform, dono ke liye."}
           </p>
 
           <div className="hero-btns">
@@ -520,7 +526,9 @@ export default function LandingPage({
         <p className="eyebrow">How LucoHire Works</p>
         <h3 className="sec-title">One platform. Two sides. Real work, done fast.</h3>
         <p className="sec-lead">
-          Whether you're here to hire freelancers online or find freelance jobs that pay — here's what you get.
+          {freelancersEnabled
+            ? "Whether you're here to hire freelancers online or find freelance jobs that pay — here's what you get."
+            : "Whether you're here to hire top talent or find jobs that pay — here's what you get."}
         </p>
 
         <div className="persona-grid">
@@ -531,28 +539,57 @@ export default function LandingPage({
             <div className="persona-list">
               <div className="persona-item"><span className="ic">✓</span>Instant ATS score with a fix-it list, not vague feedback</div>
               <div className="persona-item"><span className="ic">✓</span>A 5-step guided path: Batao → Padhaao → Practice → Test → Bata do</div>
-              <div className="persona-item"><span className="ic">⚡</span>List your skills too, and pick up freelance work while you search</div>
+              <div className="persona-item">
+                <span className="ic">⚡</span>
+                {freelancersEnabled
+                  ? "List your skills too, and pick up freelance work while you search"
+                  : "List your skills too, and get noticed by top recruiters while you search"}
+              </div>
             </div>
           </div>
 
           <div className="persona-card freelancer">
-            <span className="persona-tag">FOR FREELANCERS</span>
-            <h3>Find freelance jobs online and get hired faster.</h3>
-            <p>Create your free profile, get discovered by verified clients, and start earning from home — no bidding wars, no fee to apply.</p>
+            <span className="persona-tag">{freelancersEnabled ? "FOR FREELANCERS" : "FOR CANDIDATES"}</span>
+            <h3>{freelancersEnabled ? "Find freelance jobs online and get hired faster." : "Find jobs online and get hired faster."}</h3>
+            <p>
+              {freelancersEnabled
+                ? "Create your free profile, get discovered by verified clients, and start earning from home — no bidding wars, no fee to apply."
+                : "Create your free profile, get discovered by top employers, and accelerate your career — no bidding wars, no fee to apply."}
+            </p>
             <div className="persona-list">
-              <div className="persona-item"><span className="ic">✓</span>Get notified the instant a client posts work matching your skill</div>
+              <div className="persona-item">
+                <span className="ic">✓</span>
+                {freelancersEnabled
+                  ? "Get notified the instant a client posts work matching your skill"
+                  : "Get notified the instant an employer posts work matching your skill"}
+              </div>
               <div className="persona-item"><span className="ic">✓</span>A verified profile ranks higher and gets picked first</div>
-              <div className="persona-item"><span className="ic">⚡</span>List every skill you freelance in — design, writing, dev, more</div>
+              <div className="persona-item">
+                <span className="ic">⚡</span>
+                {freelancersEnabled
+                  ? "List every skill you freelance in — design, writing, dev, more"
+                  : "List every skill you have — design, writing, dev, more"}
+              </div>
             </div>
           </div>
 
           <div className="persona-card recruiter">
-            <span className="persona-tag">FOR CLIENTS &amp; RECRUITERS</span>
-            <h3>Hire freelancers online — fast, free and verified.</h3>
-            <p>Post a job for free and get matched with ID-verified freelancers across design, development, content, video and marketing.</p>
+            <span className="persona-tag">{freelancersEnabled ? "FOR CLIENTS & RECRUITERS" : "FOR RECRUITERS & EMPLOYERS"}</span>
+            <h3>{freelancersEnabled ? "Hire freelancers online — fast, free and verified." : "Hire top candidates — fast, free and verified."}</h3>
+            <p>
+              {freelancersEnabled
+                ? "Post a job for free and get matched with ID-verified freelancers across design, development, content, video and marketing."
+                : "Post a job for free and get matched with ID-verified candidates across design, development, content, video and marketing."}
+            </p>
             <div className="persona-list">
-              <div className="persona-item"><span className="ic">✓</span>Message your first <b style={{ color: 'var(--green)' }}>4 freelancers</b> free on any requirement</div>
-              <div className="persona-item"><span className="ic">✓</span>Every matching freelancer is notified the moment you post</div>
+              <div className="persona-item">
+                <span className="ic">✓</span>
+                Message your first <b style={{ color: 'var(--green)' }}>4 {freelancersEnabled ? 'freelancers' : 'candidates'}</b> free on any requirement
+              </div>
+              <div className="persona-item">
+                <span className="ic">✓</span>
+                Every matching {freelancersEnabled ? 'freelancer' : 'candidate'} is notified the moment you post
+              </div>
               <div className="persona-item"><span className="ic">⚡</span>Too many applicants? Let us shortlist the top 5–6 for you</div>
             </div>
           </div>
@@ -743,8 +780,8 @@ export default function LandingPage({
         <h3 className="sec-title trust-head">Built so both sides show up serious</h3>
         <div className="trust-row">
           <div className="trust-item"><div className="ti-num">98%</div><div className="ti-lbl">Requirements get a response</div></div>
-          <div className="trust-item"><div className="ti-num">~12 min</div><div className="ti-lbl">Avg. freelancer response time</div></div>
-          <div className="trust-item"><div className="ti-num">4.7★</div><div className="ti-lbl">Avg. freelancer rating</div></div>
+          <div className="trust-item"><div className="ti-num">~12 min</div><div className="ti-lbl">{freelancersEnabled ? 'Avg. freelancer response time' : 'Avg. candidate response time'}</div></div>
+          <div className="trust-item"><div className="ti-num">4.7★</div><div className="ti-lbl">{freelancersEnabled ? 'Avg. freelancer rating' : 'Avg. candidate rating'}</div></div>
         </div>
       </div>
 

@@ -916,7 +916,7 @@ export default function App() {
                           padding: '2px 7px',
                           borderRadius: '4px'
                         }}>
-                          {userRole === 'recruiter' ? 'Recruiter' : 'Freelancer'}
+                          {userRole === 'recruiter' ? 'Recruiter' : (freelancersEnabled ? 'Freelancer' : 'Candidate')}
                         </span>
                       </div>
 
@@ -1221,34 +1221,70 @@ export default function App() {
             {/* Quick Action Buttons */}
             <div className="mobile-drawer-label">QUICK ACTIONS</div>
             <div className="mobile-drawer-btns">
-              <button
-                className="mobile-action-btn secondary"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  setIsFreelancersViewOpen(true);
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                Find Freelancer
-              </button>
+              {freelancersEnabled ? (
+                <>
+                  <button
+                    className="mobile-action-btn secondary"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setIsFreelancersViewOpen(true);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Find Freelancer
+                  </button>
 
-              <button
-                className="mobile-action-btn secondary"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  setIsCandidateRegOpen(true);
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-                Register as Freelancer
-              </button>
+                  <button
+                    className="mobile-action-btn secondary"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setIsCandidateRegOpen(true);
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Register as Freelancer
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className="mobile-action-btn secondary"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setJobsSearchQuery('');
+                      setIsJobsSearchOpen(true);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Find Jobs
+                  </button>
+
+                  <button
+                    className="mobile-action-btn secondary"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setIsCandidateRegOpen(true);
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Register as Candidate
+                  </button>
+                </>
+              )}
 
               <button
                 className="mobile-action-btn outline"
@@ -1286,7 +1322,7 @@ export default function App() {
                       {currentUser.name}
                     </div>
                     <div style={{ fontSize: '11.5px', color: '#5B21D6', fontWeight: 600 }}>
-                      {userRole === 'recruiter' ? 'Recruiter Account' : 'Freelancer Account'}
+                      {userRole === 'recruiter' ? 'Recruiter Account' : (freelancersEnabled ? 'Freelancer Account' : 'Candidate Account')}
                     </div>
                   </div>
                 </div>
