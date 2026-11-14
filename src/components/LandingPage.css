@@ -1894,6 +1894,35 @@
   padding: 36px 0 60px;
   background: #FAFAFC;
   border-bottom: 1px solid #E5E7EB;
+  width: 100%;
+}
+
+.home-jobs-section .luco-jobsearch-wrap {
+  display: block !important;
+  min-height: auto !important;
+  background: transparent !important;
+  padding: 0 16px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.home-jobs-section .luco-jobsearch-wrap .pg {
+  width: 100% !important;
+  max-width: 960px !important;
+  margin: 0 auto !important;
+  display: block !important;
+  box-sizing: border-box !important;
+}
+
+.home-jobs-section .luco-jobsearch-wrap .list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 20px !important;
+  width: 100% !important;
+}
+
+.home-jobs-section .luco-jobsearch-wrap .card {
+  width: 100% !important;
 }
 
 .home-jobs-header {

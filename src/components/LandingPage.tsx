@@ -566,30 +566,31 @@ export default function LandingPage({
       {/* INLINE JOBS RESULTS SECTION (when user searches from home) */}
       {hasSearchedJobs && (
         <section id="homeJobsResultsSection" className="home-jobs-section">
-          <div className="luco-jobsearch-wrap" style={{ maxWidth: '1000px', margin: '0 auto' }}>
-            <div className="home-jobs-header">
-              <div>
-                <h3 className="home-jobs-title">
-                  {jobSearchText.trim() ? `Jobs for "${jobSearchText.trim()}"` : 'Verified Job Openings'}
-                </h3>
-                <div className="home-jobs-count">
-                  {(searchedTotalCount > 0 ? searchedTotalCount : searchedJobsList.length).toLocaleString('en-IN')} jobs found
+          <div className="luco-jobsearch-wrap">
+            <div className="pg">
+              <div className="home-jobs-header">
+                <div>
+                  <h3 className="home-jobs-title">
+                    {jobSearchText.trim() ? `Jobs for "${jobSearchText.trim()}"` : 'Verified Job Openings'}
+                  </h3>
+                  <div className="home-jobs-count">
+                    {(searchedTotalCount > 0 ? searchedTotalCount : searchedJobsList.length).toLocaleString('en-IN')} jobs found
+                  </div>
                 </div>
-              </div>
 
-              {(searchedTotalCount > 4 || searchedJobsList.length > 4) && (
-                <button
-                  type="button"
-                  className="home-jobs-top-view-btn"
-                  onClick={() => {
-                    if (onOpenJobsSearch) onOpenJobsSearch(jobSearchText);
-                    else if (onOpenResumeCheck) onOpenResumeCheck(jobSearchText);
-                  }}
-                >
-                  View all ({searchedTotalCount.toLocaleString('en-IN')}) jobs →
-                </button>
-              )}
-            </div>
+                {(searchedTotalCount > 4 || searchedJobsList.length > 4) && (
+                  <button
+                    type="button"
+                    className="home-jobs-top-view-btn"
+                    onClick={() => {
+                      if (onOpenJobsSearch) onOpenJobsSearch(jobSearchText);
+                      else if (onOpenResumeCheck) onOpenResumeCheck(jobSearchText);
+                    }}
+                  >
+                    View all ({searchedTotalCount.toLocaleString('en-IN')}) jobs →
+                  </button>
+                )}
+              </div>
 
             {isSearchingJobs ? (
               <div style={{ textAlign: 'center', padding: '50px 20px', color: '#6B7280' }}>
@@ -807,6 +808,7 @@ export default function LandingPage({
                 </button>
               </div>
             )}
+            </div>
           </div>
         </section>
       )}
