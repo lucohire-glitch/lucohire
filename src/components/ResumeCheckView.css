@@ -752,3 +752,95 @@
   color: #9CA3AF;
   font-size: 14px;
 }
+
+/* ==========================================================================
+   MOBILE & SMALL DEVICES RESPONSIVENESS (< 640px and < 480px)
+   ========================================================================== */
+@media (max-width: 640px) {
+  .luco-jobsearch-wrap {
+    padding: 0 12px;
+  }
+  .luco-jobsearch-wrap .card {
+    border-radius: 16px;
+  }
+  .luco-jobsearch-wrap .main {
+    padding: 16px 14px;
+  }
+  .luco-jobsearch-wrap .card-header-layout {
+    gap: 12px;
+  }
+  .luco-jobsearch-wrap .card-left-info {
+    gap: 12px;
+  }
+  .luco-jobsearch-wrap .logo {
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+    border-radius: 12px;
+  }
+  .luco-jobsearch-wrap h3 {
+    font-size: 15.5px;
+    line-height: 1.35;
+  }
+  .luco-jobsearch-wrap .co {
+    font-size: 12.5px;
+  }
+  .luco-jobsearch-wrap .sal {
+    font-size: 15.5px;
+    margin-top: 2px;
+  }
+  .luco-jobsearch-wrap .card-right-action {
+    width: 100%;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .luco-jobsearch-wrap .btns {
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+  .luco-jobsearch-wrap .apply,
+  .luco-jobsearch-wrap .desc {
+    width: 100%;
+    height: 42px;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .luco-jobsearch-wrap .head {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+  .luco-jobsearch-wrap .wi {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+  .luco-jobsearch-wrap .wt small {
+    font-size: 10px;
+  }
+  .luco-jobsearch-wrap .wt b {
+    font-size: 13.5px;
+  }
+  .luco-jobsearch-wrap .body {
+    padding: 14px 14px 10px;
+  }
+  .luco-jobsearch-wrap .h {
+    font-size: 14px;
+  }
+  .luco-jobsearch-wrap .hs {
+    font-size: 12px;
+  }
+  .luco-jobsearch-wrap ul.findings-grid li {
+    font-size: 12.5px;
+    gap: 8px;
+    padding: 8px 0;
+  }
+  .luco-jobsearch-wrap .ii {
+    width: 24px;
+    height: 24px;
+  }
+  .luco-jobsearch-wrap .ii svg {
+    width: 14px;
+    height: 14px;
+  }
+}

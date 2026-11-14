@@ -565,23 +565,14 @@ export default function LandingPage({
 
       {/* INLINE JOBS RESULTS SECTION (when user searches from home) */}
       {hasSearchedJobs && (
-        <section id="homeJobsResultsSection" style={{ padding: '36px 0 60px', background: '#FAFAFC', borderBottom: '1px solid #E5E7EB' }}>
-          <div className="luco-jobsearch-wrap" style={{ maxWidth: '1000px', margin: '0 auto', padding: '0 20px' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '24px',
-              paddingBottom: '16px',
-              borderBottom: '1.5px solid #E5E7EB',
-              flexWrap: 'wrap',
-              gap: '12px'
-            }}>
+        <section id="homeJobsResultsSection" className="home-jobs-section">
+          <div className="luco-jobsearch-wrap" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+            <div className="home-jobs-header">
               <div>
-                <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800, color: '#111827', letterSpacing: '-0.3px' }}>
+                <h3 className="home-jobs-title">
                   {jobSearchText.trim() ? `Jobs for "${jobSearchText.trim()}"` : 'Verified Job Openings'}
                 </h3>
-                <div style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>
+                <div className="home-jobs-count">
                   {(searchedTotalCount > 0 ? searchedTotalCount : searchedJobsList.length).toLocaleString('en-IN')} jobs found
                 </div>
               </div>
@@ -589,26 +580,11 @@ export default function LandingPage({
               {(searchedTotalCount > 4 || searchedJobsList.length > 4) && (
                 <button
                   type="button"
+                  className="home-jobs-top-view-btn"
                   onClick={() => {
                     if (onOpenJobsSearch) onOpenJobsSearch(jobSearchText);
                     else if (onOpenResumeCheck) onOpenResumeCheck(jobSearchText);
                   }}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '9px 18px',
-                    background: '#EEF2FF',
-                    color: '#4F46E5',
-                    border: '1.5px solid #C7D2FE',
-                    borderRadius: '10px',
-                    fontSize: '14px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = '#E0E7FF')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = '#EEF2FF')}
                 >
                   View all ({searchedTotalCount.toLocaleString('en-IN')}) jobs →
                 </button>
@@ -790,36 +766,13 @@ export default function LandingPage({
 
                           {/* ACTION BAR: When resume has missing skills, direct button to Build / Update Resume! */}
                           {!match.isFit && (
-                            <div style={{
-                              marginTop: 14,
-                              paddingTop: 12,
-                              borderTop: '1px solid rgba(239, 68, 68, 0.2)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              flexWrap: 'wrap',
-                              gap: 10
-                            }}>
+                            <div className="home-jobs-ai-action-bar">
                               <span style={{ fontSize: '13px', color: '#991B1B', fontWeight: 600 }}>
                                 Missing keywords detected. Don't risk instant ATS rejection.
                               </span>
                               <button
                                 type="button"
-                                style={{
-                                  background: '#4F46E5',
-                                  color: '#FFFFFF',
-                                  border: 'none',
-                                  borderRadius: '8px',
-                                  padding: '8px 16px',
-                                  fontSize: '13px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 6,
-                                  boxShadow: '0 2px 8px rgba(79, 70, 229, 0.25)',
-                                  transition: 'all 0.15s ease'
-                                }}
+                                className="home-jobs-ai-action-btn"
                                 onClick={() => {
                                   if (onOpenResumeCheck) onOpenResumeCheck(job.title);
                                 }}
@@ -838,30 +791,14 @@ export default function LandingPage({
 
             {/* VIEW ALL BUTTON (shown when > 4 jobs) */}
             {!isSearchingJobs && (searchedTotalCount > 4 || searchedJobsList.length > 4) && (
-              <div style={{ textAlign: 'center', marginTop: '36px' }}>
+              <div className="home-jobs-bottom-view-wrap">
                 <button
                   type="button"
+                  className="home-jobs-bottom-view-btn"
                   onClick={() => {
                     if (onOpenJobsSearch) onOpenJobsSearch(jobSearchText);
                     else if (onOpenResumeCheck) onOpenResumeCheck(jobSearchText);
                   }}
-                  style={{
-                    background: 'linear-gradient(135deg, #1B4FE0, #5B21D6)',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '14px',
-                    padding: '14px 34px',
-                    fontSize: '16px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    boxShadow: '0 8px 24px rgba(91, 33, 214, 0.3)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
                 >
                   <span>View all {(searchedTotalCount > 0 ? searchedTotalCount : searchedJobsList.length).toLocaleString('en-IN')} jobs</span>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
