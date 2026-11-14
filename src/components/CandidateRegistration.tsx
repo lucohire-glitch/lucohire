@@ -322,14 +322,6 @@ export default function CandidateRegistration({
     }
   }, [currentStep, isOpen]);
 
-  if (!isOpen) return null;
-
-  const triggerToast = (msg: string) => {
-    setToastMsg(msg);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 1400);
-  };
-
   const filteredCities = React.useMemo(() => {
     if (!city.trim()) return POPULAR_INDIAN_LOCATIONS.slice(0, 8);
     const q = city.trim().toLowerCase();
@@ -349,6 +341,14 @@ export default function CandidateRegistration({
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
+
+  if (!isOpen) return null;
+
+  const triggerToast = (msg: string) => {
+    setToastMsg(msg);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 1400);
+  };
 
   // Profile Score calculation
   let score = 0;
