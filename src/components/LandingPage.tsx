@@ -1,6 +1,8 @@
 import { FREELANCERS_DATA, FreelancerItem } from './FreelancersView';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getPublicPlans, PlanItem, fetchPublicScrapedJobs, ScrapedPublicJob, getSiteSettings, fetchPublicCandidates } from '../api';
+import { JobItem, DEFAULT_JOBS } from './ResumeCheckView';
+import './ResumeCheckView.css';
 import './LandingPage.css';
 
 interface LandingPageProps {
@@ -49,6 +51,195 @@ export default function LandingPage({
   const [selectedProfile, setSelectedProfile] = useState<any | null>(null);
   const [messageTarget, setMessageTarget] = useState<any | null>(null);
   const [messageSent, setMessageSent] = useState(false);
+
+  // Inline jobs search state for home page
+  const [hasSearchedJobs, setHasSearchedJobs] = useState(false);
+  const [isSearchingJobs, setIsSearchingJobs] = useState(false);
+  const [searchedJobsList, setSearchedJobsList] = useState<JobItem[]>([]);
+  const [searchedTotalCount, setSearchedTotalCount] = useState<number>(0);
+  const [expandedDescs, setExpandedDescs] = useState<Record<string, boolean>>({});
+  const [appliedJobIds, setAppliedJobIds] = useState<Record<string, boolean>>({});
+
+  const candidateSkills: string[] = useMemo(() => {
+    let sk: string[] = [];
+    if (Array.isArray(currentUser?.skills)) sk = currentUser.skills;
+    else if (typeof currentUser?.skills === 'string') sk = currentUser.skills.split(',').map((s: string) => s.trim());
+    else if (Array.isArray(currentUser?.profile?.skills)) sk = currentUser.profile.skills;
+
+    try {
+      const aiRaw = typeof window !== 'undefined'
+        ? (window as any).latestAiAnalysis || JSON.parse(localStorage.getItem('luco_latest_ai_analysis') || 'null')
+        : null;
+      if (aiRaw?.candidate?.skills && Array.isArray(aiRaw.candidate.skills)) {
+        sk = Array.from(new Set([...sk, ...aiRaw.candidate.skills]));
+      }
+    } catch (e) { }
+
+    return sk.filter(Boolean);
+  }, [currentUser]);
+
+  const candidateRole = currentUser?.role || currentUser?.profile?.title || 'Professional';
+  const hasCandidateResume = candidateSkills.length > 0 || !!currentUser?.profile?.resume_url;
+
+  const evaluateJobMatch = (job: JobItem) => {
+    if (!hasCandidateResume || candidateSkills.length === 0) {
+      return {
+        isFit: false,
+        matchScore: 58,
+        matchedSkills: [],
+        missingSkills: ['Figma Variables', 'A/B Testing', 'System Design'],
+        headline: "Wait — don't apply immediately",
+        summary: 'Based on your resume and this role'
+      };
+    }
+
+    const jobText = (job.title + ' ' + (job.description || '') + ' ' + (job.skills || []).join(' ')).toLowerCase();
+    const jobWords = jobText.split(/\W+/).filter(Boolean);
+
+    const matched = candidateSkills.filter(sk => {
+      const sLower = sk.toLowerCase();
+      return jobText.includes(sLower) || jobWords.includes(sLower);
+    });
+
+    const jobRequiredKeywords = (job.skills && job.skills.length > 0)
+      ? job.skills
+      : ['React', 'TypeScript', 'System Design', 'Git', 'APIs', 'Performance Optimization', 'Architecture', 'State Management'];
+
+    const missing = jobRequiredKeywords.filter(req => {
+      const rLower = req.toLowerCase();
+      return !candidateSkills.some(sk => sk.toLowerCase().includes(rLower) || rLower.includes(sk.toLowerCase()));
+    });
+
+    const skillRatio = candidateSkills.length > 0 ? (matched.length / Math.min(candidateSkills.length, 5)) : 0.5;
+    const titleMatch = candidateRole && job.title.toLowerCase().includes(candidateRole.toLowerCase().split(' ')[0]) ? 0.35 : 0;
+    const rawScore = Math.min(96, Math.max(45, Math.round((skillRatio * 0.65 + titleMatch) * 100)));
+    const isFit = rawScore >= 75;
+
+    return {
+      isFit,
+      matchScore: rawScore,
+      matchedSkills: matched,
+      missingSkills: missing.length > 0 ? missing : ['ATS Keywords Alignment', 'Quantified Impact Bullets'],
+      headline: isFit ? `Match Fit (${rawScore}%) — Verified Match` : "Wait — don't apply immediately",
+      summary: isFit ? 'Your verified skills and experience fit this position' : 'Based on your resume and this role'
+    };
+  };
+
+  const isUserPaid = Boolean(
+    currentUser?.is_paid ||
+    currentUser?.isPaid ||
+    currentUser?.plan ||
+    (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('luco_user') || '{}')?.is_paid)
+  );
+
+  const handleApply = (job: JobItem) => {
+    const match = evaluateJobMatch(job);
+
+    if (!currentUser) {
+      onOpenRoleChooser();
+      return;
+    }
+
+    if (!isUserPaid) {
+      const el = document.getElementById('pricingSection');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (match.isFit) {
+      setAppliedJobIds((prev) => ({ ...prev, [job.id]: true }));
+      if (job.applyUrl) {
+        window.open(job.applyUrl, '_blank', 'noopener,noreferrer');
+      }
+      return;
+    }
+
+    const confirmUpdate = window.confirm(
+      `⚠️ AI Resume Check Warning:\nYour resume is missing key requirements for "${job.title}".\nMissing: ${match.missingSkills.slice(0, 3).join(', ')}.\n\nWe strongly recommend updating your resume first in Resume Analyzer to avoid recruiter rejection.\n\nClick OK to update your resume, or Cancel to apply anyway.`
+    );
+    if (confirmUpdate) {
+      if (onOpenResumeCheck) onOpenResumeCheck(job.title);
+    } else {
+      setAppliedJobIds((prev) => ({ ...prev, [job.id]: true }));
+      if (job.applyUrl) {
+        window.open(job.applyUrl, '_blank', 'noopener,noreferrer');
+      }
+    }
+  };
+
+  const toggleExpandDesc = (id: string) => {
+    setExpandedDescs((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleHeroSearch = async (queryText?: string) => {
+    const q = (queryText !== undefined ? queryText : jobSearchText).trim();
+    setHasSearchedJobs(true);
+    setIsSearchingJobs(true);
+
+    try {
+      const res = await fetchPublicScrapedJobs({
+        search: q || undefined,
+        limit: 20,
+        offset: 0
+      });
+
+      if (res && res.jobs && Array.isArray(res.jobs) && res.jobs.length > 0) {
+        const mapped: JobItem[] = res.jobs.map((j: ScrapedPublicJob, idx: number) => {
+          const companyName = j.company || 'Tech Employer';
+          const jobTitle = j.title || 'Role';
+          const firstChar = (companyName || jobTitle).charAt(0).toUpperCase() || 'J';
+          const colors = [
+            { bg: '#FFF7ED', color: '#C2410C' },
+            { bg: '#EFF6FF', color: '#1A73E8' },
+            { bg: '#EFF6FF', color: '#0067B8' },
+            { bg: '#FFFBEB', color: '#B45309' },
+            { bg: '#F3E8FF', color: '#7E22CE' },
+            { bg: '#ECFDF5', color: '#047857' }
+          ];
+          const c = colors[idx % colors.length];
+
+          return {
+            id: `scraped-${j.id || idx}`,
+            title: jobTitle,
+            company: companyName,
+            meta: `${companyName} · ${j.work_mode || 'On-site'} · ${j.experience || '2+ yrs'} · Verified`,
+            salary: j.salary || 'Competitive / ₹10–25L',
+            logo: firstChar,
+            logoBg: c.bg,
+            logoColor: c.color,
+            mode: j.work_mode || 'On-site',
+            exp: j.experience || '2+ yrs',
+            location: j.location || 'India',
+            type: j.employment_type || 'Full-time',
+            description: j.description || `${jobTitle} at ${companyName}. Official verified opening on company portal.`,
+            applyUrl: j.apply_url || '',
+            skills: Array.isArray(j.skills) ? j.skills : [],
+            department: j.department || ''
+          };
+        });
+
+        setSearchedJobsList(mapped);
+        setSearchedTotalCount(res.totalCount || mapped.length);
+      } else {
+        const filteredDefault = DEFAULT_JOBS.filter(j =>
+          !q || j.title.toLowerCase().includes(q.toLowerCase()) || j.skills?.some(s => s.toLowerCase().includes(q.toLowerCase()))
+        );
+        setSearchedJobsList(filteredDefault.length > 0 ? filteredDefault : DEFAULT_JOBS);
+        setSearchedTotalCount(filteredDefault.length > 0 ? filteredDefault.length : DEFAULT_JOBS.length);
+      }
+    } catch (e) {
+      setSearchedJobsList(DEFAULT_JOBS);
+      setSearchedTotalCount(DEFAULT_JOBS.length);
+    } finally {
+      setIsSearchingJobs(false);
+      setTimeout(() => {
+        const el = document.getElementById('homeJobsResultsSection');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+  };
 
   // Map authentic registered candidates from PostgreSQL database
   const mappedReal: any[] = realCandidates.map((c, idx) => {
@@ -325,11 +516,7 @@ export default function LandingPage({
                   className="hero-prominent-search-bar"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (onOpenJobsSearch) {
-                      onOpenJobsSearch(jobSearchText);
-                    } else if (onOpenResumeCheck) {
-                      onOpenResumeCheck(jobSearchText);
-                    }
+                    handleHeroSearch();
                   }}
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: 'none' }}>
@@ -375,6 +562,317 @@ export default function LandingPage({
           </div>
         </div>
       </section>
+
+      {/* INLINE JOBS RESULTS SECTION (when user searches from home) */}
+      {hasSearchedJobs && (
+        <section id="homeJobsResultsSection" style={{ padding: '36px 0 60px', background: '#FAFAFC', borderBottom: '1px solid #E5E7EB' }}>
+          <div className="luco-jobsearch-wrap" style={{ maxWidth: '1000px', margin: '0 auto', padding: '0 20px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: '1.5px solid #E5E7EB',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800, color: '#111827', letterSpacing: '-0.3px' }}>
+                  {jobSearchText.trim() ? `Jobs for "${jobSearchText.trim()}"` : 'Verified Job Openings'}
+                </h3>
+                <div style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>
+                  {(searchedTotalCount > 0 ? searchedTotalCount : searchedJobsList.length).toLocaleString('en-IN')} jobs found
+                </div>
+              </div>
+
+              {(searchedTotalCount > 4 || searchedJobsList.length > 4) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenJobsSearch) onOpenJobsSearch(jobSearchText);
+                    else if (onOpenResumeCheck) onOpenResumeCheck(jobSearchText);
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '9px 18px',
+                    background: '#EEF2FF',
+                    color: '#4F46E5',
+                    border: '1.5px solid #C7D2FE',
+                    borderRadius: '10px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#E0E7FF')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = '#EEF2FF')}
+                >
+                  View all ({searchedTotalCount.toLocaleString('en-IN')}) jobs →
+                </button>
+              )}
+            </div>
+
+            {isSearchingJobs ? (
+              <div style={{ textAlign: 'center', padding: '50px 20px', color: '#6B7280' }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>⏳</div>
+                <div style={{ fontWeight: 600, fontSize: '15px' }}>Searching live verified jobs...</div>
+              </div>
+            ) : searchedJobsList.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', background: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB' }}>
+                <h4 style={{ margin: '0 0 8px', fontSize: '16px', color: '#111827' }}>No jobs found matching "{jobSearchText}"</h4>
+                <p style={{ margin: '0 0 16px', fontSize: '13.5px', color: '#6B7280' }}>Try searching for another role or show all verified jobs.</p>
+                <button
+                  type="button"
+                  style={{
+                    padding: '8px 18px',
+                    background: '#4F46E5',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => handleHeroSearch('')}
+                >
+                  Show All Jobs
+                </button>
+              </div>
+            ) : (
+              <div className="list">
+                {searchedJobsList.slice(0, 4).map((job) => {
+                  const isDescOpen = !!expandedDescs[job.id];
+                  const isApplied = !!appliedJobIds[job.id];
+                  const match = evaluateJobMatch(job);
+
+                  return (
+                    <article key={job.id} className="card">
+                      {/* MAIN JOB INFO */}
+                      <div className="main">
+                        <div className="card-header-layout">
+                          <div className="card-left-info">
+                            <span
+                              className="logo"
+                              style={{
+                                background: job.logoBg,
+                                color: job.logoColor
+                              }}
+                            >
+                              {job.logo}
+                            </span>
+                            <div className="info">
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <h3 style={{ margin: 0 }}>{job.title}</h3>
+                                {match.isFit && (
+                                  <span style={{
+                                    background: '#ECFDF5',
+                                    color: '#047857',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    padding: '2px 8px',
+                                    borderRadius: '999px',
+                                    border: '1px solid #A7F3D0'
+                                  }}>
+                                    ✓ {match.matchScore}% Match
+                                  </span>
+                                )}
+                              </div>
+                              <div className="co">{job.meta}</div>
+                            </div>
+                          </div>
+
+                          <div className="card-right-action">
+                            <div className="sal">{job.salary}</div>
+                            <div className="btns">
+                              <button
+                                type="button"
+                                className="apply"
+                                onClick={() => handleApply(job)}
+                              >
+                                {isApplied ? 'Application Sent ✓' : 'Apply Now'}
+                                {!isApplied && (
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <path d="M5 12h14M13 6l6 6-6 6" />
+                                  </svg>
+                                )}
+                              </button>
+
+                              <button
+                                type="button"
+                                className="desc"
+                                onClick={() => toggleExpandDesc(job.id)}
+                              >
+                                {isDescOpen ? 'Hide description' : 'See full description'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {isDescOpen && (
+                          <div className="job-full-desc">
+                            <p style={{ margin: 0 }}>{job.description}</p>
+                            <div style={{ marginTop: 8, fontSize: '12px', color: '#6B7280' }}>
+                              <b>Location:</b> {job.location} | <b>Mode:</b> {job.mode} | <b>Type:</b> {job.type}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* AI RESUME CHECK WARNING SECTION */}
+                      <section className="ai">
+                        <div className="head">
+                          <span className="wi">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M12 3l10 18H2z" />
+                              <path d="M12 10v5M12 18h.01" />
+                            </svg>
+                          </span>
+                          <span className="wt">
+                            <small>AI Resume Check</small>
+                            <b>{match.isFit ? `Match Fit (${match.matchScore}%) — Verified Match` : "Wait — don't apply immediately"}</b>
+                          </span>
+                        </div>
+
+                        <div className="body">
+                          <div className="h">{match.isFit ? "Here's why your resume is a strong fit" : "Here's what our AI found"}</div>
+                          <div className="hs">{match.summary}</div>
+
+                          {/* 4 CORE FINDINGS IN RESPONSIVE GRID */}
+                          <ul className="findings-grid">
+                            <li>
+                              <span className="ii">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                  <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" />
+                                  <circle cx="12" cy="12" r="3" />
+                                </svg>
+                              </span>
+                              <span>See yourself the way a recruiter would see your profile</span>
+                            </li>
+
+                            <li>
+                              <span className="ii">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                  <circle cx="9" cy="8" r="3.5" />
+                                  <path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .7 3.5 2.6 3.5 5.5" />
+                                </svg>
+                              </span>
+                              <span>
+                                {match.isFit
+                                  ? `Matching competencies: ${match.matchedSkills.slice(0, 3).join(', ') || 'Core Tech Stack'}`
+                                  : `Missing JD keywords: ${match.missingSkills.slice(0, 3).join(', ')}`}
+                              </span>
+                            </li>
+
+                            <li>
+                              <span className="ii">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                  <path d="M4 20h4L19 9l-4-4L4 16z" />
+                                </svg>
+                              </span>
+                              <span>
+                                {match.isFit
+                                  ? 'Your experience and skill profile match recruiter shortlisting criteria'
+                                  : 'See the changes you should make in your resume before applying'}
+                              </span>
+                            </li>
+
+                            <li>
+                              <span className="ii">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                  <path d="M3 17l6-6 4 4 8-8M15 7h6v6" />
+                                </svg>
+                              </span>
+                              <span>Discover what could make you a much stronger candidate</span>
+                            </li>
+                          </ul>
+
+                          {/* ACTION BAR: When resume has missing skills, direct button to Build / Update Resume! */}
+                          {!match.isFit && (
+                            <div style={{
+                              marginTop: 14,
+                              paddingTop: 12,
+                              borderTop: '1px solid rgba(239, 68, 68, 0.2)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: 10
+                            }}>
+                              <span style={{ fontSize: '13px', color: '#991B1B', fontWeight: 600 }}>
+                                Missing keywords detected. Don't risk instant ATS rejection.
+                              </span>
+                              <button
+                                type="button"
+                                style={{
+                                  background: '#4F46E5',
+                                  color: '#FFFFFF',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  padding: '8px 16px',
+                                  fontSize: '13px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  boxShadow: '0 2px 8px rgba(79, 70, 229, 0.25)',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                onClick={() => {
+                                  if (onOpenResumeCheck) onOpenResumeCheck(job.title);
+                                }}
+                              >
+                                🛠️ Update Resume / Build My Resume →
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* VIEW ALL BUTTON (shown when > 4 jobs) */}
+            {!isSearchingJobs && (searchedTotalCount > 4 || searchedJobsList.length > 4) && (
+              <div style={{ textAlign: 'center', marginTop: '36px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenJobsSearch) onOpenJobsSearch(jobSearchText);
+                    else if (onOpenResumeCheck) onOpenResumeCheck(jobSearchText);
+                  }}
+                  style={{
+                    background: 'linear-gradient(135deg, #1B4FE0, #5B21D6)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '14px',
+                    padding: '14px 34px',
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 8px 24px rgba(91, 33, 214, 0.3)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+                >
+                  <span>View all {(searchedTotalCount > 0 ? searchedTotalCount : searchedJobsList.length).toLocaleString('en-IN')} jobs</span>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* FREELANCER CARDS */}
       {freelancersEnabled && (

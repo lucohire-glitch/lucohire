@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import './ResumeCheckView.css';
 import { fetchPublicScrapedJobs, ScrapedPublicJob } from '../api';
 
-interface JobItem {
+export interface JobItem {
   id: string;
   title: string;
   company: string;
@@ -21,7 +21,7 @@ interface JobItem {
   department?: string;
 }
 
-const DEFAULT_JOBS: JobItem[] = [
+export const DEFAULT_JOBS: JobItem[] = [
   {
     id: 'm0',
     title: 'Content & E-commerce Manager',
