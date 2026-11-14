@@ -1926,34 +1926,39 @@
   width: 100% !important;
 }
 
-.home-inline-view-all-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 44px;
-  padding: 0 28px;
-  border-radius: 10px;
-  background: #4F46E5;
-  color: #fff;
-  font-weight: 600;
-  font-size: 14.5px;
-  border: none;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.28);
+.landing-page-root .home-inline-view-all-btn,
+button.home-inline-view-all-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  height: 46px !important;
+  padding: 0 28px !important;
+  border-radius: 10px !important;
+  background: #4F46E5 !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease !important;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35) !important;
 }
 
-.home-inline-view-all-btn:hover {
-  background: #4338CA;
-  transform: translateY(-1px);
+.landing-page-root .home-inline-view-all-btn:hover,
+button.home-inline-view-all-btn:hover {
+  background: #4338CA !important;
+  color: #FFFFFF !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.45) !important;
 }
 
 @media (max-width: 640px) {
   .home-inline-jobs-section {
     padding: 20px 0 40px;
   }
-  .home-inline-view-all-btn {
-    width: 100%;
+  .landing-page-root .home-inline-view-all-btn,
+  button.home-inline-view-all-btn {
+    width: 100% !important;
   }
 }

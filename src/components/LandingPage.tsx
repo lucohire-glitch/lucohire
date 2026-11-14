@@ -825,13 +825,31 @@ export default function LandingPage({
                 <button
                   type="button"
                   className="home-inline-view-all-btn"
+                  style={{
+                    background: '#4F46E5',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    height: '46px',
+                    padding: '0 28px',
+                    borderRadius: '10px',
+                    fontWeight: 700,
+                    fontSize: '15px',
+                    boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
+                    cursor: 'pointer'
+                  }}
                   onClick={() => {
                     if (onOpenJobsSearch) onOpenJobsSearch(jobSearchText);
                     else if (onOpenResumeCheck) onOpenResumeCheck(jobSearchText);
                   }}
                 >
-                  <span>View all {(searchedTotalCount > 0 ? searchedTotalCount : searchedJobsList.length).toLocaleString('en-IN')} jobs</span>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <span style={{ color: '#FFFFFF', fontWeight: 700 }}>
+                    View all {(searchedTotalCount > 0 ? searchedTotalCount : searchedJobsList.length).toLocaleString('en-IN')} jobs
+                  </span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M5 12h14M13 6l6 6-6 6" />
                   </svg>
                 </button>
