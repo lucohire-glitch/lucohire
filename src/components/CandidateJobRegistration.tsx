@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import LucoLogo from './LucoLogo';
 import './CandidateRegistration.css';
 import { candidateSignup, sendOtp, verifyOtp } from '../api';
+import { parseAnyResumeUniversally } from '../utils/resumeParser';
 
 // Helper to safely handle preview URLs without generating giant multi-MB payloads
 async function resolveToDataUrl(url: string, maxBytes = 64 * 1024): Promise<string> {
@@ -445,54 +446,53 @@ export default function CandidateJobRegistration({
         console.warn('Backend autofill call failed:', err);
       }
 
-      // Robust fallback heuristics if backend is unreachable or scanned image PDF
-      if (!autofillData || !autofillData.mobile || !autofillData.email) {
-        let rawStr = '';
-        try {
+      // Universal fallback & enhancement for ANY resume (digital, scanned image, docx, txt)
+      let rawStr = '';
+      try {
+        if (file.type.includes('text') || file.name.endsWith('.txt')) {
+          rawStr = await file.text();
+        } else {
           const b64clean = base64.replace(/^data:[^;]+;base64,/, '');
-          rawStr = atob(b64clean);
-        } catch { }
-
-        const emailMatch = rawStr.match(/\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/);
-        const phoneMatch = rawStr.match(/(?:(?:\+91|0)[-\s]?)?([6-9]\d{9})\b/) || base64.match(/8656860021|7089526977|9876543210/);
-
-        const isAditya = /aditya|aadity|rana/i.test(file.name + ' ' + rawStr);
-        const isMonika = /monika|barde/i.test(file.name + ' ' + rawStr);
-
-        let clientName = autofillData?.name || '';
-        if (!clientName || clientName === 'Professional Freelancer' || clientName === 'Candidate') {
-          if (emailMatch && emailMatch[1]) {
-            const handle = emailMatch[1].split('@')[0].replace(/\d+/g, '');
-            if (handle.length > 3) clientName = handle.charAt(0).toUpperCase() + handle.slice(1);
-          }
-          if (!clientName || clientName === 'Professional Freelancer' || clientName === 'Candidate') {
-            if (isAditya) clientName = 'Aditya Singh Rana';
-            else if (isMonika) clientName = 'Monika Singh Barde';
-          }
+          const decoded = atob(b64clean);
+          const textMatches = decoded.match(/[\x20-\x7E\t\r\n]{4,}/g);
+          rawStr = textMatches && textMatches.length > 0 ? textMatches.join(' ') : decoded;
         }
+      } catch { }
 
-        const clientEmail = autofillData?.email || (emailMatch ? emailMatch[1] : (isAditya ? 'adityasinghrana@gmail.com' : (isMonika ? 'monikabarde15@gmail.com' : '')));
-        const clientMobile = autofillData?.mobile || (phoneMatch ? (phoneMatch[1] || phoneMatch[0]) : (isAditya ? '8656860021' : (isMonika ? '7089526977' : '')));
-        const clientTitle = isAditya ? 'Mechanical Design Engineer' : (isMonika ? 'Full-Stack Software Engineer' : (/php|laravel|react|node|developer/i.test(rawStr + ' ' + file.name) ? 'Full-Stack Software Engineer' : (autofillData?.title || 'Professional Specialist')));
-        const clientCity = isAditya ? 'Dewas' : (isMonika ? 'Noida' : (autofillData?.city || 'Noida'));
-        const clientState = isAditya ? 'Madhya Pradesh' : (isMonika ? 'Uttar Pradesh' : (autofillData?.state || 'Uttar Pradesh'));
-        const clientSkills = isAditya ? ['AutoCAD Mechanical', 'SolidWorks', 'Machine Design', 'FEA', 'GD&T', 'Production Planning'] : (isMonika ? ['PHP', 'Laravel', 'React.js', 'Node.js', 'REST APIs', 'MySQL'] : (autofillData?.skills || ['React.js', 'Node.js', 'REST APIs', 'MySQL']));
+      const universal = parseAnyResumeUniversally(rawStr, file.name, base64);
 
-        autofillData = {
-          name: clientName || 'Candidate',
-          email: clientEmail,
-          mobile: clientMobile,
-          title: clientTitle,
-          city: clientCity,
-          state: clientState,
-          category: isAditya ? 'Development & Technology' : (autofillData?.category || 'Development & Technology'),
-          experience: isAditya ? '5+ years' : (autofillData?.experience || '3–5 years'),
-          skills: clientSkills,
-          about: isAditya ? 'Experienced Mechanical Design Engineer with expertise in SolidWorks, AutoCAD Mechanical, Machine Design, and Production Planning.' : (autofillData?.about || 'Experienced specialist with hands-on expertise delivering verified projects.'),
-          links: autofillData?.links || {},
-          autoFilledCount: (clientEmail ? 1 : 0) + (clientMobile ? 1 : 0) + 6
-        };
-      }
+      // Intelligently merge backend and universal extraction
+      const finalName = (autofillData?.name && !/^(candidate|candidate profile|professional freelancer)$/i.test(autofillData.name))
+        ? autofillData.name
+        : (universal.name !== 'Candidate Profile' ? universal.name : (name || 'Candidate Profile'));
+
+      const finalEmail = autofillData?.email || universal.email || email;
+      const finalMobile = autofillData?.mobile || universal.mobile || mobile;
+      const finalTitle = autofillData?.title || universal.title;
+      const finalCategory = autofillData?.category || universal.category;
+      const finalCity = autofillData?.city || universal.city;
+      const finalState = autofillData?.state || universal.state;
+      const finalExp = autofillData?.experience || universal.experience;
+      const finalSkills = (Array.isArray(autofillData?.skills) && autofillData.skills.length > 0)
+        ? autofillData.skills
+        : universal.skills;
+      const finalAbout = autofillData?.about || universal.about;
+      const finalLinks = { ...(universal.links || {}), ...(autofillData?.links || {}) };
+
+      autofillData = {
+        name: finalName,
+        email: finalEmail,
+        mobile: finalMobile,
+        title: finalTitle,
+        category: finalCategory,
+        city: finalCity,
+        state: finalState,
+        experience: finalExp,
+        skills: finalSkills,
+        about: finalAbout,
+        links: finalLinks,
+        autoFilledCount: (finalName ? 1 : 0) + (finalEmail ? 1 : 0) + (finalMobile ? 1 : 0) + 7
+      };
 
       // Apply auto-filled fields to form
       let count = 0;
